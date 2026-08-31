@@ -109,8 +109,7 @@ describe("ToolRegistry", () => {
   it("should overwrite existing tool on re-register", () => {
     const registry = new ToolRegistry();
     const tool1 = new MockTool();
-    const tool2 = new MockTool();
-    tool2.id = "mock-tool-2";
+    const tool2 = new FailingTool();
 
     registry.register(tool1);
     registry.register(tool2);
