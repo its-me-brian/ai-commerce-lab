@@ -1,8 +1,9 @@
 // Product Hunter Agent
 // Two modes:
 //   1. ANALYZE: User provides a product → agent evaluates it
-//   2. DISCOVER: Agent searches for products → analyzes top results
+//   2. DISCOVER: Agent searches for products → delegates to specialist agents
 // This agent NEVER knows about specific AI providers — it only uses the router.
+// FASE 20: Discover mode now uses multi-agent orchestration.
 
 import { BaseAgent } from "./core/agent";
 import type {
@@ -12,6 +13,7 @@ import type {
 } from "./core/types";
 import { getRouter } from "../ai/router";
 import { getToolRegistry } from "../tools/bootstrap";
+import { getMultiAgentOrchestrator } from "../ai/multi-agent-orchestrator";
 import type { RawProduct } from "../tools/search-products";
 import { z } from "zod";
 
@@ -101,12 +103,16 @@ export class ProductHunterAgent extends BaseAgent {
   }
 
   /**
-   * DISCOVER MODE: Search for products, analyze top results, return best opportunities.
+   * FASE 20: DISCOVER MODE — Multi-agent discovery workflow.
+   * 1. Search for products (tool)
+   * 2. Delegate to MarketResearch, SupplierResearch in parallel
+   * 3. Delegate to OpportunityScoring with all data
+   * 4. Consolidate results
    */
   private async executeDiscover(context: AgentContext): Promise<AgentResult> {
     const { input, configuration } = context;
     const toolRegistry = getToolRegistry();
-    const router = getRouter();
+    const orchestrator = getMultiAgentOrchestrator();
     const startTime = Date.now();
 
     // 1. Search for products
@@ -146,79 +152,99 @@ export class ProductHunterAgent extends BaseAgent {
       };
     }
 
-    // 2. Analyze each product with AI + margin validation
+    // 2. For each product, run multi-agent analysis
     const opportunities: Array<{
       product: RawProduct;
-      analysis: ProductAnalysis;
+      marketAnalysis: unknown;
+      supplierAnalysis: unknown;
+      opportunityScore: unknown;
     }> = [];
     const errors: string[] = [];
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
-    let providerUsed = configuration.primaryProvider;
-    let modelUsed = configuration.primaryModel;
 
     for (const product of products) {
       try {
-        // Ask AI to analyze this product
-        const { result, log } = await router.generate(
-          {
-            agentId: configuration.agentId,
-            primaryProvider: configuration.primaryProvider,
-            primaryModel: configuration.primaryModel,
-            fallbackProvider: configuration.fallbackProvider,
-            fallbackModel: configuration.fallbackModel,
-            temperature: configuration.temperature,
-            maxTokens: configuration.maxTokens,
-          },
-          {
-            prompt: this.buildDiscoverPrompt(product),
-            systemPrompt: this.getDiscoverSystemPrompt(),
-            responseFormat: "json",
-          }
-        );
+        // Run Market Research + Supplier Research in parallel
+        const parallelPlan = {
+          parallel: [
+            {
+              agentId: "market-research",
+              input: {
+                productOrCategory: product.category || product.name,
+                targetMarket: "Europe",
+                priceRange: `${product.currency} ${product.price}`,
+              },
+              taskType: "market-analysis",
+            },
+            {
+              agentId: "supplier-research",
+              input: {
+                productName: product.name,
+                category: product.category || "general",
+                targetMarket: "Europe",
+                orderVolume: "small (dropshipping)",
+              },
+              taskType: "supplier-analysis",
+            },
+          ],
+        };
 
-        // Aggregate token counts
-        totalInputTokens += log.inputTokens;
-        totalOutputTokens += log.outputTokens;
-        providerUsed = log.provider;
-        modelUsed = log.model;
+        const parallelResult = await orchestrator.execute(parallelPlan);
+        totalInputTokens += parallelResult.totalInputTokens;
+        totalOutputTokens += parallelResult.totalOutputTokens;
 
-        // Parse AI response
-        const parsed = typeof result.structuredData === "string"
-          ? JSON.parse(result.structuredData as string)
-          : result.structuredData || JSON.parse(result.content);
-        const analysis = ProductAnalysisSchema.parse(parsed);
-
-        // Validate margin with tool
-        if (product.price > 0 && analysis.recommendedPrice > 0) {
-          const marginResult = await toolRegistry.execute("calculate_margin", {
-            costPrice: product.price,
-            sellingPrice: analysis.recommendedPrice,
-            shippingCost: 0,
-            platformFeePercent: 15,
-          });
-
-          if (marginResult.success) {
-            const toolOutput = marginResult.output as {
-              profit: number;
-              marginPercent: number;
-              roiPercent: number;
-            };
-            analysis.marginValidated = true;
-            analysis.toolMarginPercent = toolOutput.marginPercent;
-            analysis.marginDiscrepancy = Math.round(
-              Math.abs(toolOutput.marginPercent - analysis.estimatedMargin) * 100
-            ) / 100;
-            analysis.profit = toolOutput.profit;
-            analysis.roiPercent = toolOutput.roiPercent;
-
-            if (analysis.marginDiscrepancy > 15) {
-              analysis.estimatedMargin = toolOutput.marginPercent;
-            }
-          }
+        if (!parallelResult.success) {
+          errors.push(`Parallel analysis failed for ${product.name}: ${parallelResult.errors.join(", ")}`);
+          continue;
         }
 
-        opportunities.push({ product, analysis });
+        // Extract results from parallel execution
+        const marketData = orchestrator.getStructuredData(
+          parallelResult,
+          "market-research"
+        );
+        const supplierData = orchestrator.getStructuredData(
+          parallelResult,
+          "supplier-research"
+        );
+
+        // Run Opportunity Scoring with combined data
+        const scoringResult = await orchestrator.executeChain(
+          [
+            {
+              agentId: "opportunity-scoring",
+              input: {
+                productAnalysis: {
+                  name: product.name,
+                  price: product.price,
+                  currency: product.currency,
+                  category: product.category,
+                  score: 50, // Will be refined by AI
+                },
+                supplierResearch: supplierData || {},
+                marketResearch: marketData || {},
+              },
+              taskType: "opportunity-scoring",
+            },
+          ],
+          {}
+        );
+
+        totalInputTokens += scoringResult.totalInputTokens;
+        totalOutputTokens += scoringResult.totalOutputTokens;
+
+        const opportunityData = orchestrator.getStructuredData(
+          scoringResult,
+          "opportunity-scoring"
+        );
+
+        opportunities.push({
+          product,
+          marketAnalysis: marketData,
+          supplierAnalysis: supplierData,
+          opportunityScore: opportunityData,
+        });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         errors.push(`Failed to analyze ${product.name}: ${msg}`);
@@ -226,12 +252,16 @@ export class ProductHunterAgent extends BaseAgent {
       }
     }
 
-    // 3. Sort by score descending
-    opportunities.sort((a, b) => b.analysis.score - a.analysis.score);
+    // 3. Sort by opportunity score (descending)
+    opportunities.sort((a, b) => {
+      const scoreA = (a.opportunityScore as { overallScore?: number })?.overallScore || 0;
+      const scoreB = (b.opportunityScore as { overallScore?: number })?.overallScore || 0;
+      return scoreB - scoreA;
+    });
 
     return {
       success: true,
-      output: `Discovered ${opportunities.length} products from ${products.length} search results.`,
+      output: `Discovered ${opportunities.length} products from ${products.length} search results using multi-agent analysis.`,
       structuredData: {
         opportunities: opportunities.map((o) => ({
           name: o.product.name,
@@ -244,27 +274,28 @@ export class ProductHunterAgent extends BaseAgent {
           category: o.product.category,
           rating: o.product.rating,
           reviewCount: o.product.reviewCount,
-          score: o.analysis.score,
-          estimatedMargin: o.analysis.estimatedMargin,
-          recommendedPrice: o.analysis.recommendedPrice,
-          profit: o.analysis.profit,
-          roiPercent: o.analysis.roiPercent,
-          recommendation: o.analysis.recommendation,
-          explanation: o.analysis.explanation,
-          marginValidated: o.analysis.marginValidated,
-          toolMarginPercent: o.analysis.toolMarginPercent,
-          marginDiscrepancy: o.analysis.marginDiscrepancy,
-          demandScore: o.analysis.demandScore,
-          competitionScore: o.analysis.competitionScore,
-          supplierScore: o.analysis.supplierScore,
-          riskScore: o.analysis.riskScore,
-          targetMarket: o.analysis.targetMarket,
-          dataConfidence: o.analysis.dataConfidence || {
+          // Opportunity scoring data
+          overallScore: (o.opportunityScore as { overallScore?: number })?.overallScore,
+          decision: (o.opportunityScore as { decision?: string })?.decision,
+          breakdown: (o.opportunityScore as { breakdown?: unknown })?.breakdown,
+          strengths: (o.opportunityScore as { strengths?: string[] })?.strengths,
+          weaknesses: (o.opportunityScore as { weaknesses?: string[] })?.weaknesses,
+          riskLevel: (o.opportunityScore as { riskLevel?: string })?.riskLevel,
+          summary: (o.opportunityScore as { summary?: string })?.summary,
+          // Market analysis
+          marketTrends: (o.marketAnalysis as { trends?: unknown[] })?.trends,
+          competitionLevel: (o.marketAnalysis as { competition?: { level?: string } })?.competition?.level,
+          demandScore: (o.marketAnalysis as { demand?: { score?: number } })?.demand?.score,
+          // Supplier analysis
+          suppliers: (o.supplierAnalysis as { suppliers?: unknown[] })?.suppliers,
+          bestSupplier: (o.supplierAnalysis as { bestOption?: string })?.bestOption,
+          // Data confidence
+          dataConfidence: {
             supplierPrice: o.product.price > 0 ? "KNOWN" : "UNKNOWN",
             sellingPrice: "ESTIMATED",
-            demand: "UNKNOWN",
-            competition: "UNKNOWN",
-            shippingCost: "UNKNOWN",
+            demand: "KNOWN", // From market research
+            competition: "KNOWN", // From market research
+            shippingCost: "KNOWN", // From supplier research
           },
         })),
         totalFound: products.length,
@@ -272,12 +303,13 @@ export class ProductHunterAgent extends BaseAgent {
         skippedCount: products.length - opportunities.length,
         query: input.query,
         source: searchResult.output ? (searchResult.output as { source: string }).source : "unknown",
+        orchestrationMode: "multi-agent",
       },
-      reasoningSummary: `Analyzed ${products.length} products, ${opportunities.length} passed initial screening.`,
+      reasoningSummary: `Analyzed ${products.length} products using multi-agent orchestration (Market Research + Supplier Research + Opportunity Scoring).`,
       errors,
       metadata: {
-        providerUsed,
-        modelUsed,
+        providerUsed: configuration.primaryProvider,
+        modelUsed: configuration.primaryModel,
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
         durationMs: Date.now() - startTime,
@@ -377,72 +409,6 @@ export class ProductHunterAgent extends BaseAgent {
         cached: result.cached,
       },
     };
-  }
-
-  // --- DISCOVER MODE PROMPTS ---
-
-  private getDiscoverSystemPrompt(): string {
-    return `You are an expert ecommerce product analyst evaluating products found from a search.
-
-IMPORTANT: The backend will independently validate your margin calculations. Be accurate.
-
-For each product, return a JSON object with this exact structure:
-{
-  "score": <0-100 overall opportunity score>,
-  "estimatedMargin": <profit margin percentage>,
-  "recommendedPrice": <suggested selling price in EUR>,
-  "demandScore": <0-100>,
-  "competitionScore": <0-100>,
-  "supplierScore": <0-100>,
-  "riskScore": <0-100>,
-  "recommendation": "INVESTIGATE" | "APPROVE" | "REJECT" | "NEEDS_MORE_DATA",
-  "explanation": "<1-2 sentence analysis>",
-  "category": "<product category>",
-  "targetMarket": ["<country1>", "<country2>"],
-  "dataConfidence": {
-    "supplierPrice": "KNOWN" | "ESTIMATED" | "UNKNOWN",
-    "sellingPrice": "KNOWN" | "ESTIMATED" | "UNKNOWN",
-    "demand": "KNOWN" | "ESTIMATED" | "UNKNOWN",
-    "competition": "KNOWN" | "ESTIMATED" | "UNKNOWN",
-    "shippingCost": "KNOWN" | "ESTIMATED" | "UNKNOWN"
-  }
-}
-
-Data confidence rules:
-- KNOWN = data point is directly from the product listing (e.g. price from eBay)
-- ESTIMATED = data point is inferred from category, market, or comparable products
-- UNKNOWN = no reliable data available, don't guess
-
-Margin formula: TotalCost = costPrice + (sellingPrice * 0.15), Margin = (sellingPrice - TotalCost) / sellingPrice * 100
-
-Be concise. Focus on profit potential and market viability for European dropshipping.`;
-  }
-
-  private buildDiscoverPrompt(product: RawProduct): string {
-    const parts = [
-      `Analyze this product for dropshipping viability:`,
-      ``,
-      `Product: ${product.name}`,
-      `Price: ${product.currency} ${product.price}`,
-      `Category: ${product.category || "unknown"}`,
-      `Rating: ${product.rating || "N/A"}`,
-      `Reviews: ${product.reviewCount || "N/A"}`,
-      `Source: ${product.source}`,
-    ];
-
-    // Provide URL if available for context
-    if (product.url) {
-      parts.push(`URL: ${product.url}`);
-    }
-
-    // Mark what's KNOWN from the listing
-    parts.push(``);
-    parts.push(`Data available from listing: supplier price (KNOWN), category (KNOWN)`);
-    parts.push(`Data NOT available: shipping cost, demand data, competition data, market trends`);
-    parts.push(``);
-    parts.push(`Provide your analysis as a JSON object.`);
-
-    return parts.join("\n");
   }
 
   // --- ANALYZE MODE PROMPTS ---

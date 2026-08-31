@@ -30,12 +30,12 @@ export async function delegateTask(input: DelegationInput): Promise<DelegationRe
   const taskEngine = getTaskEngine();
 
   // Validate both agents exist
-  const fromAgent = registry.getAgent(input.fromAgentId);
+  const fromAgent = registry.get(input.fromAgentId);
   if (!fromAgent) {
     throw new Error(`Source agent not found: ${input.fromAgentId}`);
   }
 
-  const toAgent = registry.getAgent(input.toAgentId);
+  const toAgent = registry.get(input.toAgentId);
   if (!toAgent) {
     throw new Error(`Target agent not found: ${input.toAgentId}`);
   }

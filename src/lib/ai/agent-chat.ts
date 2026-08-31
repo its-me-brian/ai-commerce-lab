@@ -31,7 +31,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   const conversationEngine = getConversationEngine();
 
   // 1. Validate agent exists
-  const agent = registry.getAgent(input.agentId);
+  const agent = registry.get(input.agentId);
   if (!agent) {
     throw new Error(`Agent not found: ${input.agentId}`);
   }
@@ -81,8 +81,8 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   // Build system prompt from agent definition
   const agentDef = registry.getDefinition(input.agentId);
   const systemPrompt = agentDef
-    ? `${agentDef.identity?.role ?? agentDef.name}: ${agentDef.mission}`
-    : `You are ${agentDef?.name ?? input.agentId}`;
+    ? `${agentDef.identity?.role ?? agentDef.identity?.name}: ${agentDef.mission}`
+    : `You are ${input.agentId}`;
 
   try {
     const { result, log } = await router.generateForAgent(

@@ -16,7 +16,7 @@ const { mockGetAgent, mockGetDefinition, mockGenerateForAgent, mockCreate, mockG
 vi.mock("./bootstrap", () => ({
   bootstrap: vi.fn().mockResolvedValue(undefined),
   getAgentRegistry: vi.fn().mockReturnValue({
-    getAgent: mockGetAgent,
+    get: mockGetAgent,
     getDefinition: mockGetDefinition,
   }),
 }));

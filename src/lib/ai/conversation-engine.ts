@@ -167,7 +167,7 @@ export class ConversationEngine {
     await supabase
       .from("conversations")
       .update({
-        message_count: supabase.rpc ? 0 : 0, // Will use increment below
+        message_count: 0, // Will use increment below
         last_message_at: now,
         updated_at: now,
       })

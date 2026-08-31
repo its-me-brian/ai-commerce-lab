@@ -463,3 +463,109 @@ CEO (executive)
 - `900892e`
 
 ---
+
+## FASE 17 — Delegation Permissions
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- (ninguno — extiende FASE 16)
+
+### Archivos modificados
+- `src/lib/permissions/types.ts` — DelegationRule interface, `delegate_to` action, DEFAULT_DELEGATION_RULES
+- `src/lib/permissions/checker.ts` — canDelegate() with depth limits, getDelegationRules()
+- `src/lib/permissions/checker.test.ts` — 4 tests for canDelegate (admin, restricted, deny rule, depth limit)
+
+### Key changes
+- `delegate_to` permission action added
+- DelegationRule: fromAgentId, toAgentId, allowed, maxDepth
+- canDelegate() validates permission + rules + depth limits
+- DEFAULT_DELEGATION_RULES: CEO→any, ProductHunter→specialists, specialists blocked
+
+### Tests
+- 316/316 passing (+4 nuevos)
+
+### Commit
+- `e1d3e3f`
+
+---
+
+## FASE 18 — Enhanced Company Context
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos modificados
+- `src/lib/workspaces/service.ts` — EnhancedCompanyContext, buildEnhancedContext(), formatEnhancedContextForPrompt()
+
+### Key changes
+- EnhancedCompanyContext: active_agents, configured_providers, recent_tasks, delegation_rules_summary
+- buildEnhancedContext(): loads agents, providers, recent tasks from DB
+- formatEnhancedContextForPrompt(): renders full context as markdown for agent prompts
+
+### Tests
+- 316/316 passing (integración, sin tests nuevos)
+
+### Commit
+- `aa5d74d`
+
+---
+
+## FASE 19 — Agent Memory
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/021_add_agent_memory.sql` — agent_memory table (fact/preference/pattern/decision/context)
+- `src/lib/ai/agent-memory.ts` — AgentMemoryService (store/search/getRecent/update/delete)
+- `src/lib/ai/agent-memory.test.ts` — 8 tests
+
+### Key changes
+- agent_memory table with confidence scores (0-1) and optional expiration
+- 5 memory types: fact, preference, pattern, decision, context
+- search() supports text query, type filter, min_confidence, workspace filter
+- Expired memories automatically filtered out
+
+### Tests
+- 324/324 passing (+8 nuevos)
+
+### Commit
+- `de09c9f`
+
+---
+
+## FASE 20 — Product Hunter v2: Multi-Agent Discovery
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/multi-agent-orchestrator.ts` — MultiAgentOrchestrator con execute(), executeChain(), getAgentResult(), getStructuredData()
+- `src/lib/ai/multi-agent-orchestrator.test.ts` — 10 tests
+
+### Archivos modificados
+- `src/lib/agents/product-hunter.ts` — executeDiscover() ahora usa orquestador multi-agente
+- `src/lib/agents/product-hunter.test.ts` — tests actualizados para nuevo flujo
+- `src/lib/ai/delegation.ts` — fix: getAgent → get
+- `src/lib/ai/agent-chat.ts` — fix: getAgent → get, agentDef.name → identity.name
+- `src/lib/ai/conversation-engine.ts` — fix: condición siempre true
+- `src/lib/ai/delegation.test.ts` — mock actualizado
+- `src/lib/ai/agent-chat.test.ts` — mock actualizado
+- `src/lib/ai/agent-model-routes.test.ts` — fix tipos
+- `src/lib/ai/agent-memory.test.ts` — fix tipos
+
+### Key changes
+- Product Hunter discover mode ahora orquesta 3 agentes especialistas:
+  1. Market Research + Supplier Research en paralelo
+  2. Opportunity Scoring con datos combinados
+- MultiAgentOrchestrator soporta ejecución secuencial y paralela
+- executeChain() pasa resultados entre agentes como contexto
+- Fix de errores TypeScript preexistentes (getAgent → get)
+
+### Tests
+- 334/334 passing (+10 nuevos)
+
+### Commit
+- `FASE20`

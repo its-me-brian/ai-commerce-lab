@@ -106,4 +106,8 @@
 | FASE 14 | ✅ Completada |
 | FASE 15 | ✅ Completada |
 | FASE 16 | ✅ Completada |
-| FASE 17-46 | ⏳ Pendiente |
+| FASE 17 | ✅ Completada |
+| FASE 18 | ✅ Completada |
+| FASE 19 | ✅ Completada |
+| FASE 20 | ✅ Completada |
+| FASE 21-46 | ⏳ Pendiente |

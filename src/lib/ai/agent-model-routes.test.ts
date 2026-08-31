@@ -126,6 +126,8 @@ describe("AgentModelRoutes", () => {
       const input = {
         agent_id: "product-hunter",
         model_id: "gemini-3-flash",
+        priority: undefined as number | undefined,
+        policy: undefined as string | undefined,
       };
 
       const priority = input.priority ?? 0;

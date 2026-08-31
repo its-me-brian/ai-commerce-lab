@@ -28,6 +28,20 @@ vi.mock("../tools/bootstrap", () => ({
   getToolRegistry: () => mockToolRegistry,
 }));
 
+// Mock multi-agent orchestrator (FASE 20)
+const mockOrchestratorExecute = vi.fn();
+const mockOrchestratorExecuteChain = vi.fn();
+const mockOrchestratorGetStructuredData = vi.fn();
+
+vi.mock("../ai/multi-agent-orchestrator", () => ({
+  getMultiAgentOrchestrator: () => ({
+    execute: mockOrchestratorExecute,
+    executeChain: mockOrchestratorExecuteChain,
+    getStructuredData: mockOrchestratorGetStructuredData,
+    getAgentResult: vi.fn(),
+  }),
+}));
+
 // ============================================
 // Helpers
 // ============================================
@@ -304,58 +318,56 @@ describe("ProductHunterAgent", () => {
   });
 
   describe("execute — discover mode", () => {
-    it("should search products and analyze each", async () => {
+    it("should search products and delegate to specialist agents", async () => {
       // Mock search_products tool
-      mockToolExecute
-        .mockResolvedValueOnce({
-          success: true,
-          output: {
-            products: [
-              {
-                id: "1",
-                name: "Fitness Band",
-                price: 8.5,
-                currency: "USD",
-                source: "dummyjson",
-                imageUrl: "http://example.com/img.jpg",
-                category: "fitness",
-                rating: 4.2,
-              },
-            ],
-            totalCount: 1,
-            source: "dummyjson",
-          },
-        })
-        // Mock calculate_margin tool
-        .mockResolvedValueOnce({
-          success: true,
-          output: {
-            profit: 15,
-            marginPercent: 35,
-            roiPercent: 55,
-            isViable: true,
-          },
-        });
-
-      mockRouterGenerate.mockResolvedValue({
-        result: {
-          content: JSON.stringify(ANALYSIS_RESPONSE),
-          structuredData: ANALYSIS_RESPONSE,
-          provider: "gemini",
-          model: "gemini-3-flash",
-          inputTokens: 200,
-          outputTokens: 100,
-          durationMs: 1500,
-          cached: false,
-        },
-        log: {
-          provider: "gemini",
-          model: "gemini-3-flash",
-          inputTokens: 200,
-          outputTokens: 100,
-          durationMs: 1500,
+      mockToolExecute.mockResolvedValueOnce({
+        success: true,
+        output: {
+          products: [
+            {
+              id: "1",
+              name: "Fitness Band",
+              price: 8.5,
+              currency: "USD",
+              source: "dummyjson",
+              imageUrl: "http://example.com/img.jpg",
+              category: "fitness",
+              rating: 4.2,
+            },
+          ],
+          totalCount: 1,
+          source: "dummyjson",
         },
       });
+
+      // Mock orchestrator.execute for parallel (market + supplier research)
+      mockOrchestratorExecute.mockResolvedValueOnce({
+        results: [
+          { agentId: "market-research", result: { structuredData: { demand: { score: 75 } } } },
+          { agentId: "supplier-research", result: { structuredData: { bestOption: "AliExpress" } } },
+        ],
+        success: true,
+        errors: [],
+        totalInputTokens: 200,
+        totalOutputTokens: 100,
+      });
+
+      // Mock orchestrator.executeChain for opportunity scoring
+      mockOrchestratorExecuteChain.mockResolvedValueOnce({
+        results: [
+          { agentId: "opportunity-scoring", result: { structuredData: { overallScore: 72, decision: "GO" } } },
+        ],
+        success: true,
+        errors: [],
+        totalInputTokens: 150,
+        totalOutputTokens: 80,
+      });
+
+      // Mock getStructuredData
+      mockOrchestratorGetStructuredData
+        .mockReturnValueOnce({ demand: { score: 75 } }) // market-research
+        .mockReturnValueOnce({ bestOption: "AliExpress" }) // supplier-research
+        .mockReturnValueOnce({ overallScore: 72, decision: "GO" }); // opportunity-scoring
 
       const context = makeContext(
         { mode: "discover", query: "fitness products" },
@@ -371,6 +383,9 @@ describe("ProductHunterAgent", () => {
         "search_products",
         expect.objectContaining({ query: "fitness products" })
       );
+      // Should have called orchestrator for multi-agent analysis
+      expect(mockOrchestratorExecute).toHaveBeenCalled();
+      expect(mockOrchestratorExecuteChain).toHaveBeenCalled();
     });
 
     it("should return empty results when no products found", async () => {

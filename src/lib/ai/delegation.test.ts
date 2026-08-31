@@ -12,7 +12,7 @@ const { mockGetAgent, mockCreate, mockListByAgent } = vi.hoisted(() => ({
 vi.mock("./bootstrap", () => ({
   bootstrap: vi.fn().mockResolvedValue(undefined),
   getAgentRegistry: vi.fn().mockReturnValue({
-    getAgent: mockGetAgent,
+    get: mockGetAgent,
   }),
 }));
 

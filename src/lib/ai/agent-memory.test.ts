@@ -103,6 +103,7 @@ describe("AgentMemoryService", () => {
         agent_id: "product-hunter",
         memory_type: "fact" as const,
         content: "Test",
+        confidence: undefined as number | undefined,
       };
 
       const confidence = input.confidence ?? 1.0;
