@@ -15,6 +15,17 @@
 | FASE 3 | 135 | +19 | ✅ 135/135 passing |
 | FASE 4 | 151 | +16 | ✅ 151/151 passing |
 | FASE 5 | 176 | +25 | ✅ 176/176 passing |
+| FASE 6 | 189 | +13 | ✅ 189/189 passing |
+| FASE 7 | 207 | +18 | ✅ 207/207 passing |
+| FASE 8 | 224 | +17 | ✅ 224/224 passing |
+| FASE 9 | 240 | +16 | ✅ 240/240 passing |
+| FASE 10 | 240 | +0 | ✅ 240/240 passing |
+| FASE 11 | 255 | +15 | ✅ 255/255 passing |
+| FASE 12 | 274 | +19 | ✅ 274/274 passing |
+| FASE 13 | 280 | +6 | ✅ 280/280 passing |
+| FASE 14 | 292 | +12 | ✅ 292/292 passing |
+| FASE 15 | 304 | +12 | ✅ 304/304 passing |
+| FASE 16 | 312 | +8 | ✅ 312/312 passing |
 
 ---
 
@@ -29,10 +40,20 @@
 | `src/lib/agents/core/registry.test.ts` | 24 | ✅ FASE 2 |
 | `src/lib/agents/core/prompt-builder.test.ts` | — | ✅ FASE 3 |
 | `src/lib/agents/core/personality-presets.test.ts` | 15 | ✅ FASE 3 |
-| `src/lib/ai/router.test.ts` | — | ✅ |
+| `src/lib/ai/router.test.ts` | — | ✅ FASE 10 |
 | `src/lib/ai/provider-manager.test.ts` | 16 | ✅ FASE 4 |
 | `src/lib/ai/encryption.test.ts` | 15 | ✅ FASE 5 |
 | `src/lib/ai/credential-manager.test.ts` | 10 | ✅ FASE 5 |
+| `src/lib/ai/provider-test.test.ts` | 13 | ✅ FASE 6 |
+| `src/lib/ai/model-registry.test.ts` | 18 | ✅ FASE 7 |
+| `src/lib/ai/model-matcher.test.ts` | 17 | ✅ FASE 8 |
+| `src/lib/ai/agent-model-routes.test.ts` | 16 | ✅ FASE 9 |
+| `src/lib/ai/routing-policies.test.ts` | 15 | ✅ FASE 11 |
+| `src/lib/ai/conversation-engine.test.ts` | 19 | ✅ FASE 12 |
+| `src/lib/ai/agent-chat.test.ts` | 6 | ✅ FASE 13 |
+| `src/lib/ai/task-engine.test.ts` | 12 | ✅ FASE 14 |
+| `src/lib/ai/dag-executor.test.ts` | 12 | ✅ FASE 15 |
+| `src/lib/ai/delegation.test.ts` | 8 | ✅ FASE 16 |
 | `src/lib/permissions/checker.test.ts` | — | ✅ |
 | `src/lib/workspaces/workspace.test.ts` | 9 | ✅ FASE 1 |
 

@@ -95,4 +95,15 @@
 | FASE 3 | ✅ Completada |
 | FASE 4 | ✅ Completada |
 | FASE 5 | ✅ Completada |
-| FASE 6-46 | ⏳ Pendiente |
+| FASE 6 | ✅ Completada |
+| FASE 7 | ✅ Completada |
+| FASE 8 | ✅ Completada |
+| FASE 9 | ✅ Completada |
+| FASE 10 | ✅ Completada |
+| FASE 11 | ✅ Completada |
+| FASE 12 | ✅ Completada |
+| FASE 13 | ✅ Completada |
+| FASE 14 | ✅ Completada |
+| FASE 15 | ✅ Completada |
+| FASE 16 | ✅ Completada |
+| FASE 17-46 | ⏳ Pendiente |

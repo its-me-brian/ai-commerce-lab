@@ -199,3 +199,267 @@ CEO (executive)
 - ✅ Green
 
 ---
+
+## FASE 6 — Provider Connection Test
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/provider-test.ts` — ProviderTestService con getProviderStatuses y testProviderConnection
+- `src/lib/ai/provider-test.test.ts` — 13 tests
+- `src/app/api/ai/providers/route.ts` — GET /api/ai/providers
+- `src/app/api/ai/providers/test/route.ts` — POST /api/ai/providers/test
+
+### Key changes
+- ProviderTestService orquesta tests usando ProviderManager + CredentialManager
+- GET /api/ai/providers retorna estado de cada proveedor (configured, registered, credentialSource)
+- POST /api/ai/providers/test prueba conexión con soporte DB credentials y env vars
+
+### Tests
+- 189/189 passing (+13 nuevos)
+
+### Commit
+- `26f5546`
+
+---
+
+## FASE 7 — Model Registry
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/017_add_model_capabilities.sql` — capabilities TEXT[] + GIN index + seed data
+- `src/lib/ai/model-registry.ts` — ModelRegistry con CRUD + capability queries
+- `src/lib/ai/model-registry.test.ts` — 18 tests
+
+### Archivos modificados
+- `src/lib/database/supabase.ts` — ai_models types con capabilities
+
+### Key changes
+- ai_models ahora tiene columna capabilities (TEXT[])
+- ModelRegistry: listByCapabilities, listByAnyCapability, hasCapability
+- Capabilities reales: vision, json-mode, tool-use, code-generation, reasoning
+
+### Tests
+- 207/207 passing (+18 nuevos)
+
+### Commit
+- `c5c8318`
+
+---
+
+## FASE 8 — Model Capabilities
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/model-matcher.ts` — findBestModel, findSingleBestModel, modelMeetsRequirements, getAvailableCapabilities
+- `src/lib/ai/model-matcher.test.ts` — 17 tests
+
+### Key changes
+- ModelMatcher selecciona mejor modelo según requirements (capabilities, context window, cost)
+- Filtrado estricto: score=0 si no cumple requisitos
+- Scoring: 100 base + bonus provider preference
+
+### Tests
+- 224/224 passing (+17 nuevos)
+
+### Commit
+- `57c72db`
+
+---
+
+## FASE 9 — Agent Model Routes
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/018_add_model_routes.sql` — agent_model_routes table + seed data
+- `src/lib/ai/agent-model-routes.ts` — AgentModelRoutes CRUD
+- `src/lib/ai/agent-model-routes.test.ts` — 16 tests
+
+### Archivos modificados
+- `src/lib/database/supabase.ts` — agent_model_routes types
+
+### Key changes
+- Cada agente puede tener múltiples modelos con priority y policy
+- Políticas: priority (usa mayor prioridad), cheapest (menor costo), fastest (menor latencia)
+- Seed: ProductHunter → Gemini + Claude, CEO → Claude + Gemini, Secretary → cheapest
+
+### Tests
+- 240/240 passing (+16 nuevos)
+
+### Commit
+- `9517461`
+
+---
+
+## FASE 10 — Model Router v2
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos modificados
+- `src/lib/ai/router.ts` — nuevo método generateForAgent()
+- `src/lib/ai/router.test.ts` — mocks actualizados
+
+### Key changes
+- generateForAgent(agentId, options) carga rutas de DB
+- Intenta cada ruta en orden de prioridad, falla al siguiente si error
+- Mantene generate() legacy para compatibilidad
+
+### Tests
+- 240/240 passing (sin cambios, mocks actualizados)
+
+### Commit
+- `bf848d6`
+
+---
+
+## FASE 11 — Routing Policies
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/routing-policies.ts` — selectRoute, explainSelection
+- `src/lib/ai/routing-policies.test.ts` — 15 tests
+
+### Key changes
+- selectRoute() selecciona mejor ruta según policy
+- priority: menor número gana
+- cheapest: menor costo total (input + output)
+- fastest: menor latencia promedio de logs de ejecución
+- explainSelection() retorna explicación legible
+
+### Tests
+- 255/255 passing (+15 nuevos)
+
+### Commit
+- `1155676`
+
+---
+
+## FASE 12 — Conversation Engine
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/019_add_conversations.sql` — conversations + conversation_messages tables
+- `src/lib/ai/conversation-engine.ts` — ConversationEngine con CRUD + messages
+- `src/lib/ai/conversation-engine.test.ts` — 19 tests
+
+### Key changes
+- Conversaciones multi-turn entre usuarios y agentes
+- Messages: user, assistant, system con token tracking
+- getLastMessages() para contexto de conversación
+- getTokenUsage() para resumen de consumo
+
+### Tests
+- 274/274 passing (+19 nuevos)
+
+### Commit
+- `73bd53b`
+
+---
+
+## FASE 13 — Direct Agent Chat
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/agent-chat.ts` — chatWithAgent service
+- `src/lib/ai/agent-chat.test.ts` — 6 tests
+- `src/app/api/agents/chat/route.ts` — POST /api/agents/chat
+
+### Key changes
+- chatWithAgent() crea conversación, agrega mensaje usuario, llama IA, agrega respuesta
+- Soporte para continuar conversación existente
+- System prompt automático desde AgentDefinition
+- POST /api/agents/chat: { agentId, message, conversationId? }
+
+### Tests
+- 280/280 passing (+6 nuevos)
+
+### Commit
+- `ba1c2a8`
+
+---
+
+## FASE 14 — Task Engine v2
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/020_add_task_deps.sql` — depends_on + parent_task_id columns
+- `src/lib/ai/task-engine.ts` — TaskEngine con dependencias
+- `src/lib/ai/task-engine.test.ts` — 12 tests
+
+### Archivos modificados
+- `src/lib/database/supabase.ts` — agent_tasks types con depends_on y parent_task_id
+
+### Key changes
+- depends_on: array de task IDs que deben completarse primero
+- parent_task_id: tarea padre que creó esta subtask
+- areDependenciesMet() verifica si todas las dependencias están completas
+- getReadyTasks() retorna tareas pendientes con deps cumplidas
+
+### Tests
+- 292/292 passing (+12 nuevos)
+
+### Commit
+- `82013c4`
+
+---
+
+## FASE 15 — DAG Executor
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/dag-executor.ts` — executeDAG, detectCycles, topologicalSort
+- `src/lib/ai/dag-executor.test.ts` — 12 tests
+
+### Key changes
+- executeDAG() ejecuta tareas en orden de dependencia, paralelizando independientes
+- detectCycles() detecta dependencias circulares
+- topologicalSort() retorna orden de ejecución válido
+
+### Tests
+- 304/304 passing (+12 nuevos)
+
+### Commit
+- `4af0860`
+
+---
+
+## FASE 16 — Agent-to-Agent Delegation
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/delegation.ts` — delegateTask, getDelegatedTasks, hasPendingDelegations
+- `src/lib/ai/delegation.test.ts` — 8 tests
+
+### Key changes
+- delegateTask() crea task asignado a otro agente
+- Input incluye _delegatedBy y _delegationTimestamp
+- getDelegatedTasks() filtra tareas delegadas
+- hasPendingDelegations() verifica si hay tareas pendientes
+
+### Tests
+- 312/312 passing (+8 nuevos)
+
+### Commit
+- `900892e`
+
+---
