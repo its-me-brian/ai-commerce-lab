@@ -9,6 +9,7 @@ import type {
   AgentResult,
 } from "./core/types";
 import { getRouter } from "../ai/router";
+import { getToolRegistry } from "../tools/bootstrap";
 import { z } from "zod";
 
 // Zod schema for structured output validation
@@ -24,6 +25,12 @@ export const ProductAnalysisSchema = z.object({
   explanation: z.string(),
   category: z.string().optional(),
   targetMarket: z.array(z.string()).optional(),
+  // Backend validation fields (added by tool calling)
+  marginValidated: z.boolean().optional(),
+  toolMarginPercent: z.number().optional(),
+  marginDiscrepancy: z.number().optional(),
+  profit: z.number().optional(),
+  roiPercent: z.number().optional(),
 });
 
 export type ProductAnalysis = z.infer<typeof ProductAnalysisSchema>;
@@ -86,6 +93,44 @@ export class ProductHunterAgent extends BaseAgent {
       );
     }
 
+    // BACKEND VALIDATION: Use calculate_margin tool to verify AI's margin estimate
+    const toolRegistry = getToolRegistry();
+    const costPrice = input.supplierPrice as number;
+    const shippingCost = (input.shippingCost as number) || 0;
+
+    if (costPrice > 0 && structuredData.recommendedPrice > 0) {
+      const marginResult = await toolRegistry.execute("calculate_margin", {
+        costPrice,
+        sellingPrice: structuredData.recommendedPrice,
+        shippingCost,
+        platformFeePercent: 15, // default platform fee
+      });
+
+      if (marginResult.success) {
+        const toolOutput = marginResult.output as {
+          profit: number;
+          marginPercent: number;
+          roiPercent: number;
+          isViable: boolean;
+        };
+
+        const toolMargin = toolOutput.marginPercent;
+        const aiMargin = structuredData.estimatedMargin;
+        const discrepancy = Math.abs(toolMargin - aiMargin);
+
+        structuredData.marginValidated = true;
+        structuredData.toolMarginPercent = toolMargin;
+        structuredData.marginDiscrepancy = Math.round(discrepancy * 100) / 100;
+        structuredData.profit = toolOutput.profit;
+        structuredData.roiPercent = toolOutput.roiPercent;
+
+        // If AI's margin estimate is way off (>15% discrepancy), override with tool's calculation
+        if (discrepancy > 15) {
+          structuredData.estimatedMargin = toolMargin;
+        }
+      }
+    }
+
     return {
       success: true,
       output: result.content,
@@ -106,10 +151,12 @@ export class ProductHunterAgent extends BaseAgent {
   private getSystemPrompt(): string {
     return `You are an expert ecommerce product analyst. Your job is to evaluate product opportunities for a dropshipping business targeting European markets.
 
+IMPORTANT: The backend will independently validate your margin calculations using a deterministic tool. Be accurate with numbers — discrepancies over 15% will be flagged and overridden.
+
 For each product analysis, return a JSON object with this exact structure:
 {
   "score": <0-100 overall score>,
-  "estimatedMargin": <profit margin percentage>,
+  "estimatedMargin": <profit margin percentage — must match (sellingPrice - totalCost) / sellingPrice * 100>,
   "recommendedPrice": <suggested selling price in EUR>,
   "demandScore": <0-100 demand level>,
   "competitionScore": <0-100 competition level (higher = less competition)>,
@@ -120,6 +167,11 @@ For each product analysis, return a JSON object with this exact structure:
   "category": "<product category>",
   "targetMarket": ["<country1>", "<country2>"]
 }
+
+Margin calculation formula:
+- Total Cost = supplierPrice + shippingCost + (sellingPrice * 0.15)
+- Profit = sellingPrice - totalCost
+- Margin = (profit / sellingPrice) * 100
 
 Scoring guidelines:
 - Score 85-100: Strong opportunity, proceed immediately
