@@ -38,26 +38,15 @@ interface AgentConfig {
   }>;
 }
 
-interface TestResult {
-  success: boolean;
-  data?: {
-    score: number;
-    recommendation: string;
-    explanation: string;
-    estimatedMargin: number;
-    demandScore: number;
-    competitionScore: number;
-    riskScore: number;
-  };
-  metadata?: {
-    providerUsed: string;
-    modelUsed: string;
-    inputTokens: number;
-    outputTokens: number;
-    durationMs: number;
-  };
-  error?: string;
-}
+// Default test inputs per agent type
+const DEFAULT_TEST_INPUTS: Record<string, string> = {
+  "product-hunter": JSON.stringify({
+    name: "LED Portable Lamp",
+    supplierPrice: 12.40,
+    shippingCost: 3.20,
+    estimatedSalePrice: 49.90,
+  }, null, 2),
+};
 
 export default function AgentDetailPage({
   params,
@@ -69,7 +58,12 @@ export default function AgentDetailPage({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    data?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+    error?: string;
+  } | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Form state
@@ -80,16 +74,15 @@ export default function AgentDetailPage({
   const [temperature, setTemperature] = useState(0.2);
   const [maxTokens, setMaxTokens] = useState(4096);
 
-  // Test form
-  const [testProduct, setTestProduct] = useState({
-    name: "LED Portable Lamp",
-    supplierPrice: 12.40,
-    shippingCost: 3.20,
-    estimatedSalePrice: 49.90,
-  });
+  // Test form — generic JSON input
+  const [testInput, setTestInput] = useState(
+    DEFAULT_TEST_INPUTS[id] || '{\n  "name": "Test Product",\n  "supplierPrice": 10\n}'
+  );
+  const [testInputError, setTestInputError] = useState("");
 
   useEffect(() => {
     fetchConfig();
+    setTestInput(DEFAULT_TEST_INPUTS[id] || '{\n  "name": "Test Product",\n  "supplierPrice": 10\n}');
   }, [id]);
 
   async function fetchConfig() {
@@ -146,13 +139,24 @@ export default function AgentDetailPage({
   }
 
   async function handleTest() {
+    setTestInputError("");
+
+    // Parse JSON input
+    let input: Record<string, unknown>;
+    try {
+      input = JSON.parse(testInput);
+    } catch {
+      setTestInputError("Invalid JSON");
+      return;
+    }
+
     setTesting(true);
     setTestResult(null);
     try {
       const res = await fetch("/api/agents/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId: id, input: testProduct }),
+        body: JSON.stringify({ agentId: id, input }),
       });
       const data = await res.json();
       setTestResult(data);
@@ -183,6 +187,8 @@ export default function AgentDetailPage({
   const filteredModels = config.models.filter(
     (m) => m.provider_id === selectedProvider
   );
+
+  const isProductHunter = id === "product-hunter";
 
   return (
     <div className="page-padding" style={{ maxWidth: 900 }}>
@@ -325,50 +331,30 @@ export default function AgentDetailPage({
         {/* Right: Test */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20 }}>
-            <h2 style={{ marginBottom: 16 }}>Test Product Hunter</h2>
+            <h2 style={{ marginBottom: 4 }}>Test Agent</h2>
+            <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginBottom: 16 }}>
+              {isProductHunter
+                ? "Analyze a product opportunity"
+                : `Send input to ${config.agent.name}`}
+            </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Product Name</label>
-                <input
-                  type="text"
-                  value={testProduct.name}
-                  onChange={(e) => setTestProduct({ ...testProduct, name: e.target.value })}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.8125rem", background: "var(--bg-card)" }}
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Input (JSON)</label>
+                <textarea
+                  value={testInput}
+                  onChange={(e) => setTestInput(e.target.value)}
+                  rows={8}
+                  className="mono"
+                  style={{
+                    width: "100%", padding: "8px 12px", border: `1px solid ${testInputError ? "var(--error)" : "var(--border)"}`,
+                    borderRadius: "var(--r-md)", fontSize: "0.75rem", background: "var(--bg-card)",
+                    resize: "vertical", lineHeight: 1.5,
+                  }}
                 />
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Supplier Price (€)</label>
-                  <input
-                    type="number"
-                    value={testProduct.supplierPrice}
-                    onChange={(e) => setTestProduct({ ...testProduct, supplierPrice: parseFloat(e.target.value) })}
-                    step={0.01}
-                    style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.8125rem", background: "var(--bg-card)" }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Shipping (€)</label>
-                  <input
-                    type="number"
-                    value={testProduct.shippingCost}
-                    onChange={(e) => setTestProduct({ ...testProduct, shippingCost: parseFloat(e.target.value) })}
-                    step={0.01}
-                    style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.8125rem", background: "var(--bg-card)" }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Sale Price (€)</label>
-                  <input
-                    type="number"
-                    value={testProduct.estimatedSalePrice}
-                    onChange={(e) => setTestProduct({ ...testProduct, estimatedSalePrice: parseFloat(e.target.value) })}
-                    step={0.01}
-                    style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.8125rem", background: "var(--bg-card)" }}
-                  />
-                </div>
+                {testInputError && (
+                  <p style={{ fontSize: "0.6875rem", color: "var(--error)", marginTop: 4 }}>{testInputError}</p>
+                )}
               </div>
 
               <button
@@ -382,7 +368,7 @@ export default function AgentDetailPage({
                   cursor: testing ? "not-allowed" : "pointer",
                 }}
               >
-                {testing ? "Analyzing..." : "Run Analysis"}
+                {testing ? "Running..." : "Run Agent"}
               </button>
             </div>
           </div>
@@ -404,48 +390,57 @@ export default function AgentDetailPage({
                 </span>
               </div>
 
-              {testResult.success && testResult.data ? (
+              {testResult.success ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {/* Score */}
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                    <span style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.03em" }}>
-                      {testResult.data.score}
-                    </span>
-                    <span style={{ fontSize: "0.875rem", color: "var(--text-tertiary)" }}>/100</span>
-                  </div>
+                  {/* Product Hunter specific display */}
+                  {isProductHunter && testResult.data && typeof testResult.data === "object" && "score" in testResult.data ? (
+                    <>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                        <span style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.03em" }}>
+                          {(testResult.data as Record<string, unknown>).score as number}
+                        </span>
+                        <span style={{ fontSize: "0.875rem", color: "var(--text-tertiary)" }}>/100</span>
+                      </div>
 
-                  <span style={{
-                    fontSize: "0.75rem", fontWeight: 500, padding: "4px 10px", borderRadius: 9999, width: "fit-content",
-                    background: testResult.data.recommendation === "INVESTIGATE" ? "var(--success-bg)" :
-                      testResult.data.recommendation === "APPROVE" ? "var(--success-bg)" :
-                        testResult.data.recommendation === "REJECT" ? "var(--error-bg)" : "var(--warning-bg)",
-                    color: testResult.data.recommendation === "INVESTIGATE" ? "var(--success)" :
-                      testResult.data.recommendation === "APPROVE" ? "var(--success)" :
-                        testResult.data.recommendation === "REJECT" ? "var(--error)" : "var(--warning)",
-                  }}>
-                    {testResult.data.recommendation}
-                  </span>
+                      <span style={{
+                        fontSize: "0.75rem", fontWeight: 500, padding: "4px 10px", borderRadius: 9999, width: "fit-content",
+                        background: "var(--success-bg)", color: "var(--success)",
+                      }}>
+                        {(testResult.data as Record<string, unknown>).recommendation as string}
+                      </span>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <MiniStat label="Margin" value={`${testResult.data.estimatedMargin}%`} />
-                    <MiniStat label="Demand" value={`${testResult.data.demandScore}/100`} />
-                    <MiniStat label="Competition" value={`${testResult.data.competitionScore}/100`} />
-                    <MiniStat label="Risk" value={`${testResult.data.riskScore}/100`} />
-                  </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <MiniStat label="Margin" value={`${(testResult.data as Record<string, unknown>).estimatedMargin}%`} />
+                        <MiniStat label="Demand" value={`${(testResult.data as Record<string, unknown>).demandScore}/100`} />
+                        <MiniStat label="Competition" value={`${(testResult.data as Record<string, unknown>).competitionScore}/100`} />
+                        <MiniStat label="Risk" value={`${(testResult.data as Record<string, unknown>).riskScore}/100`} />
+                      </div>
 
-                  <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                    {testResult.data.explanation}
-                  </p>
+                      <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                        {(testResult.data as Record<string, unknown>).explanation as string}
+                      </p>
+                    </>
+                  ) : (
+                    /* Generic JSON display */
+                    <pre className="mono" style={{
+                      fontSize: "0.75rem", background: "var(--bg-sunken)", padding: 12,
+                      borderRadius: "var(--r-md)", overflow: "auto", maxHeight: 400, lineHeight: 1.5,
+                    }}>
+                      {JSON.stringify(testResult.data || testResult, null, 2)}
+                    </pre>
+                  )}
 
                   {testResult.metadata && (
                     <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 12, fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>
-                      {testResult.metadata.modelUsed} · {testResult.metadata.inputTokens + testResult.metadata.outputTokens} tokens · {(testResult.metadata.durationMs / 1000).toFixed(1)}s
+                      {(testResult.metadata as Record<string, unknown>).modelUsed as string} · {" "}
+                      {((testResult.metadata as Record<string, unknown>).inputTokens as number) + ((testResult.metadata as Record<string, unknown>).outputTokens as number)} tokens · {" "}
+                      {(((testResult.metadata as Record<string, unknown>).durationMs as number) / 1000).toFixed(1)}s
                     </div>
                   )}
                 </div>
               ) : (
                 <p style={{ fontSize: "0.8125rem", color: "var(--error)" }}>
-                  {testResult.error}
+                  {testResult.error as string}
                 </p>
               )}
             </div>
