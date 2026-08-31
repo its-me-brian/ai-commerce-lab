@@ -1,7 +1,19 @@
 import { supabase } from "@/lib/database/supabase";
 
+export const dynamic = "force-dynamic";
+
+interface AgentRow {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  enabled: boolean;
+  agent_type: string | null;
+  department: string | null;
+  parent_agent_id: string | null;
+}
+
 export default async function AgentsPage() {
-  // Fetch agents from Supabase
   const { data: agents, error: agentsError } = await supabase
     .from("agents")
     .select("*")
@@ -11,108 +23,231 @@ export default async function AgentsPage() {
     console.error("[AgentsPage] Failed to load agents:", agentsError.message);
   }
 
-  // Fetch configs to show model/provider info
   const { data: configs } = await supabase
     .from("agent_configs")
     .select("agent_id, primary_provider_id, primary_model_id");
 
-  // Fetch models to resolve model names
   const { data: models } = await supabase
     .from("ai_models")
     .select("id, name");
 
-  // Fetch providers to resolve provider names
   const { data: providers } = await supabase
     .from("ai_providers")
     .select("id, name");
 
-  // Build a lookup map for config info
-  const configMap = new Map(
-    (configs || []).map((c) => [c.agent_id, c])
-  );
-  const modelMap = new Map(
-    (models || []).map((m) => [m.id, m.name])
-  );
-  const providerMap = new Map(
-    (providers || []).map((p) => [p.id, p.name])
-  );
+  const configMap = new Map((configs || []).map((c) => [c.agent_id, c]));
+  const modelMap = new Map((models || []).map((m) => [m.id, m.name]));
+  const providerMap = new Map((providers || []).map((p) => [p.id, p.name]));
 
-  const agentList = (agents || []).map((a) => {
-    const cfg = configMap.get(a.id);
-    return {
-      ...a,
-      modelName: cfg ? modelMap.get(cfg.primary_model_id) || "-" : "-",
-      providerName: cfg ? providerMap.get(cfg.primary_provider_id) || "-" : "-",
-    };
-  });
+  const agentList = (agents || []) as AgentRow[];
+
+  // Build hierarchy tree
+  const agentMap = new Map(agentList.map((a) => [a.id, a]));
+  const roots: AgentRow[] = [];
+  const childrenMap = new Map<string, AgentRow[]>();
+
+  for (const agent of agentList) {
+    if (agent.parent_agent_id && agentMap.has(agent.parent_agent_id)) {
+      const siblings = childrenMap.get(agent.parent_agent_id) || [];
+      siblings.push(agent);
+      childrenMap.set(agent.parent_agent_id, siblings);
+    } else {
+      roots.push(agent);
+    }
+  }
+
+  // Stats
+  const totalAgents = agentList.length;
+  const enabledAgents = agentList.filter((a) => a.enabled).length;
+  const departments = [...new Set(agentList.filter((a) => a.department).map((a) => a.department))];
 
   return (
     <div className="page-padding" style={{ maxWidth: 1100 }}>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ marginBottom: 3 }}>Agents</h1>
-        <p>Manage and configure your AI agents</p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+        <div>
+          <h1 style={{ marginBottom: 3 }}>Agents</h1>
+          <p>{enabledAgents} active of {totalAgents} total · {departments.length} departments</p>
+        </div>
       </div>
 
       {agentsError && (
         <div style={{
           padding: "12px 16px", marginBottom: 16,
-          background: "var(--error-bg)", color: "var(--error)",
+          background: "var(--error-bg, #fee)", color: "var(--error, #e00)",
           borderRadius: "var(--r-md)", fontSize: "0.8125rem",
         }}>
           Failed to load agents. Please try refreshing.
         </div>
       )}
 
-      <div className="agents-grid" style={{ display: "grid", gap: 14 }}>
-        {agentList.map((a) => (
-          <div key={a.id} style={{
-            background: "var(--bg-card)", border: "1px solid var(--border)",
-            borderRadius: "var(--r-lg)", padding: 20,
-            display: "flex", flexDirection: "column",
-          }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
-              <div style={{ minWidth: 0 }}>
-                <h3 style={{ marginBottom: 2 }}>{a.name}</h3>
-                <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{a.description}</p>
+      {/* Org Chart View */}
+      <div style={{
+        background: "var(--bg-card)", border: "1px solid var(--border)",
+        borderRadius: "var(--r-lg)", padding: 24, marginBottom: 20,
+      }}>
+        <h2 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: 16 }}>Organization Chart</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          {roots.map((agent) => (
+            <TreeNode
+              key={agent.id}
+              agent={agent}
+              childrenMap={childrenMap}
+              configMap={configMap}
+              modelMap={modelMap}
+              providerMap={providerMap}
+              depth={0}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* All Agents Grid */}
+      <h2 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: 12 }}>All Agents</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
+        {agentList.map((a) => {
+          const cfg = configMap.get(a.id);
+          const modelName = cfg ? modelMap.get(cfg.primary_model_id) || "-" : "-";
+          const providerName = cfg ? providerMap.get(cfg.primary_provider_id) || "-" : "-";
+          const childCount = childrenMap.get(a.id)?.length || 0;
+
+          return (
+            <div key={a.id} style={{
+              background: "var(--bg-card)", border: "1px solid var(--border)",
+              borderRadius: "var(--r-lg)", padding: 16,
+            }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                    <h3 style={{ fontSize: "0.8125rem", fontWeight: 600 }}>{a.name}</h3>
+                    {a.agent_type && (
+                      <span style={{
+                        fontSize: "0.5625rem", fontWeight: 600, letterSpacing: "0.04em",
+                        padding: "1px 5px", borderRadius: 4,
+                        background: "var(--accent-light)", color: "var(--accent)",
+                      }}>
+                        {a.agent_type.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>{a.description || "No description"}</p>
+                </div>
+                <StatusBadge status={a.status} enabled={a.enabled} />
               </div>
-              <span style={{
-                fontSize: "0.6875rem", fontWeight: 500, padding: "2px 8px", borderRadius: 9999, flexShrink: 0, marginLeft: 8,
-                background: a.status === "ready" ? "var(--success-bg)" : "var(--bg-sunken)",
-                color: a.status === "ready" ? "var(--success)" : "var(--text-tertiary)",
+
+              <div style={{ display: "flex", gap: 12, fontSize: "0.6875rem", color: "var(--text-tertiary)", marginBottom: 10 }}>
+                <span>{modelName}</span>
+                <span>·</span>
+                <span>{providerName}</span>
+                {a.department && (
+                  <>
+                    <span>·</span>
+                    <span style={{ color: "var(--accent)" }}>{a.department}</span>
+                  </>
+                )}
+                {childCount > 0 && (
+                  <>
+                    <span>·</span>
+                    <span>{childCount} report{childCount !== 1 ? "s" : ""}</span>
+                  </>
+                )}
+              </div>
+
+              <a href={`/dashboard/agents/${a.id}`} style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                fontSize: "0.75rem", color: "var(--accent)", textDecoration: "none",
               }}>
-                {a.status === "ready" ? "Ready" : "Soon"}
-              </span>
+                View details →
+              </a>
             </div>
-
-            <div style={{ display: "flex", gap: 16, padding: "10px 14px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)", marginBottom: 14 }}>
-              <div>
-                <p style={{ fontSize: "0.625rem", color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Model</p>
-                <p style={{ fontSize: "0.75rem", fontWeight: 500 }}>{a.modelName}</p>
-              </div>
-              <div style={{ width: 1, background: "var(--border)" }} />
-              <div>
-                <p style={{ fontSize: "0.625rem", color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Provider</p>
-                <p style={{ fontSize: "0.75rem", fontWeight: 500 }}>{a.providerName}</p>
-              </div>
-            </div>
-
-            <div style={{ marginTop: "auto" }}>
-              {a.status === "ready" ? (
-                <a href={`/dashboard/agents/${a.id}`} style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  padding: "7px 14px", background: "var(--accent)", color: "white",
-                  borderRadius: "var(--r-md)", fontSize: "0.75rem", fontWeight: 500, textDecoration: "none",
-                }}>
-                  Configure
-                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 2.5l4 3.5-4 3.5" /></svg>
-                </a>
-              ) : (
-                <span style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>Coming soon</span>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
+  );
+}
+
+function TreeNode({ agent, childrenMap, configMap, modelMap, providerMap, depth }: {
+  agent: AgentRow;
+  childrenMap: Map<string, AgentRow[]>;
+  configMap: Map<string, { primary_model_id: string; primary_provider_id: string }>;
+  modelMap: Map<string, string>;
+  providerMap: Map<string, string>;
+  depth: number;
+}) {
+  const children = childrenMap.get(agent.id) || [];
+  const cfg = configMap.get(agent.id);
+  const modelName = cfg ? modelMap.get(cfg.primary_model_id) || "-" : "-";
+  const isLast = depth > 0;
+
+  return (
+    <div>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10,
+        padding: "8px 12px", marginLeft: depth * 24,
+        borderRadius: "var(--r-md)",
+        background: depth === 0 ? "var(--bg-sunken)" : "transparent",
+        borderLeft: depth > 0 ? "2px solid var(--border)" : "none",
+      }}>
+        {children.length > 0 ? (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M3 4.5l3 3 3-3" />
+          </svg>
+        ) : (
+          <div style={{ width: 12 }} />
+        )}
+        <StatusDot status={agent.status} enabled={agent.enabled} />
+        <span style={{ fontWeight: depth === 0 ? 600 : 400, fontSize: "0.8125rem" }}>
+          {agent.name}
+        </span>
+        {agent.department && (
+          <span style={{
+            fontSize: "0.5625rem", fontWeight: 600, letterSpacing: "0.04em",
+            padding: "1px 5px", borderRadius: 4,
+            background: "var(--accent-light)", color: "var(--accent)",
+          }}>
+            {agent.department}
+          </span>
+        )}
+        <span style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginLeft: "auto" }}>
+          {modelName}
+        </span>
+      </div>
+      {children.map((child) => (
+        <TreeNode
+          key={child.id}
+          agent={child}
+          childrenMap={childrenMap}
+          configMap={configMap}
+          modelMap={modelMap}
+          providerMap={providerMap}
+          depth={depth + 1}
+        />
+      ))}
+    </div>
+  );
+}
+
+function StatusDot({ status, enabled }: { status: string; enabled: boolean }) {
+  const color = !enabled ? "var(--text-tertiary)"
+    : status === "ready" ? "var(--success)"
+    : status === "error" ? "var(--error)"
+    : "var(--warning)";
+  return <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />;
+}
+
+function StatusBadge({ status, enabled }: { status: string; enabled: boolean }) {
+  if (!enabled) return (
+    <span style={{ fontSize: "0.625rem", fontWeight: 500, padding: "2px 8px", borderRadius: 9999, background: "var(--bg-sunken)", color: "var(--text-tertiary)" }}>
+      Disabled
+    </span>
+  );
+  return (
+    <span style={{
+      fontSize: "0.625rem", fontWeight: 500, padding: "2px 8px", borderRadius: 9999,
+      background: status === "ready" ? "var(--success-bg, #e6f9e6)" : "var(--bg-sunken)",
+      color: status === "ready" ? "var(--success, #0a0)" : "var(--text-tertiary)",
+    }}>
+      {status === "ready" ? "Ready" : status}
+    </span>
   );
 }
