@@ -5,7 +5,7 @@
 import { getRouter } from "./router";
 import { GeminiProvider } from "./providers/gemini";
 import { ClaudeProvider } from "./providers/claude";
-// import { GrokProvider } from "./providers/grok";
+import { GrokProvider } from "./providers/grok";
 
 import { AgentRegistry } from "../agents/core/registry";
 import { ProductHunterAgent } from "../agents/product-hunter";
@@ -38,7 +38,10 @@ export function bootstrap(): void {
     router.registerProvider(new ClaudeProvider(anthropicKey));
   }
 
-  // const xaiKey = process.env.XAI_API_KEY;
+  const xaiKey = process.env.XAI_API_KEY;
+  if (xaiKey) {
+    router.registerProvider(new GrokProvider(xaiKey));
+  }
   // if (xaiKey) {
   //   router.registerProvider(new GrokProvider(xaiKey));
   // }
