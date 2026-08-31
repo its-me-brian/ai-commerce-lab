@@ -5,6 +5,7 @@
 import { supabase } from "../../database/supabase";
 import { getRouter, type RouterConfig } from "../../ai/router";
 import { getToolRegistry } from "../../tools/bootstrap";
+import { getPermissionChecker } from "../../permissions/checker";
 import type { BaseAgent } from "./agent";
 import type {
   AgentContext,
@@ -57,7 +58,23 @@ export class AgentEngine {
     const toolRegistry = getToolRegistry();
     const availableTools = toolRegistry.list().map((t) => t.id);
 
-    // 5. Build context
+    // 5. Check permissions
+    const permissionChecker = getPermissionChecker();
+    const permissionCheck = await permissionChecker.validateExecution(
+      agent.metadata.id,
+      {
+        tools: availableTools,
+        provider: config.primaryProvider,
+      }
+    );
+
+    if (!permissionCheck.allowed) {
+      const errorMsg = `Permission denied: ${permissionCheck.denied.join(", ")}`;
+      await this.failTask(taskId, errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    // 6. Build context
     const context: AgentContext = {
       taskId,
       taskType: taskType as AgentContext["taskType"],
@@ -67,10 +84,10 @@ export class AgentEngine {
     };
 
     try {
-      // 6. Execute agent via router
+      // 7. Execute agent via router
       const result = await agent.execute(context);
 
-      // 7. Save run to Supabase
+      // 8. Save run to Supabase
       await supabase.from("agent_runs").insert({
         task_id: taskId,
         agent_id: agent.metadata.id,
@@ -82,7 +99,7 @@ export class AgentEngine {
         status: result.success ? "success" : "error",
       });
 
-      // 8. Complete task in Supabase
+      // 9. Complete task in Supabase
       await supabase
         .from("agent_tasks")
         .update({
