@@ -642,3 +642,257 @@ CEO (executive)
 
 ### Commit
 - `FASE23`
+
+---
+
+## FASE 24 — Pricing Engine
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/pricing-engine.ts` — PricingEngine con 6 estrategias (cost-plus, competitive, value-based, penetration, skimming, dynamic)
+- `src/lib/ai/pricing-engine.test.ts` — 14 tests
+
+### Key changes
+- ValidatedPricingInput type para campos con defaults aplicados por Zod
+- PricingInput interface para input opcional del caller
+- calculate() retorna recommendedPrice, costs breakdown, profit, margin, ROI, breakEven, alternatives, confidence
+- 6 estrategias de pricing con cálculo de márgenes
+- Generación de alternativas (Budget/Standard/Premium/Luxury)
+
+### Tests
+- 391/391 passing (+14 nuevos)
+
+### Commit
+- `9ee3013` (con FASE 25-26)
+
+---
+
+## FASE 25 — Source Type Manager (Mock vs Real)
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/source-type-manager.ts` — SourceTypeManager con DataSourceInput type, DataProvenanceSchema
+- `src/lib/ai/source-type-manager.test.ts` — 18 tests
+
+### Key changes
+- DataSourceInput type separado del Zod schema para campos opcionales
+- Fuentes default: fakestore (mock), dummyjson (mock), ebay-browse (real), aliexpress (real)
+- registerSource(), markUsed(), createProvenance(), isRealSource(), isMockSource()
+- getSourceSummary(), validateSourceMarking()
+
+### Tests
+- 409/409 passing (+18 nuevos)
+
+---
+
+## FASE 26 — CEO Orchestrator v2
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos modificados
+- `src/lib/agents/ceo.ts` — CEO agent con workflow execution (product-discovery, supplier-evaluation, full-pipeline)
+
+### Key changes
+- CEO ahora integra MultiAgentOrchestrator, PricingEngine, SourceTypeManager
+- Workflows predefinidos para discovery, supplier eval, full pipeline
+- CEO disabled by design — needs full workflow support
+
+### Tests
+- 409/409 passing (sin tests nuevos)
+
+### Commit
+- `9ee3013`
+
+---
+
+## FASE 27 — Agent-to-Agent Handoff
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/agent-handoff.ts` — AgentHandoffManager con protocolo completo
+- `src/lib/ai/agent-handoff.test.ts` — 30 tests
+
+### Key changes
+- HandoffStatus: pending → in_progress → completed | failed | returned
+- HandoffType: request, transfer, return
+- createHandoff(), startHandoff(), completeHandoff(), returnHandoff(), cancelHandoff()
+- buildContextForTarget(), buildContextForSource() — propagación de contexto
+- getHandoffChain(), getOverdueHandoffs(), getStats()
+- Proxy-based Supabase mock pattern establecido para tests
+
+### Tests
+- 442/442 passing (+30 nuevos)
+
+### Commit
+- `089693b`
+
+---
+
+## FASE 28 — Task Persistence (Audit Trail)
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/022_add_task_events.sql` — task_events table (TEXT FK, RLS)
+- `src/lib/ai/task-persistence.ts` — TaskPersistence con event recording
+- `src/lib/ai/task-persistence.test.ts` — 15 tests
+
+### Key changes
+- task_events table para audit trail de lifecycle de tasks
+- Event types: created, status_change, progress_update, error, retry, cancel, delegate
+- recordEvent(), recordStatusChange(), recordProgress(), recordError(), recordDelegation()
+- getTaskProgress(), getStats(), cleanupOldEvents()
+- Proxy-based Supabase mock pattern para tests complejos
+
+### Tests
+- 457/457 passing (+15 nuevos)
+
+### Commit
+- `730d9f2`
+
+---
+
+## Fix — Migrations RLS & FK
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos modificados
+- `supabase/migrations/013_add_workspaces.sql` — Added RLS policy
+- `supabase/migrations/022_add_task_events.sql` — Fixed FK type (TEXT not UUID)
+
+### Key changes
+- agent_tasks.id es TEXT (no UUID) — task_events.task_id corregido
+- workspaces table agregada RLS (faltaba)
+- Todas las tablas nuevas ahora incluyen RLS
+
+### Commit
+- `970115e`
+
+---
+
+## FASE 29 — Human-in-the-Loop (Approval Manager)
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/023_add_approvals.sql` — approvals table con RLS
+- `src/lib/ai/approval-manager.ts` — ApprovalManager con risk levels
+- `src/lib/ai/approval-manager.test.ts` — 21 tests
+
+### Key changes
+- ApprovalActionType: product_listing, price_change, supplier_order, marketing_campaign, refund, etc.
+- ApprovalRiskLevel: low, medium, high, critical
+- createApproval(), reviewApproval(), isApproved(), waitForApproval()
+- expireApproval(), cancelApproval(), getPendingApprovals(), getPendingCounts()
+- Auto-expiry configurable (default 24h)
+
+### Tests
+- 478/478 passing (+21 nuevos)
+
+### Commit
+- `860b323`
+
+---
+
+## FASE 30 — Marketing Workflow
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/marketing-workflow.ts` — MarketingWorkflow con pipeline completo
+- `src/lib/ai/marketing-workflow.test.ts` — 13 tests
+
+### Key changes
+- Pipeline: research → strategy → content_creation → review
+- Integración con MarketingAgent para generar contenido
+- Integración con ApprovalManager para campañas de alto riesgo
+- assessRisk() basado en budget (low <100, medium <1000, high <10000, critical >10000)
+- Tracking de token usage
+
+### Tests
+- 491/491 passing (+13 nuevos)
+
+### Commit
+- `8d94c29`
+
+---
+
+## FASE 31 — Marketing Output Contracts
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/contracts/marketing-output.ts` — Zod schemas completos
+- `src/lib/ai/contracts/marketing-output.test.ts` — 22 tests
+
+### Key changes
+- AdCopy, SocialPost, Email, Hook, CampaignStrategy, SEOContent schemas
+- MarketingOutput schema completo con metadata
+- countPieces(), getMarketingSummary(), validateMarketingOutput()
+- Límites de caracteres en headlines (60), meta descriptions (160), hooks (100)
+
+### Tests
+- 513/513 passing (+22 nuevos)
+
+### Commit
+- `47a1411`
+
+---
+
+## FASE 32 — Store Builder v2
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/store-builder-workflow.ts` — StoreBuilderWorkflow con product draft
+- `src/lib/ai/store-builder-workflow.test.ts` — 12 tests
+
+### Key changes
+- Pipeline: research → draft → seo_optimization → pricing → review
+- optimizeTitle(), optimizeDescription(), generateBulletPoints()
+- generateTags(), generateKeywords(), generateMetaDescription()
+- Margin-based approval (margin < 15% → approval required)
+- Source type tracking (mock → approval required)
+- Compare-at price calculation (130% of selling price)
+
+### Tests
+- 525/525 passing (+12 nuevos)
+
+### Commit
+- `5153177`
+
+---
+
+## FASE 33 — Finance Review
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/finance-review.ts` — FinanceReview con 5 checks financieros
+- `src/lib/ai/finance-review.test.ts` — 10 tests
+
+### Key changes
+- 5 checks: Minimum Margin (≥15%), Profitability (>0), Competitive Pricing, ROI (≥30%), Break-Even (≤100 units)
+- Verdict: viable (all pass), marginal (warnings only), rejected (critical failures)
+- Calcula financials desde user's selling price (no desde PricingEngine price)
+- Integración con ApprovalManager para marginal/rejected
+
+### Tests
+- 535/535 passing (+10 nuevos)
+
+### Commit
+- `e789587`

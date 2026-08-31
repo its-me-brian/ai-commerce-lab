@@ -33,6 +33,15 @@
 | FASE 21 | 340 | +6 | ✅ 340/340 passing |
 | FASE 22 | 356 | +16 | ✅ 356/356 passing |
 | FASE 23 | 377 | +21 | ✅ 377/377 passing |
+| FASE 24-26 | 412 | +35 | ✅ 412/412 passing |
+| Fix | 412 | +0 | ✅ 412/412 passing (build fixes) |
+| FASE 27 | 442 | +30 | ✅ 442/442 passing |
+| FASE 28 | 457 | +15 | ✅ 457/457 passing |
+| FASE 29 | 478 | +21 | ✅ 478/478 passing |
+| FASE 30 | 491 | +13 | ✅ 491/491 passing |
+| FASE 31 | 513 | +22 | ✅ 513/513 passing |
+| FASE 32 | 525 | +12 | ✅ 525/525 passing |
+| FASE 33 | 535 | +10 | ✅ 535/535 passing |
 
 ---
 
@@ -67,6 +76,15 @@
 | `src/lib/ai/supplier-workflow.test.ts` | 6 | ✅ FASE 21 |
 | `src/lib/ai/contracts/supplier-result.test.ts` | 16 | ✅ FASE 22 |
 | `src/lib/ai/contracts/product-result.test.ts` | 21 | ✅ FASE 23 |
+| `src/lib/ai/pricing-engine.test.ts` | 14 | ✅ FASE 24 |
+| `src/lib/ai/source-type-manager.test.ts` | 18 | ✅ FASE 25 |
+| `src/lib/ai/agent-handoff.test.ts` | 30 | ✅ FASE 27 |
+| `src/lib/ai/task-persistence.test.ts` | 15 | ✅ FASE 28 |
+| `src/lib/ai/approval-manager.test.ts` | 21 | ✅ FASE 29 |
+| `src/lib/ai/marketing-workflow.test.ts` | 13 | ✅ FASE 30 |
+| `src/lib/ai/contracts/marketing-output.test.ts` | 22 | ✅ FASE 31 |
+| `src/lib/ai/store-builder-workflow.test.ts` | 12 | ✅ FASE 32 |
+| `src/lib/ai/finance-review.test.ts` | 10 | ✅ FASE 33 |
 | `src/lib/workspaces/workspace.test.ts` | 9 | ✅ FASE 1 |
 
 ---
