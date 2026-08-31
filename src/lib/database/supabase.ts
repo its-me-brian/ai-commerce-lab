@@ -95,6 +95,11 @@ export interface Database {
           expertise: string[] | null;
           agent_rules: string[] | null;
           output_instructions: Record<string, unknown> | null;
+          // Hierarchy (FASE 2)
+          parent_agent_id: string | null;
+          agent_type: string;
+          department: string | null;
+          workspace_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -112,6 +117,11 @@ export interface Database {
           expertise?: string[] | null;
           agent_rules?: string[] | null;
           output_instructions?: Record<string, unknown> | null;
+          // Hierarchy (FASE 2)
+          parent_agent_id?: string | null;
+          agent_type?: string;
+          department?: string | null;
+          workspace_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -128,6 +138,11 @@ export interface Database {
           expertise?: string[] | null;
           agent_rules?: string[] | null;
           output_instructions?: Record<string, unknown> | null;
+          // Hierarchy (FASE 2)
+          parent_agent_id?: string | null;
+          agent_type?: string;
+          department?: string | null;
+          workspace_id?: string | null;
           updated_at?: string;
         };
       };

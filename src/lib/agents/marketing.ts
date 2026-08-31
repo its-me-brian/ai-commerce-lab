@@ -68,6 +68,10 @@ export class MarketingAgent extends BaseAgent {
       "email_marketing",
       "social_media",
     ],
+    // Hierarchy: department head, reports to CEO
+    parentAgentId: "ceo",
+    agentType: "department",
+    department: "marketing",
   };
 
   validateInput(input: Record<string, unknown>): string[] {

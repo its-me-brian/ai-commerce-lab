@@ -5,6 +5,7 @@ import type { AIProviderSlug, AITaskType } from "../../ai/types";
 
 export type AgentStatus = "development" | "ready" | "disabled";
 export type TaskStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type AgentType = "executive" | "department" | "specialist";
 
 export interface AgentMetadata {
   id: string;
@@ -14,6 +15,11 @@ export interface AgentMetadata {
   enabled: boolean;
   version: string;
   capabilities: string[];
+  // Hierarchy
+  parentAgentId?: string;    // Who this agent reports to
+  agentType: AgentType;      // executive | department | specialist
+  department?: string;       // Organizational department
+  workspaceId?: string;      // Workspace scope (null = global)
 }
 
 export interface AgentContext {

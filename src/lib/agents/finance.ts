@@ -71,6 +71,10 @@ export class FinanceAgent extends BaseAgent {
       "margin_calculation",
       "cost_tracking",
     ],
+    // Hierarchy: department head, reports to CEO
+    parentAgentId: "ceo",
+    agentType: "department",
+    department: "finance",
   };
 
   validateInput(input: Record<string, unknown>): string[] {

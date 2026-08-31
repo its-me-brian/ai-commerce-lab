@@ -154,6 +154,7 @@ class MockAgent extends BaseAgent {
     enabled: true,
     version: "1.0.0",
     capabilities: ["test"],
+    agentType: "specialist",
   };
 
   validateInput(input: Record<string, unknown>): string[] {
@@ -189,6 +190,7 @@ class FailingAgent extends BaseAgent {
     enabled: true,
     version: "1.0.0",
     capabilities: ["test"],
+    agentType: "specialist",
   };
 
   async execute(): Promise<AgentResult> {
@@ -205,6 +207,7 @@ class DisabledAgent extends BaseAgent {
     enabled: false,
     version: "1.0.0",
     capabilities: ["test"],
+    agentType: "specialist",
   };
 
   async execute(): Promise<AgentResult> {

@@ -58,6 +58,10 @@ export class SecretaryAgent extends BaseAgent {
       "relationship_management",
       "follow_up",
     ],
+    // Hierarchy: department head, reports to CEO
+    parentAgentId: "ceo",
+    agentType: "department",
+    department: "operations",
   };
 
   validateInput(input: Record<string, unknown>): string[] {

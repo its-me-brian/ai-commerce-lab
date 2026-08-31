@@ -47,6 +47,9 @@ export class CEOAgent extends BaseAgent {
       "decision_making",
       "agent_coordination",
     ],
+    // Hierarchy: top-level executive, no parent
+    agentType: "executive",
+    department: "executive",
   };
 
   validateInput(input: Record<string, unknown>): string[] {

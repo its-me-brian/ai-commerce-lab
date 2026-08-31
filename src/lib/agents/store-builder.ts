@@ -60,6 +60,10 @@ export class StoreBuilderAgent extends BaseAgent {
       "seo_optimization",
       "product_listing",
     ],
+    // Hierarchy: department head, reports to CEO
+    parentAgentId: "ceo",
+    agentType: "department",
+    department: "operations",
   };
 
   validateInput(input: Record<string, unknown>): string[] {

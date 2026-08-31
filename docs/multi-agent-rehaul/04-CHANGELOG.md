@@ -51,3 +51,51 @@
 - ✅ Green, nueva ruta `/api/workspaces` registrada
 
 ---
+
+## FASE 2 — Agent Registry: Hierarchy
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/014_add_agent_hierarchy.sql` — parent_agent_id, agent_type, department, workspace_id columns + seed data + indexes
+- `src/lib/agents/core/registry.test.ts` — 24 hierarchy tests
+
+### Archivos modificados
+- `src/lib/agents/core/types.ts` — AgentType type + parentAgentId, agentType, department, workspaceId fields in AgentMetadata
+- `src/lib/agents/core/registry.ts` — hierarchy queries: getParent, getChildren, getDescendants, getChain, listByType, listByDepartment, listByWorkspace, getRoot, getTree
+- `src/lib/database/supabase.ts` — agents table types updated with hierarchy columns
+- `src/lib/agents/ceo.ts` — agentType: "executive", department: "executive"
+- `src/lib/agents/product-hunter.ts` — agentType: "department", parentAgentId: "ceo", department: "product"
+- `src/lib/agents/market-research.ts` — agentType: "specialist", parentAgentId: "product-hunter", department: "product"
+- `src/lib/agents/supplier-research.ts` — agentType: "specialist", parentAgentId: "product-hunter", department: "product"
+- `src/lib/agents/opportunity-scoring.ts` — agentType: "specialist", parentAgentId: "product-hunter", department: "product"
+- `src/lib/agents/store-builder.ts` — agentType: "department", parentAgentId: "ceo", department: "operations"
+- `src/lib/agents/marketing.ts` — agentType: "department", parentAgentId: "ceo", department: "marketing"
+- `src/lib/agents/secretary.ts` — agentType: "department", parentAgentId: "ceo", department: "operations"
+- `src/lib/agents/finance.ts` — agentType: "department", parentAgentId: "ceo", department: "finance"
+- `src/lib/agents/core/engine.test.ts` — added agentType to mock agents
+
+### Migración
+- `014_add_agent_hierarchy.sql` — adds hierarchy columns, seeds org chart, creates indexes and constraints
+
+### Hierarchy seeded
+```
+CEO (executive)
+├── Product Hunter (department, product)
+│   ├── Market Research (specialist, product)
+│   ├── Supplier Research (specialist, product)
+│   └── Opportunity Scoring (specialist, product)
+├── Marketing (department, marketing)
+├── Store Builder (department, operations)
+├── Secretary (department, operations)
+└── Finance (department, finance)
+```
+
+### Tests
+- 116/116 passing (+24 nuevos)
+
+### Build
+- ✅ Green
+
+---

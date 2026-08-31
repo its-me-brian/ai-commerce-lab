@@ -60,6 +60,10 @@ export class MarketResearchAgent extends BaseAgent {
     enabled: true,
     version: "0.1.0",
     capabilities: ["market_analysis", "trend_analysis", "competition_analysis"],
+    // Hierarchy: specialist, reports to Product Hunter
+    parentAgentId: "product-hunter",
+    agentType: "specialist",
+    department: "product",
   };
 
   validateInput(input: Record<string, unknown>): string[] {

@@ -62,6 +62,10 @@ export class ProductHunterAgent extends BaseAgent {
       "trend_analysis",
       "price_calculation",
     ],
+    // Hierarchy: department head, reports to CEO
+    parentAgentId: "ceo",
+    agentType: "department",
+    department: "product",
   };
 
   validateInput(input: Record<string, unknown>): string[] {

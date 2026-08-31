@@ -53,6 +53,10 @@ export class SupplierResearchAgent extends BaseAgent {
     enabled: true,
     version: "0.1.0",
     capabilities: ["supplier_analysis", "price_comparison", "risk_assessment"],
+    // Hierarchy: specialist, reports to Product Hunter
+    parentAgentId: "product-hunter",
+    agentType: "specialist",
+    department: "product",
   };
 
   validateInput(input: Record<string, unknown>): string[] {

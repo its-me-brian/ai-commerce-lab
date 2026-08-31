@@ -53,6 +53,10 @@ export class OpportunityScoringAgent extends BaseAgent {
       "risk_assessment",
       "decision_making",
     ],
+    // Hierarchy: specialist, reports to Product Hunter
+    parentAgentId: "product-hunter",
+    agentType: "specialist",
+    department: "product",
   };
 
   validateInput(input: Record<string, unknown>): string[] {
