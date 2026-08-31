@@ -70,6 +70,7 @@ export interface Database {
           context_window: number;
           input_price: number;
           output_price: number;
+          capabilities: string[];
           created_at: string;
           updated_at: string;
         };
@@ -82,6 +83,7 @@ export interface Database {
           context_window?: number;
           input_price?: number;
           output_price?: number;
+          capabilities?: string[];
           created_at?: string;
           updated_at?: string;
         };
@@ -92,6 +94,7 @@ export interface Database {
           context_window?: number;
           input_price?: number;
           output_price?: number;
+          capabilities?: string[];
           updated_at?: string;
         };
       };
