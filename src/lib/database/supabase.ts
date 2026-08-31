@@ -240,6 +240,8 @@ export interface Database {
           output: Record<string, unknown> | null;
           priority: number;
           error: string | null;
+          depends_on: string[];
+          parent_task_id: string | null;
           total_cost: number;
           created_at: string;
           started_at: string | null;
@@ -254,6 +256,8 @@ export interface Database {
           output?: Record<string, unknown> | null;
           priority?: number;
           error?: string | null;
+          depends_on?: string[];
+          parent_task_id?: string | null;
           total_cost?: number;
           created_at?: string;
           started_at?: string | null;
