@@ -167,3 +167,35 @@ CEO (executive)
 - ✅ Green
 
 ---
+
+## FASE 5 — Secure Credential Manager
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/016_add_credentials.sql` — ai_provider_credentials table with encryption columns
+- `src/lib/ai/encryption.ts` — AES-256-GCM encrypt/decrypt utility
+- `src/lib/ai/encryption.test.ts` — 15 tests for encryption roundtrip, tamper detection, edge cases
+- `src/lib/ai/credential-manager.ts` — CredentialManager service with secure store/retrieve/list
+- `src/lib/ai/credential-manager.test.ts` — 10 tests for CredentialManager
+
+### Archivos modificados
+- `src/lib/database/supabase.ts` — ai_provider_credentials types added
+
+### Key changes
+- API keys encrypted at rest using AES-256-GCM
+- Keys never exposed to browser — only hints returned (e.g., "...1234")
+- CredentialManager.store() encrypts before storage
+- CredentialManager.retrieve() decrypts on demand
+- CredentialManager.getActiveKey() gets key for provider+environment
+- CredentialSafe type strips all sensitive fields
+- ENCRYPTION_KEY env var required (64 hex chars = 32 bytes)
+
+### Tests
+- 176/176 passing (+25 nuevos)
+
+### Build
+- ✅ Green
+
+---

@@ -14,6 +14,7 @@
 | FASE 2 | 116 | +24 | ✅ 116/116 passing |
 | FASE 3 | 135 | +19 | ✅ 135/135 passing |
 | FASE 4 | 151 | +16 | ✅ 151/151 passing |
+| FASE 5 | 176 | +25 | ✅ 176/176 passing |
 
 ---
 
@@ -30,6 +31,8 @@
 | `src/lib/agents/core/personality-presets.test.ts` | 15 | ✅ FASE 3 |
 | `src/lib/ai/router.test.ts` | — | ✅ |
 | `src/lib/ai/provider-manager.test.ts` | 16 | ✅ FASE 4 |
+| `src/lib/ai/encryption.test.ts` | 15 | ✅ FASE 5 |
+| `src/lib/ai/credential-manager.test.ts` | 10 | ✅ FASE 5 |
 | `src/lib/permissions/checker.test.ts` | — | ✅ |
 | `src/lib/workspaces/workspace.test.ts` | 9 | ✅ FASE 1 |
 

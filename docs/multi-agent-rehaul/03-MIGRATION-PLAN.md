@@ -94,4 +94,5 @@
 | FASE 2 | ✅ Completada |
 | FASE 3 | ✅ Completada |
 | FASE 4 | ✅ Completada |
-| FASE 5-46 | ⏳ Pendiente |
+| FASE 5 | ✅ Completada |
+| FASE 6-46 | ⏳ Pendiente |
