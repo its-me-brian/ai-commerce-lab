@@ -4,6 +4,7 @@
 
 import { supabase } from "../../database/supabase";
 import { getRouter, type RouterConfig } from "../../ai/router";
+import { getToolRegistry } from "../../tools/bootstrap";
 import type { BaseAgent } from "./agent";
 import type {
   AgentContext,
@@ -52,20 +53,24 @@ export class AgentEngine {
     // 3. Load config from Supabase
     const config = await this.loadAgentConfig(agent.metadata.id);
 
-    // 4. Build context
+    // 4. Load tools from registry
+    const toolRegistry = getToolRegistry();
+    const availableTools = toolRegistry.list().map((t) => t.id);
+
+    // 5. Build context
     const context: AgentContext = {
       taskId,
       taskType: taskType as AgentContext["taskType"],
       input,
       configuration: config,
-      tools: [],
+      tools: availableTools,
     };
 
     try {
-      // 5. Execute agent via router
+      // 6. Execute agent via router
       const result = await agent.execute(context);
 
-      // 6. Save run to Supabase
+      // 7. Save run to Supabase
       await supabase.from("agent_runs").insert({
         task_id: taskId,
         agent_id: agent.metadata.id,
@@ -77,7 +82,7 @@ export class AgentEngine {
         status: result.success ? "success" : "error",
       });
 
-      // 7. Complete task in Supabase
+      // 8. Complete task in Supabase
       await supabase
         .from("agent_tasks")
         .update({
