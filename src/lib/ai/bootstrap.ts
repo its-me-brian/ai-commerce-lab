@@ -11,6 +11,7 @@ import { AgentRegistry } from "../agents/core/registry";
 import { ProductHunterAgent } from "../agents/product-hunter";
 import { SupplierResearchAgent } from "../agents/supplier-research";
 import { MarketResearchAgent } from "../agents/market-research";
+import { OpportunityScoringAgent } from "../agents/opportunity-scoring";
 // import { StoreBuilderAgent } from "../agents/store-builder";
 // import { MarketingAgent } from "../agents/marketing";
 // import { SecretaryAgent } from "../agents/secretary";
@@ -53,6 +54,7 @@ export function bootstrap(): void {
   registry.register(new ProductHunterAgent());
   registry.register(new SupplierResearchAgent());
   registry.register(new MarketResearchAgent());
+  registry.register(new OpportunityScoringAgent());
   // registry.register(new StoreBuilderAgent());
   // registry.register(new MarketingAgent());
   // registry.register(new SecretaryAgent());
