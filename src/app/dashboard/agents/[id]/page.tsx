@@ -95,6 +95,9 @@ export default function AgentDetailPage({
   const [testResult, setTestResult] = useState<{
     success: boolean;
     data?: Record<string, unknown>;
+    output?: string;
+    reasoningSummary?: string;
+    errors?: string[];
     metadata?: Record<string, unknown>;
     error?: string;
   } | null>(null);
@@ -115,9 +118,11 @@ export default function AgentDetailPage({
   const [testInputError, setTestInputError] = useState("");
   const [searchMode, setSearchMode] = useState<"analyze" | "discover">("analyze");
   const [searchSource, setSearchSource] = useState("dummyjson");
+  const [availableSources, setAvailableSources] = useState<Array<{ id: string; name: string; configured: boolean }>>([]);
 
   useEffect(() => {
     fetchConfig();
+    fetchSources();
     setTestInput(DEFAULT_TEST_INPUTS[id] || '{\n  "name": "Test Product",\n  "supplierPrice": 10\n}');
   }, [id]);
 
@@ -140,6 +145,18 @@ export default function AgentDetailPage({
       console.error("Failed to load config:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchSources() {
+    try {
+      const res = await fetch("/api/tools/sources");
+      const data = await res.json();
+      if (data.sources) {
+        setAvailableSources(data.sources);
+      }
+    } catch (err) {
+      console.error("Failed to load sources:", err);
     }
   }
 
@@ -541,7 +558,6 @@ export default function AgentDetailPage({
                         value={searchSource}
                         onChange={(e) => {
                           setSearchSource(e.target.value);
-                          // Update source in current JSON input
                           try {
                             const parsed = JSON.parse(testInput);
                             parsed.source = e.target.value;
@@ -552,58 +568,72 @@ export default function AgentDetailPage({
                         }}
                         style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.8125rem", background: "var(--bg-card)" }}
                       >
-                        <option value="dummyjson">DummyJSON (194 products)</option>
-                        <option value="fakestore">FakeStore (20 products)</option>
+                        {availableSources.length > 0 ? (
+                          availableSources.map((s) => (
+                            <option key={s.id} value={s.id} disabled={!s.configured}>
+                              {s.name}{!s.configured ? " (not configured)" : ""}
+                            </option>
+                          ))
+                        ) : (
+                          <>
+                            <option value="dummyjson">DummyJSON (194 products)</option>
+                            <option value="fakestore">FakeStore (20 products)</option>
+                          </>
+                        )}
                       </select>
                     </div>
                   )}
                 </div>
               )}
-                  {/* Product Hunter specific display */}
-                  {isProductHunter && testResult.data && typeof testResult.data === "object" && "score" in testResult.data ? (
-                    <>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                        <span style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.03em" }}>
-                          {(testResult.data as Record<string, unknown>).score as number}
-                        </span>
-                        <span style={{ fontSize: "0.875rem", color: "var(--text-tertiary)" }}>/100</span>
-                      </div>
 
-                      <span style={{
-                        fontSize: "0.75rem", fontWeight: 500, padding: "4px 10px", borderRadius: 9999, width: "fit-content",
-                        background: "var(--success-bg)", color: "var(--success)",
-                      }}>
-                        {(testResult.data as Record<string, unknown>).recommendation as string}
-                      </span>
+              {/* Discover mode: Multiple opportunities */}
+              {isProductHunter && testResult.data && typeof testResult.data === "object" && "opportunities" in testResult.data ? (
+                <DiscoverResults data={testResult.data as Record<string, unknown>} errors={testResult.errors} />
+              ) : isProductHunter && testResult.data && typeof testResult.data === "object" && "score" in testResult.data ? (
+                /* Analyze mode: Single product analysis */
+                <>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                    <span style={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "-0.03em" }}>
+                      {(testResult.data as Record<string, unknown>).score as number}
+                    </span>
+                    <span style={{ fontSize: "0.875rem", color: "var(--text-tertiary)" }}>/100</span>
+                  </div>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        <MiniStat label="Margin" value={`${(testResult.data as Record<string, unknown>).estimatedMargin}%`} />
-                        <MiniStat label="Demand" value={`${(testResult.data as Record<string, unknown>).demandScore}/100`} />
-                        <MiniStat label="Competition" value={`${(testResult.data as Record<string, unknown>).competitionScore}/100`} />
-                        <MiniStat label="Risk" value={`${(testResult.data as Record<string, unknown>).riskScore}/100`} />
-                      </div>
+                  <span style={{
+                    fontSize: "0.75rem", fontWeight: 500, padding: "4px 10px", borderRadius: 9999, width: "fit-content",
+                    background: getRecommendationColor((testResult.data as Record<string, unknown>).recommendation as string),
+                  }}>
+                    {(testResult.data as Record<string, unknown>).recommendation as string}
+                  </span>
 
-                      <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                        {(testResult.data as Record<string, unknown>).explanation as string}
-                      </p>
-                    </>
-                  ) : (
-                    /* Generic JSON display */
-                    <pre className="mono" style={{
-                      fontSize: "0.75rem", background: "var(--bg-sunken)", padding: 12,
-                      borderRadius: "var(--r-md)", overflow: "auto", maxHeight: 400, lineHeight: 1.5,
-                    }}>
-                      {JSON.stringify(testResult.data || testResult, null, 2)}
-                    </pre>
-                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <MiniStat label="Margin" value={`${(testResult.data as Record<string, unknown>).estimatedMargin}%`} />
+                    <MiniStat label="Demand" value={`${(testResult.data as Record<string, unknown>).demandScore}/100`} />
+                    <MiniStat label="Competition" value={`${(testResult.data as Record<string, unknown>).competitionScore}/100`} />
+                    <MiniStat label="Risk" value={`${(testResult.data as Record<string, unknown>).riskScore}/100`} />
+                  </div>
 
-                  {testResult.metadata && (
-                    <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 12, fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>
-                      {(testResult.metadata as Record<string, unknown>).modelUsed as string} · {" "}
-                      {((testResult.metadata as Record<string, unknown>).inputTokens as number) + ((testResult.metadata as Record<string, unknown>).outputTokens as number)} tokens · {" "}
-                      {(((testResult.metadata as Record<string, unknown>).durationMs as number) / 1000).toFixed(1)}s
-                    </div>
-                  )}
+                  <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                    {(testResult.data as Record<string, unknown>).explanation as string}
+                  </p>
+                </>
+              ) : (
+                /* Generic JSON display */
+                <pre className="mono" style={{
+                  fontSize: "0.75rem", background: "var(--bg-sunken)", padding: 12,
+                  borderRadius: "var(--r-md)", overflow: "auto", maxHeight: 400, lineHeight: 1.5,
+                }}>
+                  {JSON.stringify(testResult.data || testResult, null, 2)}
+                </pre>
+              )}
+
+              {testResult.metadata && (
+                <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 12, fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>
+                  {(testResult.metadata as Record<string, unknown>).modelUsed as string} · {" "}
+                  {((testResult.metadata as Record<string, unknown>).inputTokens as number) + ((testResult.metadata as Record<string, unknown>).outputTokens as number)} tokens · {" "}
+                  {(((testResult.metadata as Record<string, unknown>).durationMs as number) / 1000).toFixed(1)}s
+                </div>
+              )}
                 </div>
               ) : (
                 <p style={{ fontSize: "0.8125rem", color: "var(--error)" }}>
@@ -615,6 +645,203 @@ export default function AgentDetailPage({
         </div>
       </div>
 
+    </div>
+  );
+}
+
+function getRecommendationColor(rec: string): string {
+  switch (rec) {
+    case "APPROVE": return "var(--success-bg)";
+    case "INVESTIGATE": return "var(--accent-bg)";
+    case "NEEDS_MORE_DATA": return "var(--warning-bg, #fef3c7)";
+    case "REJECT": return "var(--error-bg)";
+    default: return "var(--bg-sunken)";
+  }
+}
+
+function getRecommendationTextColor(rec: string): string {
+  switch (rec) {
+    case "APPROVE": return "var(--success)";
+    case "INVESTIGATE": return "var(--accent)";
+    case "NEEDS_MORE_DATA": return "var(--warning, #d97706)";
+    case "REJECT": return "var(--error)";
+    default: return "var(--text-secondary)";
+  }
+}
+
+function ConfidenceBadge({ level }: { level: string }) {
+  const colors: Record<string, { bg: string; text: string }> = {
+    KNOWN: { bg: "var(--success-bg)", text: "var(--success)" },
+    ESTIMATED: { bg: "var(--accent-bg)", text: "var(--accent)" },
+    UNKNOWN: { bg: "var(--bg-sunken)", text: "var(--text-tertiary)" },
+  };
+  const c = colors[level] || colors.UNKNOWN;
+  return (
+    <span style={{
+      fontSize: "0.5625rem", fontWeight: 600, padding: "1px 5px", borderRadius: 4,
+      background: c.bg, color: c.text, textTransform: "uppercase", letterSpacing: "0.05em",
+    }}>
+      {level}
+    </span>
+  );
+}
+
+function DiscoverResults({ data, errors }: { data: Record<string, unknown>; errors?: string[] }) {
+  const opportunities = (data.opportunities as Array<Record<string, unknown>>) || [];
+  const totalFound = data.totalFound as number;
+  const analyzedCount = data.analyzedCount as number;
+  const skippedCount = data.skippedCount as number;
+  const query = data.query as string;
+  const source = data.source as string;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* Summary header */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 14px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)",
+      }}>
+        <div>
+          <p style={{ fontSize: "0.8125rem", fontWeight: 600 }}>
+            {query && `"${query}"`} → {analyzedCount} opportunities found
+          </p>
+          <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>
+            {totalFound} products scanned · {source} source
+            {skippedCount > 0 && ` · ${skippedCount} skipped`}
+          </p>
+        </div>
+      </div>
+
+      {/* Opportunity cards */}
+      {opportunities.map((opp, i) => {
+        const name = opp.name as string;
+        const price = opp.price as number;
+        const currency = opp.currency as string;
+        const score = opp.score as number;
+        const recommendation = opp.recommendation as string;
+        const explanation = opp.explanation as string;
+        const estimatedMargin = opp.estimatedMargin as number;
+        const recommendedPrice = opp.recommendedPrice as number;
+        const profit = opp.profit as number | undefined;
+        const demandScore = opp.demandScore as number;
+        const competitionScore = opp.competitionScore as number;
+        const riskScore = opp.riskScore as number;
+        const imageUrl = opp.imageUrl as string | undefined;
+        const sourceLabel = opp.source as string;
+        const dataConfidence = opp.dataConfidence as Record<string, string> | undefined;
+
+        return (
+          <div key={i} style={{
+            border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+            padding: 14, background: "var(--bg-card)",
+          }}>
+            {/* Product header */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 10 }}>
+              {imageUrl && (
+                <img
+                  src={imageUrl}
+                  alt={name}
+                  style={{ width: 48, height: 48, borderRadius: "var(--r-sm)", objectFit: "cover" }}
+                />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: "0.8125rem", fontWeight: 600, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {name}
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>
+                    {currency} {price.toFixed(2)}
+                  </span>
+                  <span style={{ fontSize: "0.625rem", color: "var(--text-tertiary)" }}>
+                    via {sourceLabel}
+                  </span>
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ fontSize: "1.25rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
+                  {score}
+                </p>
+                <p style={{ fontSize: "0.625rem", color: "var(--text-tertiary)" }}>SCORE</p>
+              </div>
+            </div>
+
+            {/* Recommendation badge */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+              <span style={{
+                fontSize: "0.6875rem", fontWeight: 500, padding: "3px 8px", borderRadius: 9999,
+                background: getRecommendationColor(recommendation),
+                color: getRecommendationTextColor(recommendation),
+              }}>
+                {recommendation}
+              </span>
+              {profit !== undefined && (
+                <span style={{ fontSize: "0.6875rem", color: "var(--text-secondary)" }}>
+                  Profit: {currency} {profit.toFixed(2)}
+                </span>
+              )}
+            </div>
+
+            {/* Metrics grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 10 }}>
+              <MiniStat label="Margin" value={`${estimatedMargin}%`} />
+              <MiniStat label="Demand" value={`${demandScore}/100`} />
+              <MiniStat label="Competition" value={`${competitionScore}/100`} />
+              <MiniStat label="Risk" value={`${riskScore}/100`} />
+            </div>
+
+            {/* Pricing info */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 10, fontSize: "0.6875rem", color: "var(--text-secondary)" }}>
+              <span>Recommended: {currency} {recommendedPrice.toFixed(2)}</span>
+              <span>·</span>
+              <span>Margin: {estimatedMargin.toFixed(1)}%</span>
+            </div>
+
+            {/* Data confidence */}
+            {dataConfidence && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                <span style={{ fontSize: "0.625rem", color: "var(--text-tertiary)" }}>Data:</span>
+                {Object.entries(dataConfidence).map(([key, level]) => (
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    <span style={{ fontSize: "0.625rem", color: "var(--text-tertiary)" }}>{key}:</span>
+                    <ConfidenceBadge level={level as string} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Explanation */}
+            <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+              {explanation}
+            </p>
+          </div>
+        );
+      })}
+
+      {opportunities.length === 0 && (
+        <p style={{ fontSize: "0.8125rem", color: "var(--text-tertiary)", textAlign: "center", padding: 20 }}>
+          No opportunities found. Try different search criteria.
+        </p>
+      )}
+
+      {/* Errors */}
+      {errors && errors.length > 0 && (
+        <div style={{
+          padding: "10px 14px", background: "var(--error-bg)", borderRadius: "var(--r-md)",
+          border: "1px solid var(--error)",
+        }}>
+          <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--error)", marginBottom: 4 }}>
+            {errors.length} product(s) failed analysis
+          </p>
+          {errors.slice(0, 3).map((err, i) => (
+            <p key={i} style={{ fontSize: "0.6875rem", color: "var(--text-secondary)" }}>{err}</p>
+          ))}
+          {errors.length > 3 && (
+            <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>
+              ...and {errors.length - 3} more
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
