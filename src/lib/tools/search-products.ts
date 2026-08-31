@@ -121,19 +121,145 @@ class FakeStoreSource implements ProductSource {
   }
 }
 
+// --- eBay Browse API Source (free, 5000 req/day, requires OAuth registration) ---
+
+class EbayBrowseSource implements ProductSource {
+  readonly id = "ebay";
+  readonly name = "eBay Products";
+
+  private accessToken: string | null = null;
+  private tokenExpiresAt = 0;
+
+  async search(
+    query: string,
+    options?: { limit?: number; minPrice?: number; maxPrice?: number }
+  ): Promise<RawProduct[]> {
+    const clientId = process.env.EBAY_CLIENT_ID;
+    const clientSecret = process.env.EBAY_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      throw new Error(
+        "eBay API not configured. Set EBAY_CLIENT_ID and EBAY_CLIENT_SECRET in .env.local. " +
+        "Register free at developer.ebay.com"
+      );
+    }
+
+    const limit = Math.min(options?.limit || 10, 50);
+
+    // Get OAuth access token (client credentials grant)
+    const token = await this.getAccessToken(clientId, clientSecret);
+
+    // Build search URL with filters
+    const params = new URLSearchParams({
+      q: query,
+      limit: String(limit),
+      sort: "relevance",
+    });
+
+    // Add price filter
+    const filters: string[] = [];
+    if (options?.minPrice !== undefined || options?.maxPrice !== undefined) {
+      const min = options?.minPrice ?? "*";
+      const max = options?.maxPrice ?? "*";
+      filters.push(`price:[${min}..${max}],priceCurrency:USD`);
+    }
+    if (filters.length > 0) {
+      params.set("filter", filters.join(","));
+    }
+
+    const url = `https://api.ebay.com/buy/browse/v1/item_summary/search?${params.toString()}`;
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+        "X-EBAY-C-ENDUSERCTX": "",
+      },
+    });
+
+    if (response.status === 429) {
+      throw new Error("eBay API rate limit exceeded. Try again in a few minutes.");
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`eBay API error ${response.status}: ${body}`);
+    }
+
+    const data = await response.json();
+    const items = data.itemSummaries || [];
+
+    return items.map((item: Record<string, unknown>) => {
+      const price = item.price as Record<string, unknown> | undefined;
+      const seller = item.seller as Record<string, unknown> | undefined;
+      const rating = item.rating as Record<string, unknown> | undefined;
+
+      return {
+        source: "ebay",
+        externalId: String(item.itemId || ""),
+        name: String(item.title || ""),
+        price: Number(price?.value || 0),
+        currency: String(price?.currency || "USD"),
+        imageUrl: String((item.thumbnailImages as Array<Record<string, unknown>>)?.[0]?.imageUrl ||
+          (item.image as Record<string, unknown>)?.imageUrl || ""),
+        url: String(item.itemWebUrl || ""),
+        category: String(item.categoryId || ""),
+        rating: rating ? Number(rating.rating || 0) : undefined,
+        reviewCount: rating ? Number(rating.count || 0) : undefined,
+      };
+    });
+  }
+
+  private async getAccessToken(clientId: string, clientSecret: string): Promise<string> {
+    // Reuse token if still valid (with 5min buffer)
+    if (this.accessToken && Date.now() < this.tokenExpiresAt - 300_000) {
+      return this.accessToken;
+    }
+
+    const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+
+    const response = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope",
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`eBay OAuth failed (${response.status}): ${body}`);
+    }
+
+    const data = await response.json();
+    this.accessToken = data.access_token;
+    this.tokenExpiresAt = Date.now() + (data.expires_in || 7200) * 1000;
+    return this.accessToken!;
+  }
+}
+
 // --- Tool Implementation ---
 
 // Registry of search sources — add new sources here
 const SEARCH_SOURCES: ProductSource[] = [
   new DummyJsonSource(),
   new FakeStoreSource(),
+  new EbayBrowseSource(),
 ];
 
 /**
  * Get available search sources (for Dashboard UI).
+ * Only returns sources that are actually configured.
  */
-export function getAvailableSources(): Array<{ id: string; name: string }> {
-  return SEARCH_SOURCES.map((s) => ({ id: s.id, name: s.name }));
+export function getAvailableSources(): Array<{ id: string; name: string; configured: boolean }> {
+  return SEARCH_SOURCES.map((s) => {
+    let configured = true;
+    if (s.id === "ebay") {
+      configured = !!(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET);
+    }
+    return { id: s.id, name: s.name, configured };
+  });
 }
 
 export class SearchProductsTool implements Tool {

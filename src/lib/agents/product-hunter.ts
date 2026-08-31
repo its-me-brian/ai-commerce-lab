@@ -16,6 +16,8 @@ import type { RawProduct } from "../tools/search-products";
 import { z } from "zod";
 
 // Zod schema for structured output validation
+export const DataConfidence = z.enum(["KNOWN", "ESTIMATED", "UNKNOWN"]);
+
 export const ProductAnalysisSchema = z.object({
   score: z.number().min(0).max(100),
   estimatedMargin: z.number(),
@@ -28,6 +30,14 @@ export const ProductAnalysisSchema = z.object({
   explanation: z.string(),
   category: z.string().optional(),
   targetMarket: z.array(z.string()).optional(),
+  // Data confidence classification
+  dataConfidence: z.object({
+    supplierPrice: DataConfidence,
+    sellingPrice: DataConfidence,
+    demand: DataConfidence,
+    competition: DataConfidence,
+    shippingCost: DataConfidence,
+  }).optional(),
   // Backend validation fields (added by tool calling)
   marginValidated: z.boolean().optional(),
   toolMarginPercent: z.number().optional(),
@@ -137,6 +147,11 @@ export class ProductHunterAgent extends BaseAgent {
       product: RawProduct;
       analysis: ProductAnalysis;
     }> = [];
+    const errors: string[] = [];
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let providerUsed = configuration.primaryProvider;
+    let modelUsed = configuration.primaryModel;
 
     for (const product of products) {
       try {
@@ -157,6 +172,12 @@ export class ProductHunterAgent extends BaseAgent {
             responseFormat: "json",
           }
         );
+
+        // Aggregate token counts
+        totalInputTokens += log.inputTokens;
+        totalOutputTokens += log.outputTokens;
+        providerUsed = log.provider;
+        modelUsed = log.model;
 
         // Parse AI response
         const parsed = typeof result.structuredData === "string"
@@ -194,8 +215,9 @@ export class ProductHunterAgent extends BaseAgent {
         }
 
         opportunities.push({ product, analysis });
-      } catch {
-        // Skip products that fail analysis
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`Failed to analyze ${product.name}: ${msg}`);
         continue;
       }
     }
@@ -212,24 +234,48 @@ export class ProductHunterAgent extends BaseAgent {
           price: o.product.price,
           currency: o.product.currency,
           source: o.product.source,
+          sourceId: o.product.externalId,
           imageUrl: o.product.imageUrl,
+          url: o.product.url,
+          category: o.product.category,
+          rating: o.product.rating,
+          reviewCount: o.product.reviewCount,
           score: o.analysis.score,
           estimatedMargin: o.analysis.estimatedMargin,
           recommendedPrice: o.analysis.recommendedPrice,
           profit: o.analysis.profit,
+          roiPercent: o.analysis.roiPercent,
           recommendation: o.analysis.recommendation,
           explanation: o.analysis.explanation,
+          marginValidated: o.analysis.marginValidated,
+          toolMarginPercent: o.analysis.toolMarginPercent,
+          marginDiscrepancy: o.analysis.marginDiscrepancy,
+          demandScore: o.analysis.demandScore,
+          competitionScore: o.analysis.competitionScore,
+          supplierScore: o.analysis.supplierScore,
+          riskScore: o.analysis.riskScore,
+          targetMarket: o.analysis.targetMarket,
+          dataConfidence: o.analysis.dataConfidence || {
+            supplierPrice: o.product.price > 0 ? "KNOWN" : "UNKNOWN",
+            sellingPrice: "ESTIMATED",
+            demand: "UNKNOWN",
+            competition: "UNKNOWN",
+            shippingCost: "UNKNOWN",
+          },
         })),
         totalFound: products.length,
+        analyzedCount: opportunities.length,
+        skippedCount: products.length - opportunities.length,
         query: input.query,
+        source: searchResult.output ? (searchResult.output as { source: string }).source : "unknown",
       },
       reasoningSummary: `Analyzed ${products.length} products, ${opportunities.length} passed initial screening.`,
-      errors: [],
+      errors,
       metadata: {
-        providerUsed: configuration.primaryProvider,
-        modelUsed: configuration.primaryModel,
-        inputTokens: 0,
-        outputTokens: 0,
+        providerUsed,
+        modelUsed,
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
         durationMs: Date.now() - startTime,
         cached: false,
       },
@@ -348,8 +394,20 @@ For each product, return a JSON object with this exact structure:
   "recommendation": "INVESTIGATE" | "APPROVE" | "REJECT" | "NEEDS_MORE_DATA",
   "explanation": "<1-2 sentence analysis>",
   "category": "<product category>",
-  "targetMarket": ["<country1>", "<country2>"]
+  "targetMarket": ["<country1>", "<country2>"],
+  "dataConfidence": {
+    "supplierPrice": "KNOWN" | "ESTIMATED" | "UNKNOWN",
+    "sellingPrice": "KNOWN" | "ESTIMATED" | "UNKNOWN",
+    "demand": "KNOWN" | "ESTIMATED" | "UNKNOWN",
+    "competition": "KNOWN" | "ESTIMATED" | "UNKNOWN",
+    "shippingCost": "KNOWN" | "ESTIMATED" | "UNKNOWN"
+  }
 }
+
+Data confidence rules:
+- KNOWN = data point is directly from the product listing (e.g. price from eBay)
+- ESTIMATED = data point is inferred from category, market, or comparable products
+- UNKNOWN = no reliable data available, don't guess
 
 Margin formula: TotalCost = costPrice + (sellingPrice * 0.15), Margin = (sellingPrice - TotalCost) / sellingPrice * 100
 
@@ -357,17 +415,30 @@ Be concise. Focus on profit potential and market viability for European dropship
   }
 
   private buildDiscoverPrompt(product: RawProduct): string {
-    return [
+    const parts = [
       `Analyze this product for dropshipping viability:`,
       ``,
       `Product: ${product.name}`,
       `Price: ${product.currency} ${product.price}`,
       `Category: ${product.category || "unknown"}`,
       `Rating: ${product.rating || "N/A"}`,
+      `Reviews: ${product.reviewCount || "N/A"}`,
       `Source: ${product.source}`,
-      ``,
-      `Provide your analysis as a JSON object.`,
-    ].join("\n");
+    ];
+
+    // Provide URL if available for context
+    if (product.url) {
+      parts.push(`URL: ${product.url}`);
+    }
+
+    // Mark what's KNOWN from the listing
+    parts.push(``);
+    parts.push(`Data available from listing: supplier price (KNOWN), category (KNOWN)`);
+    parts.push(`Data NOT available: shipping cost, demand data, competition data, market trends`);
+    parts.push(``);
+    parts.push(`Provide your analysis as a JSON object.`);
+
+    return parts.join("\n");
   }
 
   // --- ANALYZE MODE PROMPTS ---

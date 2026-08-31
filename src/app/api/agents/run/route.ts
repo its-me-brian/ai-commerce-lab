@@ -50,6 +50,9 @@ export async function POST(request: Request) {
       taskId,
       agentId,
       data: result.structuredData,
+      output: result.output,
+      reasoningSummary: result.reasoningSummary,
+      errors: result.errors,
       metadata: result.metadata,
       timestamp: new Date().toISOString(),
     });

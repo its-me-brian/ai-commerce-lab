@@ -6,6 +6,8 @@ export default function SettingsPage() {
     { name: "XAI_API_KEY", desc: "xAI Grok", set: !!process.env.XAI_API_KEY, secret: true },
     { name: "SUPABASE_URL", desc: "Project URL", set: !!process.env.SUPABASE_URL, secret: false },
     { name: "SUPABASE_ANON_KEY", desc: "Anonymous key", set: !!process.env.SUPABASE_ANON_KEY, secret: false },
+    { name: "EBAY_CLIENT_ID", desc: "eBay Browse API (product source)", set: !!process.env.EBAY_CLIENT_ID, secret: true },
+    { name: "EBAY_CLIENT_SECRET", desc: "eBay Browse API secret", set: !!process.env.EBAY_CLIENT_SECRET, secret: true },
   ];
 
   return (
