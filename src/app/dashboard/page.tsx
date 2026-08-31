@@ -1,4 +1,48 @@
-export default function DashboardPage() {
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export default async function DashboardPage() {
+  // Fetch real KPIs from Supabase
+  const { count: totalAgents } = await supabase
+    .from("agents")
+    .select("*", { count: "exact", head: true });
+
+  const { count: activeAgents } = await supabase
+    .from("agents")
+    .select("*", { count: "exact", head: true })
+    .eq("enabled", true)
+    .eq("status", "ready");
+
+  const { count: totalTasks } = await supabase
+    .from("agent_tasks")
+    .select("*", { count: "exact", head: true });
+
+  const { count: completedTasks } = await supabase
+    .from("agent_tasks")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "completed");
+
+  const { count: failedTasks } = await supabase
+    .from("agent_tasks")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "failed");
+
+  // Calculate success rate
+  const successRate = totalTasks && totalTasks > 0
+    ? Math.round(((completedTasks || 0) / totalTasks) * 100)
+    : null;
+
+  // Fetch recent runs for activity
+  const { data: recentRuns } = await supabase
+    .from("agent_runs")
+    .select("id, agent_id, model, status, duration_ms, created_at")
+    .order("created_at", { ascending: false })
+    .limit(5);
+
   return (
     <div className="page-padding" style={{ maxWidth: 1100 }}>
       <div style={{ marginBottom: 28 }}>
@@ -7,24 +51,64 @@ export default function DashboardPage() {
       </div>
 
       <div className="kpi-grid" style={{ display: "grid", gap: 14, marginBottom: 28 }}>
-        <KpiCard label="Active Agents" value="1" delta="+1" deltaType="positive" sub="of 6 total" />
-        <KpiCard label="Tasks Run" value="0" sub="All time" />
-        <KpiCard label="Success Rate" value="—" sub="No data yet" />
-        <KpiCard label="AI Cost" value="$0.00" sub="Free tier" />
+        <KpiCard
+          label="Active Agents"
+          value={`${activeAgents || 0}`}
+          sub={`of ${totalAgents || 0} total`}
+        />
+        <KpiCard
+          label="Tasks Run"
+          value={`${totalTasks || 0}`}
+          sub="All time"
+        />
+        <KpiCard
+          label="Success Rate"
+          value={successRate !== null ? `${successRate}%` : "—"}
+          sub={successRate !== null ? `${completedTasks || 0} completed` : "No data yet"}
+        />
+        <KpiCard
+          label="AI Cost"
+          value="$0.00"
+          sub="Free tier (Gemini)"
+        />
       </div>
 
       <div className="content-grid" style={{ display: "grid", gap: 14 }}>
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <h2>Activity</h2>
-            <span style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>Last 7 days</span>
+            <h2>Recent Activity</h2>
+            <span style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>Last 5 runs</span>
           </div>
-          <EmptyState
-            icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>}
-            title="No activity yet"
-            description="Run your first agent task and it will appear here."
-            action={{ label: "Go to Agents", href: "/dashboard/agents" }}
-          />
+          {recentRuns && recentRuns.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {recentRuns.map((run) => (
+                <div key={run.id} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "8px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)",
+                  fontSize: "0.75rem",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: run.status === "success" ? "var(--success)" : "var(--error)",
+                    }} />
+                    <span style={{ fontWeight: 500 }}>{run.agent_id}</span>
+                    <span style={{ color: "var(--text-tertiary)" }}>· {run.model}</span>
+                  </div>
+                  <span style={{ color: "var(--text-tertiary)" }}>
+                    {(run.duration_ms / 1000).toFixed(1)}s
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>}
+              title="No activity yet"
+              description="Run your first agent task and it will appear here."
+              action={{ label: "Go to Agents", href: "/dashboard/agents" }}
+            />
+          )}
         </div>
 
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20 }}>
@@ -40,15 +124,14 @@ export default function DashboardPage() {
   );
 }
 
-function KpiCard({ label, value, delta, deltaType, sub }: {
-  label: string; value: string; delta?: string; deltaType?: "positive" | "negative"; sub?: string;
+function KpiCard({ label, value, sub }: {
+  label: string; value: string; sub?: string;
 }) {
   return (
     <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: "16px 18px" }}>
       <p style={{ fontSize: "0.6875rem", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{label}</p>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
         <span style={{ fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</span>
-        {delta && <span style={{ fontSize: "0.6875rem", fontWeight: 500, color: deltaType === "positive" ? "var(--success)" : "var(--error)" }}>{delta}</span>}
       </div>
       {sub && <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginTop: 4 }}>{sub}</p>}
     </div>

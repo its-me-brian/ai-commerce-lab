@@ -1,11 +1,11 @@
 export default function SettingsPage() {
+  // Check env vars server-side (never expose values to client)
   const vars = [
-    { name: "GEMINI_API_KEY", desc: "Google Gemini", set: true },
-    { name: "ANTHROPIC_API_KEY", desc: "Anthropic Claude", set: false },
-    { name: "XAI_API_KEY", desc: "xAI Grok", set: false },
-    { name: "SUPABASE_URL", desc: "Project URL", set: false },
-    { name: "SUPABASE_ANON_KEY", desc: "Anonymous key", set: false },
-    { name: "SUPABASE_SERVICE_ROLE_KEY", desc: "Service role key", set: false },
+    { name: "GEMINI_API_KEY", desc: "Google Gemini", set: !!process.env.GEMINI_API_KEY },
+    { name: "ANTHROPIC_API_KEY", desc: "Anthropic Claude", set: !!process.env.ANTHROPIC_API_KEY },
+    { name: "XAI_API_KEY", desc: "xAI Grok", set: !!process.env.XAI_API_KEY },
+    { name: "SUPABASE_URL", desc: "Project URL", set: !!process.env.SUPABASE_URL },
+    { name: "SUPABASE_SERVICE_ROLE_KEY", desc: "Service role key", set: !!process.env.SUPABASE_SERVICE_ROLE_KEY },
   ];
 
   return (
