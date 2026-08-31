@@ -168,7 +168,8 @@ export class GrokProvider extends AIProvider {
         name: m.name || m.id,
         contextWindow: 128000,
       }));
-    } catch {
+    } catch (error) {
+      console.error("[Grok] Failed to fetch available models:", error instanceof Error ? error.message : error);
       return [
         { id: "grok-3-mini-latest", name: "Grok 3 Mini", contextWindow: 128000 },
       ];

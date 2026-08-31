@@ -185,7 +185,8 @@ export class GeminiProvider extends AIProvider {
           name: m.displayName || m.name,
           contextWindow: 1000000,
         }));
-    } catch {
+    } catch (error) {
+      console.error("[Gemini] Failed to fetch available models:", error instanceof Error ? error.message : error);
       return [];
     }
   }
