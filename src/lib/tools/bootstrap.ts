@@ -4,6 +4,7 @@
 
 import { ToolRegistry } from "./registry";
 import { CalculateMarginTool } from "./calculate-margin";
+import { SearchProductsTool } from "./search-products";
 
 let toolRegistry: ToolRegistry | null = null;
 
@@ -11,6 +12,7 @@ export function getToolRegistry(): ToolRegistry {
   if (!toolRegistry) {
     toolRegistry = new ToolRegistry();
     toolRegistry.register(new CalculateMarginTool());
+    toolRegistry.register(new SearchProductsTool());
   }
   return toolRegistry;
 }

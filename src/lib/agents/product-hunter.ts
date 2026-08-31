@@ -1,5 +1,7 @@
 // Product Hunter Agent
-// Analyzes product opportunities and returns structured scores
+// Two modes:
+//   1. ANALYZE: User provides a product → agent evaluates it
+//   2. DISCOVER: Agent searches for products → analyzes top results
 // This agent NEVER knows about specific AI providers — it only uses the router.
 
 import { BaseAgent } from "./core/agent";
@@ -10,6 +12,7 @@ import type {
 } from "./core/types";
 import { getRouter } from "../ai/router";
 import { getToolRegistry } from "../tools/bootstrap";
+import type { RawProduct } from "../tools/search-products";
 import { z } from "zod";
 
 // Zod schema for structured output validation
@@ -42,22 +45,201 @@ export class ProductHunterAgent extends BaseAgent {
     description: "Searches and evaluates ecommerce opportunities",
     status: "ready",
     enabled: true,
-    version: "0.1.0",
-    capabilities: ["product_analysis", "trend_analysis", "price_calculation"],
+    version: "0.2.0",
+    capabilities: [
+      "product_analysis",
+      "product_discovery",
+      "trend_analysis",
+      "price_calculation",
+    ],
   };
 
   validateInput(input: Record<string, unknown>): string[] {
     const errors: string[] = [];
-    if (!input.name || typeof input.name !== "string") {
-      errors.push("Product name is required");
+    const mode = (input.mode as string) || "analyze";
+
+    if (mode === "discover") {
+      // Discover mode: need a search query
+      if (!input.query || typeof input.query !== "string") {
+        errors.push("Search query is required for discover mode");
+      }
+    } else {
+      // Analyze mode: need product name and supplier price
+      if (!input.name || typeof input.name !== "string") {
+        errors.push("Product name is required");
+      }
+      if (input.supplierPrice === undefined || typeof input.supplierPrice !== "number") {
+        errors.push("Supplier price is required and must be a number");
+      }
     }
-    if (input.supplierPrice === undefined || typeof input.supplierPrice !== "number") {
-      errors.push("Supplier price is required and must be a number");
-    }
+
     return errors;
   }
 
   async execute(context: AgentContext): Promise<AgentResult> {
+    const { input, configuration } = context;
+    const mode = (input.mode as string) || "analyze";
+
+    if (mode === "discover") {
+      return this.executeDiscover(context);
+    }
+    return this.executeAnalyze(context);
+  }
+
+  /**
+   * DISCOVER MODE: Search for products, analyze top results, return best opportunities.
+   */
+  private async executeDiscover(context: AgentContext): Promise<AgentResult> {
+    const { input, configuration } = context;
+    const toolRegistry = getToolRegistry();
+    const router = getRouter();
+    const startTime = Date.now();
+
+    // 1. Search for products
+    const searchResult = await toolRegistry.execute("search_products", {
+      query: input.query,
+      source: input.source || "dummyjson",
+      limit: input.limit || 5,
+      minPrice: input.minPrice,
+      maxPrice: input.maxPrice,
+    });
+
+    if (!searchResult.success) {
+      throw new Error(`Product search failed: ${searchResult.error}`);
+    }
+
+    const { products } = searchResult.output as {
+      products: RawProduct[];
+      totalCount: number;
+      source: string;
+    };
+
+    if (products.length === 0) {
+      return {
+        success: true,
+        output: "No products found for the given search criteria.",
+        structuredData: { opportunities: [], totalFound: 0 },
+        reasoningSummary: "No products matched the search criteria.",
+        errors: [],
+        metadata: {
+          providerUsed: configuration.primaryProvider,
+          modelUsed: configuration.primaryModel,
+          inputTokens: 0,
+          outputTokens: 0,
+          durationMs: Date.now() - startTime,
+          cached: false,
+        },
+      };
+    }
+
+    // 2. Analyze each product with AI + margin validation
+    const opportunities: Array<{
+      product: RawProduct;
+      analysis: ProductAnalysis;
+    }> = [];
+
+    for (const product of products) {
+      try {
+        // Ask AI to analyze this product
+        const { result, log } = await router.generate(
+          {
+            agentId: configuration.agentId,
+            primaryProvider: configuration.primaryProvider,
+            primaryModel: configuration.primaryModel,
+            fallbackProvider: configuration.fallbackProvider,
+            fallbackModel: configuration.fallbackModel,
+            temperature: configuration.temperature,
+            maxTokens: configuration.maxTokens,
+          },
+          {
+            prompt: this.buildDiscoverPrompt(product),
+            systemPrompt: this.getDiscoverSystemPrompt(),
+            responseFormat: "json",
+          }
+        );
+
+        // Parse AI response
+        const parsed = typeof result.structuredData === "string"
+          ? JSON.parse(result.structuredData as string)
+          : result.structuredData || JSON.parse(result.content);
+        const analysis = ProductAnalysisSchema.parse(parsed);
+
+        // Validate margin with tool
+        if (product.price > 0 && analysis.recommendedPrice > 0) {
+          const marginResult = await toolRegistry.execute("calculate_margin", {
+            costPrice: product.price,
+            sellingPrice: analysis.recommendedPrice,
+            shippingCost: 0,
+            platformFeePercent: 15,
+          });
+
+          if (marginResult.success) {
+            const toolOutput = marginResult.output as {
+              profit: number;
+              marginPercent: number;
+              roiPercent: number;
+            };
+            analysis.marginValidated = true;
+            analysis.toolMarginPercent = toolOutput.marginPercent;
+            analysis.marginDiscrepancy = Math.round(
+              Math.abs(toolOutput.marginPercent - analysis.estimatedMargin) * 100
+            ) / 100;
+            analysis.profit = toolOutput.profit;
+            analysis.roiPercent = toolOutput.roiPercent;
+
+            if (analysis.marginDiscrepancy > 15) {
+              analysis.estimatedMargin = toolOutput.marginPercent;
+            }
+          }
+        }
+
+        opportunities.push({ product, analysis });
+      } catch {
+        // Skip products that fail analysis
+        continue;
+      }
+    }
+
+    // 3. Sort by score descending
+    opportunities.sort((a, b) => b.analysis.score - a.analysis.score);
+
+    return {
+      success: true,
+      output: `Discovered ${opportunities.length} products from ${products.length} search results.`,
+      structuredData: {
+        opportunities: opportunities.map((o) => ({
+          name: o.product.name,
+          price: o.product.price,
+          currency: o.product.currency,
+          source: o.product.source,
+          imageUrl: o.product.imageUrl,
+          score: o.analysis.score,
+          estimatedMargin: o.analysis.estimatedMargin,
+          recommendedPrice: o.analysis.recommendedPrice,
+          profit: o.analysis.profit,
+          recommendation: o.analysis.recommendation,
+          explanation: o.analysis.explanation,
+        })),
+        totalFound: products.length,
+        query: input.query,
+      },
+      reasoningSummary: `Analyzed ${products.length} products, ${opportunities.length} passed initial screening.`,
+      errors: [],
+      metadata: {
+        providerUsed: configuration.primaryProvider,
+        modelUsed: configuration.primaryModel,
+        inputTokens: 0,
+        outputTokens: 0,
+        durationMs: Date.now() - startTime,
+        cached: false,
+      },
+    };
+  }
+
+  /**
+   * ANALYZE MODE: User provides a product → agent evaluates it.
+   */
+  private async executeAnalyze(context: AgentContext): Promise<AgentResult> {
     const { input, configuration } = context;
 
     const router = getRouter();
@@ -74,8 +256,8 @@ export class ProductHunterAgent extends BaseAgent {
         maxTokens: configuration.maxTokens,
       },
       {
-        prompt: this.buildPrompt(input),
-        systemPrompt: this.getSystemPrompt(),
+        prompt: this.buildAnalyzePrompt(input),
+        systemPrompt: this.getAnalyzeSystemPrompt(),
         responseFormat: "json",
       }
     );
@@ -103,7 +285,7 @@ export class ProductHunterAgent extends BaseAgent {
         costPrice,
         sellingPrice: structuredData.recommendedPrice,
         shippingCost,
-        platformFeePercent: 15, // default platform fee
+        platformFeePercent: 15,
       });
 
       if (marginResult.success) {
@@ -124,7 +306,6 @@ export class ProductHunterAgent extends BaseAgent {
         structuredData.profit = toolOutput.profit;
         structuredData.roiPercent = toolOutput.roiPercent;
 
-        // If AI's margin estimate is way off (>15% discrepancy), override with tool's calculation
         if (discrepancy > 15) {
           structuredData.estimatedMargin = toolMargin;
         }
@@ -148,7 +329,50 @@ export class ProductHunterAgent extends BaseAgent {
     };
   }
 
-  private getSystemPrompt(): string {
+  // --- DISCOVER MODE PROMPTS ---
+
+  private getDiscoverSystemPrompt(): string {
+    return `You are an expert ecommerce product analyst evaluating products found from a search.
+
+IMPORTANT: The backend will independently validate your margin calculations. Be accurate.
+
+For each product, return a JSON object with this exact structure:
+{
+  "score": <0-100 overall opportunity score>,
+  "estimatedMargin": <profit margin percentage>,
+  "recommendedPrice": <suggested selling price in EUR>,
+  "demandScore": <0-100>,
+  "competitionScore": <0-100>,
+  "supplierScore": <0-100>,
+  "riskScore": <0-100>,
+  "recommendation": "INVESTIGATE" | "APPROVE" | "REJECT" | "NEEDS_MORE_DATA",
+  "explanation": "<1-2 sentence analysis>",
+  "category": "<product category>",
+  "targetMarket": ["<country1>", "<country2>"]
+}
+
+Margin formula: TotalCost = costPrice + (sellingPrice * 0.15), Margin = (sellingPrice - TotalCost) / sellingPrice * 100
+
+Be concise. Focus on profit potential and market viability for European dropshipping.`;
+  }
+
+  private buildDiscoverPrompt(product: RawProduct): string {
+    return [
+      `Analyze this product for dropshipping viability:`,
+      ``,
+      `Product: ${product.name}`,
+      `Price: ${product.currency} ${product.price}`,
+      `Category: ${product.category || "unknown"}`,
+      `Rating: ${product.rating || "N/A"}`,
+      `Source: ${product.source}`,
+      ``,
+      `Provide your analysis as a JSON object.`,
+    ].join("\n");
+  }
+
+  // --- ANALYZE MODE PROMPTS ---
+
+  private getAnalyzeSystemPrompt(): string {
     return `You are an expert ecommerce product analyst. Your job is to evaluate product opportunities for a dropshipping business targeting European markets.
 
 IMPORTANT: The backend will independently validate your margin calculations using a deterministic tool. Be accurate with numbers — discrepancies over 15% will be flagged and overridden.
@@ -182,7 +406,7 @@ Scoring guidelines:
 Consider: demand signals, competition density, margin potential, shipping feasibility to EU, supplier reliability, and market trends.`;
   }
 
-  private buildPrompt(input: Record<string, unknown>): string {
+  private buildAnalyzePrompt(input: Record<string, unknown>): string {
     const parts = [
       `Analyze this product opportunity:`,
       ``,
