@@ -5,11 +5,14 @@
 // Flow:
 //   agentId → AgentRegistry → Agent
 //   agentId → Supabase config → Provider/Model resolution → Router → LLM
+//
+// FASE 3: Builds system prompt from AgentDefinition via AgentPromptBuilder.
 
 import { supabase } from "../../database/supabase";
 import { getToolRegistry } from "../../tools/bootstrap";
 import { getPermissionChecker } from "../../permissions/checker";
 import { getAgentRegistry } from "../../ai/bootstrap";
+import { getPromptBuilder } from "./prompt-builder";
 import type { AgentContext, AgentResult, AgentConfiguration } from "./types";
 import type { AIProviderSlug } from "../../ai/types";
 import { randomUUID } from "crypto";
@@ -90,13 +93,28 @@ export class AgentEngine {
       throw new Error(errorMsg);
     }
 
-    // 6. Build context
+    // 6. Build context with system prompt from definition
+    const promptBuilder = getPromptBuilder();
+    const definition = registry.getDefinition(agentId);
+    let systemPrompt: string | undefined;
+
+    if (definition) {
+      const promptOutput = promptBuilder.build({
+        definition,
+        additionalContext: input.personalityOverrides
+          ? { personalityOverrides: input.personalityOverrides }
+          : undefined,
+      });
+      systemPrompt = promptOutput.systemPrompt;
+    }
+
     const context: AgentContext = {
       taskId,
       taskType: taskType as AgentContext["taskType"],
       input,
       configuration: config,
       tools: availableTools,
+      systemPrompt,
     };
 
     try {

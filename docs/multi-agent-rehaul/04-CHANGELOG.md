@@ -99,3 +99,40 @@ CEO (executive)
 - ✅ Green
 
 ---
+
+## FASE 3 — Personality Separation
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/agents/core/personality-presets.ts` — 6 reusable personality presets + mergePersonalities utility
+- `src/lib/agents/core/personality-presets.test.ts` — 15 tests for presets and merge logic
+
+### Archivos modificados
+- `src/lib/agents/core/types-agent-definition.ts` — Personality type enhanced with tone, values, constraints, customInstructions
+- `src/lib/agents/core/prompt-builder.ts` — Now renders tone, values, constraints; supports customInstructions override; applies workspace personality overrides
+- `src/lib/agents/core/prompt-builder.test.ts` — 5 new tests for enhanced personality rendering
+- `src/lib/agents/core/engine.ts` — Builds system prompt from AgentDefinition via AgentPromptBuilder, passes it in context
+- `src/lib/agents/core/types.ts` — AgentContext now includes systemPrompt and personalityOverrides
+- `src/lib/agents/definitions/product-hunter.ts` — Enhanced personality with tone, values, constraints
+- `src/lib/workspaces/types.ts` — Workspace type now includes personality_overrides
+- `src/lib/database/supabase.ts` — Workspace types updated with personality_overrides
+- `src/app/api/workspaces/route.ts` — Workspace create now includes personality_overrides: null
+- `src/lib/workspaces/workspace.test.ts` — Mock workspace updated with personality_overrides
+
+### Key changes
+- Personality type now supports: tone, values, constraints, customInstructions
+- 6 presets: analytical-strict, friendly-creative, strategic-decutive, cautious-methodical, assertive-results, diplomatic-empathetic
+- mergePersonalities() applies workspace overrides on top of agent defaults
+- AgentPromptBuilder now handles workspace personality overrides via additionalContext
+- AgentEngine builds system prompt from definition and passes it in AgentContext
+- customInstructions replaces entire personality section when set
+
+### Tests
+- 135/135 passing (+19 nuevos)
+
+### Build
+- ✅ Green
+
+---

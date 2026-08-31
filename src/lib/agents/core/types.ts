@@ -29,6 +29,10 @@ export interface AgentContext {
   configuration: AgentConfiguration;
   previousResults?: unknown[];
   tools: string[];
+  // FASE 3: Built system prompt from AgentPromptBuilder
+  systemPrompt?: string;
+  // FASE 3: Workspace personality overrides
+  personalityOverrides?: Record<string, unknown>;
 }
 
 export interface AgentConfiguration {

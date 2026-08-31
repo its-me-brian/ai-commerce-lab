@@ -43,10 +43,24 @@ export type DecisionStyle =
   | "fast-paced"
   | "cautious";
 
+export type PersonalityTone =
+  | "professional"
+  | "casual"
+  | "authoritative"
+  | "warm"
+  | "neutral"
+  | "urgent"
+  | "playful";
+
 export interface Personality {
   traits: PersonalityTrait[];
   communicationStyle: CommunicationStyle[];
   decisionStyle: DecisionStyle;
+  // FASE 3: Enhanced personality fields
+  tone?: PersonalityTone;
+  values?: string[];           // Core values that guide behavior (e.g., "transparency", "customer-first")
+  constraints?: string[];      // Personality-level constraints (e.g., "never be pushy", "always cite sources")
+  customInstructions?: string; // Free-text override for complete personality customization
 }
 
 // ============================================

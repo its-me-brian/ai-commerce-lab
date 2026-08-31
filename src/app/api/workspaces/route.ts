@@ -60,6 +60,7 @@ export async function POST(request: Request) {
       supplier_countries: supplier_countries || [],
       business_rules: {},
       approval_rules: {},
+      personality_overrides: null,
     });
 
     if (!workspace) {

@@ -2,28 +2,46 @@
 // Converts AgentDefinition into structured system prompts for LLMs.
 // This is the SINGLE responsible for prompt construction.
 // Modify this to change prompt format without touching agents.
+//
+// FASE 3: Now supports workspace personality overrides and enhanced personality fields.
 
 import type {
   AgentDefinition,
+  Personality,
   PromptBuilderInput,
   PromptBuilderOutput,
 } from "./types-agent-definition";
+import { mergePersonalities } from "./personality-presets";
 
 export class AgentPromptBuilder {
   /**
    * Build a complete system prompt from an AgentDefinition.
+   * Optionally applies workspace personality overrides.
    */
   build(input: PromptBuilderInput): PromptBuilderOutput {
-    const { definition } = input;
+    const { definition, additionalContext } = input;
+
+    // FASE 3: Apply workspace personality overrides if provided
+    const workspaceOverrides = additionalContext?.personalityOverrides as Partial<Personality> | undefined;
+    const effectivePersonality = mergePersonalities(
+      definition.personality,
+      workspaceOverrides || null
+    );
+
+    // Create a virtual definition with merged personality
+    const effectiveDefinition: AgentDefinition = {
+      ...definition,
+      personality: effectivePersonality,
+    };
 
     const sections = {
-      identity: this.buildIdentitySection(definition),
-      mission: this.buildMissionSection(definition),
-      personality: this.buildPersonalitySection(definition),
-      expertise: this.buildExpertiseSection(definition),
-      rules: this.buildRulesSection(definition),
-      skills: this.buildSkillsSection(definition),
-      outputInstructions: this.buildOutputSection(definition),
+      identity: this.buildIdentitySection(effectiveDefinition),
+      mission: this.buildMissionSection(effectiveDefinition),
+      personality: this.buildPersonalitySection(effectiveDefinition),
+      expertise: this.buildExpertiseSection(effectiveDefinition),
+      rules: this.buildRulesSection(effectiveDefinition),
+      skills: this.buildSkillsSection(effectiveDefinition),
+      outputInstructions: this.buildOutputSection(effectiveDefinition),
     };
 
     const systemPrompt = [
@@ -58,6 +76,12 @@ export class AgentPromptBuilder {
 
   private buildPersonalitySection(def: AgentDefinition): string {
     const { personality } = def;
+
+    // FASE 3: If customInstructions is set, use it as the complete personality section
+    if (personality.customInstructions) {
+      return [`# PERSONALITY`, ``, personality.customInstructions].join("\n");
+    }
+
     const lines = [`# PERSONALITY`, ``];
 
     if (personality.traits.length > 0) {
@@ -67,21 +91,36 @@ export class AgentPromptBuilder {
     }
 
     if (personality.communicationStyle.length > 0) {
-      lines.push(
-        ``
-      );
+      lines.push(``);
       lines.push(
         `Communication: ${personality.communicationStyle.join(", ")}.`
       );
     }
 
     if (personality.decisionStyle) {
-      lines.push(
-        ``
-      );
+      lines.push(``);
       lines.push(
         `Decision approach: ${this.humanizeDecisionStyle(personality.decisionStyle)}.`
       );
+    }
+
+    // FASE 3: New personality fields
+    if (personality.tone) {
+      lines.push(``);
+      lines.push(`Tone: ${personality.tone}.`);
+    }
+
+    if (personality.values && personality.values.length > 0) {
+      lines.push(``);
+      lines.push(`Core values: ${personality.values.join(", ")}.`);
+    }
+
+    if (personality.constraints && personality.constraints.length > 0) {
+      lines.push(``);
+      lines.push(`Personality constraints:`);
+      for (const constraint of personality.constraints) {
+        lines.push(`- ${constraint}`);
+      }
     }
 
     return lines.join("\n");

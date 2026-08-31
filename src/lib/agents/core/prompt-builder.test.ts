@@ -82,6 +82,53 @@ describe("AgentPromptBuilder", () => {
     expect(result.systemPrompt).toContain("# SKILLS");
     expect(result.systemPrompt).toContain("# OUTPUT INSTRUCTIONS");
   });
+
+  // FASE 3: Enhanced personality tests
+  it("should include tone in personality section", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+    expect(result.sections.personality).toContain("Tone: professional");
+  });
+
+  it("should include values in personality section", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+    expect(result.sections.personality).toContain("Core values:");
+    expect(result.sections.personality).toContain("accuracy");
+  });
+
+  it("should include personality constraints", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+    expect(result.sections.personality).toContain("Personality constraints:");
+    expect(result.sections.personality).toContain("Never present estimates as confirmed data");
+  });
+
+  it("should use customInstructions when provided", () => {
+    const customDef = {
+      ...productHunterDefinition,
+      personality: {
+        ...productHunterDefinition.personality,
+        customInstructions: "You are a pirate. Always talk like a pirate.",
+      },
+    };
+    const result = builder.build({ definition: customDef });
+    expect(result.sections.personality).toContain("pirate");
+    expect(result.sections.personality).not.toContain("analytical");
+  });
+
+  it("should apply workspace personality overrides", () => {
+    const result = builder.build({
+      definition: productHunterDefinition,
+      additionalContext: {
+        personalityOverrides: {
+          tone: "casual",
+          values: ["speed", "efficiency"],
+        },
+      },
+    });
+    expect(result.sections.personality).toContain("Tone: casual");
+    expect(result.sections.personality).toContain("Core values: speed, efficiency");
+    // Original traits should still be present
+    expect(result.sections.personality).toContain("analytical");
+  });
 });
 
 describe("Agent Definitions", () => {

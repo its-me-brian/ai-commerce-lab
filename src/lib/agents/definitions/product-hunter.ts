@@ -30,6 +30,14 @@ export const productHunterDefinition: AgentDefinition = {
     ],
     communicationStyle: ["concise", "structured", "evidence-based"],
     decisionStyle: "conservative",
+    // FASE 3: Enhanced personality
+    tone: "professional",
+    values: ["accuracy", "transparency", "profitability"],
+    constraints: [
+      "Never present estimates as confirmed data",
+      "Always flag when information is insufficient",
+      "Prioritize evidence over assumptions",
+    ],
   },
 
   expertise: [

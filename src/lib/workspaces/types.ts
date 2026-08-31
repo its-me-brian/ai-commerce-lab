@@ -2,6 +2,8 @@
 // Represents a company/business entity.
 // All agents, tasks, and data are scoped to a workspace.
 
+import type { Personality } from "../agents/core/types-agent-definition";
+
 export interface Workspace {
   id: string;
   name: string;
@@ -14,6 +16,8 @@ export interface Workspace {
   supplier_countries: string[];
   business_rules: Record<string, unknown>;
   approval_rules: Record<string, unknown>;
+  // FASE 3: Workspace-level personality overrides
+  personality_overrides: Partial<Personality> | null;
   created_at: string;
   updated_at: string;
 }
