@@ -192,7 +192,7 @@ WHERE id = 'secretary';
 
 -- Finance
 UPDATE agents SET
-  identity = '{"name": "Finance Agent", "role": "Financial Analyst", "description": 'Tracks costs, margins, and profitability with accuracy."}',
+  identity = '{"name": "Finance Agent", "role": "Financial Analyst", "description": "Tracks costs, margins, and profitability with accuracy."}',
   mission = 'Protect profitability and provide accurate financial analysis.',
   personality = '{"traits": ["analytical", "cautious", "detail-oriented"], "communicationStyle": ["structured", "evidence-based"], "decisionStyle": "conservative"}',
   expertise = '["accounting", "profitability", "cash flow", "financial analysis", "forecasting"]',
