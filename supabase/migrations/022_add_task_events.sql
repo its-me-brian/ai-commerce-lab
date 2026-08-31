@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS task_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id UUID NOT NULL REFERENCES agent_tasks(id) ON DELETE CASCADE,
+  task_id TEXT NOT NULL REFERENCES agent_tasks(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL, -- status_change, progress_update, error, retry, cancel, delegate
   from_status TEXT,
   to_status TEXT,
@@ -18,5 +18,11 @@ CREATE INDEX IF NOT EXISTS idx_task_events_task_id ON task_events(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_events_type ON task_events(event_type);
 -- Index for chronological ordering
 CREATE INDEX IF NOT EXISTS idx_task_events_created ON task_events(created_at);
+
+-- RLS (Row Level Security) — same pattern as all other tables
+ALTER TABLE task_events ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service role full access" ON task_events
+  FOR ALL USING (true);
 
 COMMENT ON TABLE task_events IS 'Audit trail for task lifecycle events (FASE 28)';

@@ -34,3 +34,7 @@ VALUES (
   3.0,
   '["IT", "ES", "DE"]'::jsonb
 ) ON CONFLICT (id) DO NOTHING;
+
+-- RLS
+ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access" ON workspaces FOR ALL USING (true);
