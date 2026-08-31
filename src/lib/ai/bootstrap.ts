@@ -16,7 +16,7 @@ import { CEOAgent } from "../agents/ceo";
 import { StoreBuilderAgent } from "../agents/store-builder";
 import { MarketingAgent } from "../agents/marketing";
 import { SecretaryAgent } from "../agents/secretary";
-// import { FinanceAgent } from "../agents/finance";
+import { FinanceAgent } from "../agents/finance";
 
 let bootstrapped = false;
 
@@ -59,7 +59,7 @@ export function bootstrap(): void {
   registry.register(new StoreBuilderAgent());
   registry.register(new MarketingAgent());
   registry.register(new SecretaryAgent());
-  // registry.register(new FinanceAgent());
+  registry.register(new FinanceAgent());
   // registry.register(new CEOAgent());
 
   bootstrapped = true;
