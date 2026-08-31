@@ -1,7 +1,7 @@
-// CEO Agent
+// CEO Agent v2
 // Orchestrates all other agents to achieve high-level goals.
 // Plans execution, coordinates agents, synthesizes results.
-// This agent NEVER knows about specific AI providers — it only uses the router.
+// FASE 26: Real orchestration using MultiAgentOrchestrator, PricingEngine, SourceTypeManager.
 
 import { BaseAgent } from "./core/agent";
 import type {
@@ -11,6 +11,9 @@ import type {
 } from "./core/types";
 import { getRouter } from "../ai/router";
 import { getAgentRegistry } from "../ai/bootstrap";
+import { getMultiAgentOrchestrator } from "../ai/multi-agent-orchestrator";
+import { getPricingEngine } from "../ai/pricing-engine";
+import { getSourceTypeManager } from "../ai/source-type-manager";
 import { z } from "zod";
 
 // Zod schema for execution plan
@@ -65,6 +68,14 @@ export class CEOAgent extends BaseAgent {
 
     const router = getRouter();
     const registry = getAgentRegistry();
+    const orchestrator = getMultiAgentOrchestrator();
+    const pricingEngine = getPricingEngine();
+    const sourceManager = getSourceTypeManager();
+
+    // Check if this is a workflow execution request
+    if (input.workflow) {
+      return this.executeWorkflow(input, configuration);
+    }
 
     // 1. Create execution plan
     const { result: planResult, log: planLog } = await router.generate(
@@ -96,7 +107,7 @@ export class CEOAgent extends BaseAgent {
       );
     }
 
-    // 2. Execute each step
+    // 2. Execute each step using orchestrator
     const results: Array<{
       step: string;
       agentId: string;
@@ -105,74 +116,41 @@ export class CEOAgent extends BaseAgent {
       error?: string;
     }> = [];
 
-    for (const step of plan.steps) {
-      const agent = registry.get(step.agentId);
-      if (!agent) {
-        results.push({
-          step: step.description,
+    // Group steps by dependency level for parallel execution
+    const stepsByLevel = this.groupStepsByLevel(plan.steps);
+
+    for (const level of stepsByLevel) {
+      const levelResults = await orchestrator.execute({
+        parallel: level.map((step) => ({
           agentId: step.agentId,
-          success: false,
-          error: `Agent not found: ${step.agentId}`,
-        });
-        continue;
-      }
-
-      // Check dependencies
-      const dependenciesMet = (step.dependsOn || []).every((depId) =>
-        results.some((r) => r.agentId === depId && r.success)
-      );
-
-      if (!dependenciesMet) {
-        results.push({
-          step: step.description,
-          agentId: step.agentId,
-          success: false,
-          error: "Dependencies not met",
-        });
-        continue;
-      }
-
-      try {
-        // Merge input template with original input and previous results
-        const mergedInput = {
-          ...input,
-          ...step.inputTemplate,
-          previousResults: results
-            .filter((r) => (step.dependsOn || []).includes(r.agentId))
-            .map((r) => r.output),
-        };
-
-        const taskResult = await agent.execute({
-          taskId: `${context.taskId}-${step.agentId}`,
-          taskType: "general",
-          input: mergedInput,
-          configuration: {
-            agentId: step.agentId,
-            primaryProvider: configuration.primaryProvider,
-            primaryModel: configuration.primaryModel,
-            fallbackProvider: configuration.fallbackProvider,
-            fallbackModel: configuration.fallbackModel,
-            temperature: configuration.temperature,
-            maxTokens: configuration.maxTokens,
-            inputPricePerMillion: configuration.inputPricePerMillion,
-            outputPricePerMillion: configuration.outputPricePerMillion,
+          input: {
+            ...input,
+            ...step.inputTemplate,
           },
-          tools: [],
-        });
+          taskType: "ceo-orchestrated",
+        })),
+      });
 
-        results.push({
-          step: step.description,
-          agentId: step.agentId,
-          success: taskResult.success,
-          output: taskResult.structuredData,
-        });
-      } catch (error) {
-        results.push({
-          step: step.description,
-          agentId: step.agentId,
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        });
+      for (let i = 0; i < level.length; i++) {
+        const step = level[i];
+        const agentResult = levelResults.results[i];
+
+        if (agentResult?.result) {
+          results.push({
+            step: step.description,
+            agentId: step.agentId,
+            success: agentResult.result.success,
+            output: agentResult.result.structuredData,
+            error: agentResult.result.success ? undefined : agentResult.result.errors.join(", "),
+          });
+        } else {
+          results.push({
+            step: step.description,
+            agentId: step.agentId,
+            success: false,
+            error: "No result returned",
+          });
+        }
       }
     }
 
@@ -213,18 +191,282 @@ export class CEOAgent extends BaseAgent {
         synthesis,
         completedSteps: results.filter((r) => r.success).length,
         totalSteps: results.length,
+        orchestrationMode: "v2-parallel",
       },
       reasoningSummary: plan.strategy,
       errors: results.filter((r) => !r.success).map((r) => r.error || "Failed"),
       metadata: {
         providerUsed: planLog.provider,
         modelUsed: planLog.model,
-        inputTokens: planLog.inputTokens + (synthesisResult.cached ? 0 : 0),
+        inputTokens: planLog.inputTokens,
         outputTokens: planLog.outputTokens,
         durationMs: 0,
         cached: false,
       },
     };
+  }
+
+  /**
+   * FASE 26: Execute a predefined workflow using orchestrator.
+   */
+  private async executeWorkflow(
+    input: Record<string, unknown>,
+    configuration: AgentContext["configuration"]
+  ): Promise<AgentResult> {
+    const orchestrator = getMultiAgentOrchestrator();
+    const pricingEngine = getPricingEngine();
+    const startTime = Date.now();
+
+    const workflow = input.workflow as string;
+    const workflowInput = (input.workflowInput as Record<string, unknown>) || {};
+
+    let orchestrationResult;
+
+    switch (workflow) {
+      case "product-discovery":
+        orchestrationResult = await this.runProductDiscoveryWorkflow(
+          orchestrator,
+          workflowInput
+        );
+        break;
+
+      case "supplier-evaluation":
+        orchestrationResult = await this.runSupplierEvaluationWorkflow(
+          orchestrator,
+          pricingEngine,
+          workflowInput
+        );
+        break;
+
+      case "full-pipeline":
+        orchestrationResult = await this.runFullPipelineWorkflow(
+          orchestrator,
+          pricingEngine,
+          workflowInput
+        );
+        break;
+
+      default:
+        return {
+          success: false,
+          output: `Unknown workflow: ${workflow}`,
+          structuredData: null,
+          reasoningSummary: "",
+          errors: [`Unknown workflow: ${workflow}. Available: product-discovery, supplier-evaluation, full-pipeline`],
+          metadata: {
+            providerUsed: configuration.primaryProvider,
+            modelUsed: configuration.primaryModel,
+            inputTokens: 0,
+            outputTokens: 0,
+            durationMs: Date.now() - startTime,
+            cached: false,
+          },
+        };
+    }
+
+    return {
+      success: orchestrationResult.success,
+      output: `Workflow '${workflow}' completed. ${orchestrationResult.results.length} agents executed.`,
+      structuredData: {
+        workflow,
+        results: orchestrationResult.results.map((r) => ({
+          agentId: r.agentId,
+          success: r.result.success,
+          output: r.result.structuredData,
+        })),
+        totalAgents: orchestrationResult.results.length,
+        successfulAgents: orchestrationResult.results.filter((r) => r.result.success).length,
+      },
+      reasoningSummary: `Workflow '${workflow}' orchestration complete.`,
+      errors: orchestrationResult.errors,
+      metadata: {
+        providerUsed: configuration.primaryProvider,
+        modelUsed: configuration.primaryModel,
+        inputTokens: orchestrationResult.totalInputTokens,
+        outputTokens: orchestrationResult.totalOutputTokens,
+        durationMs: Date.now() - startTime,
+        cached: false,
+      },
+    };
+  }
+
+  /**
+   * Product Discovery workflow: Market → Products → Score
+   */
+  private async runProductDiscoveryWorkflow(
+    orchestrator: ReturnType<typeof getMultiAgentOrchestrator>,
+    input: Record<string, unknown>
+  ) {
+    return orchestrator.execute({
+      sequential: [
+        {
+          agentId: "market-research",
+          input: {
+            productOrCategory: input.category || "general",
+            targetMarket: input.targetMarket || "Europe",
+          },
+          taskType: "workflow-market",
+        },
+        {
+          agentId: "product-hunter",
+          input: {
+            mode: "discover",
+            query: input.query || "trending products",
+            source: input.source || "dummyjson",
+            limit: input.limit || 5,
+          },
+          taskType: "workflow-products",
+        },
+      ],
+    });
+  }
+
+  /**
+   * Supplier Evaluation workflow: Supplier Research → Pricing
+   */
+  private async runSupplierEvaluationWorkflow(
+    orchestrator: ReturnType<typeof getMultiAgentOrchestrator>,
+    pricingEngine: ReturnType<typeof getPricingEngine>,
+    input: Record<string, unknown>
+  ) {
+    const result = await orchestrator.execute({
+      parallel: [
+        {
+          agentId: "supplier-research",
+          input: {
+            productName: input.productName,
+            category: input.category || "general",
+            targetMarket: input.targetMarket || "Europe",
+          },
+          taskType: "workflow-suppliers",
+        },
+      ],
+    });
+
+    // Add pricing analysis if we have supplier data
+    const supplierData = result.results[0]?.result.structuredData;
+    if (supplierData && typeof supplierData === "object") {
+      const suppliers = (supplierData as { suppliers?: Array<{ priceRange?: { min: number } }> }).suppliers;
+      if (suppliers && suppliers.length > 0) {
+        const minCost = suppliers[0].priceRange?.min || 10;
+        const pricingResult = pricingEngine.calculate({
+          costPrice: minCost,
+          shippingCost: 3,
+          strategy: "cost-plus",
+        });
+
+        return {
+          ...result,
+          results: [
+            ...result.results,
+            {
+              agentId: "pricing-engine",
+              taskId: "pricing-analysis",
+              result: {
+                success: true,
+                output: "Pricing analysis complete",
+                structuredData: pricingResult,
+                reasoningSummary: `Recommended price: ${pricingResult.recommendedPrice}`,
+                errors: [],
+                metadata: {
+                  providerUsed: "deterministic",
+                  modelUsed: "pricing-engine",
+                  inputTokens: 0,
+                  outputTokens: 0,
+                  durationMs: 0,
+                  cached: false,
+                },
+              },
+            },
+          ],
+        };
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Full Pipeline workflow: Market → Products → Suppliers → Score → Pricing
+   */
+  private async runFullPipelineWorkflow(
+    orchestrator: ReturnType<typeof getMultiAgentOrchestrator>,
+    pricingEngine: ReturnType<typeof getPricingEngine>,
+    input: Record<string, unknown>
+  ) {
+    return orchestrator.execute({
+      sequential: [
+        {
+          agentId: "market-research",
+          input: {
+            productOrCategory: input.category || "general",
+            targetMarket: input.targetMarket || "Europe",
+          },
+          taskType: "pipeline-market",
+        },
+        {
+          agentId: "product-hunter",
+          input: {
+            mode: "discover",
+            query: input.query || "trending products",
+            source: input.source || "dummyjson",
+            limit: input.limit || 3,
+          },
+          taskType: "pipeline-products",
+        },
+        {
+          agentId: "supplier-research",
+          input: {
+            productName: input.productName || "discovered product",
+            category: input.category || "general",
+            targetMarket: input.targetMarket || "Europe",
+          },
+          taskType: "pipeline-suppliers",
+        },
+        {
+          agentId: "opportunity-scoring",
+          input: {
+            productAnalysis: input.productAnalysis || {},
+            supplierResearch: input.supplierResearch || {},
+            marketResearch: input.marketResearch || {},
+          },
+          taskType: "pipeline-scoring",
+        },
+      ],
+    });
+  }
+
+  /**
+   * Group steps by dependency level for parallel execution.
+   */
+  private groupStepsByLevel(
+    steps: ExecutionPlan["steps"]
+  ): ExecutionPlan["steps"][] {
+    const levels: ExecutionPlan["steps"][] = [];
+    const completed = new Set<string>();
+    const remaining = [...steps];
+
+    while (remaining.length > 0) {
+      const level = remaining.filter((step) => {
+        const deps = step.dependsOn || [];
+        return deps.every((dep) => completed.has(dep));
+      });
+
+      if (level.length === 0) {
+        // Circular dependency or error — break with remaining
+        levels.push(remaining);
+        break;
+      }
+
+      levels.push(level);
+      for (const step of level) {
+        completed.add(step.agentId);
+        const idx = remaining.indexOf(step);
+        remaining.splice(idx, 1);
+      }
+    }
+
+    return levels;
   }
 
   private getPlanningSystemPrompt(): string {
