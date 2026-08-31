@@ -1,11 +1,15 @@
 // Application Bootstrap
 // The ONLY file that imports concrete implementations (providers, agents, definitions).
 // Registers everything into singletons (router, registry).
+//
+// FASE 4: Providers are now registered from DB via ProviderManager.
+// Concrete provider classes are still needed for API calls, but registration is dynamic.
 
 import { getRouter } from "./router";
 import { GeminiProvider } from "./providers/gemini";
 import { ClaudeProvider } from "./providers/claude";
 import { GrokProvider } from "./providers/grok";
+import { getProviderManager } from "./provider-manager";
 
 import { AgentRegistry } from "../agents/core/registry";
 import { ProductHunterAgent } from "../agents/product-hunter";
@@ -21,31 +25,76 @@ import { FinanceAgent } from "../agents/finance";
 // Agent Definitions (identity, mission, personality, expertise, rules, skills)
 import { agentDefinitions } from "../agents/definitions";
 
+// Provider class registry — maps slug to constructor
+// This allows dynamic provider registration while keeping type safety
+type ProviderConstructor = new (apiKey: string) => import("./providers/base").AIProvider;
+
+const providerClasses: Record<string, ProviderConstructor> = {
+  gemini: GeminiProvider,
+  anthropic: ClaudeProvider,
+  xai: GrokProvider,
+};
+
 let bootstrapped = false;
 
 /**
  * Initialize all providers, agents, and definitions.
  * Called once per server process. Safe to call multiple times (idempotent).
+ *
+ * FASE 4: Uses ProviderManager to load providers from DB.
+ * Falls back to hardcoded providers if DB is unavailable.
  */
-export function bootstrap(): void {
+export async function bootstrap(): Promise<void> {
   if (bootstrapped) return;
 
-  // --- Providers ---
   const router = getRouter();
+  const providerManager = getProviderManager();
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey) {
-    router.registerProvider(new GeminiProvider(geminiKey));
-  }
+  // Try to load providers from DB
+  try {
+    const dbProviders = await providerManager.listEnabled();
 
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (anthropicKey) {
-    router.registerProvider(new ClaudeProvider(anthropicKey));
-  }
+    for (const dbProvider of dbProviders) {
+      const apiKey = providerManager.getApiKey(dbProvider);
+      if (!apiKey) {
+        console.log(
+          `[Bootstrap] Skipping provider ${dbProvider.slug} — no API key in ${dbProvider.api_key_env_var}`
+        );
+        continue;
+      }
 
-  const xaiKey = process.env.XAI_API_KEY;
-  if (xaiKey) {
-    router.registerProvider(new GrokProvider(xaiKey));
+      // Check if we have a concrete class for this provider
+      const ProviderClass = providerClasses[dbProvider.slug];
+      if (ProviderClass) {
+        router.registerProvider(new ProviderClass(apiKey));
+        console.log(`[Bootstrap] Registered provider from DB: ${dbProvider.slug}`);
+      } else {
+        console.warn(
+          `[Bootstrap] No provider class for slug: ${dbProvider.slug} — API key configured but no implementation`
+        );
+      }
+    }
+  } catch (error) {
+    // DB not available — fall back to hardcoded providers
+    console.warn(
+      `[Bootstrap] Failed to load providers from DB, using hardcoded fallback:`,
+      error instanceof Error ? error.message : error
+    );
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+      router.registerProvider(new GeminiProvider(geminiKey));
+    }
+
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey) {
+      router.registerProvider(new ClaudeProvider(anthropicKey));
+    }
+
+    const xaiKey = process.env.XAI_API_KEY;
+    if (xaiKey) {
+      router.registerProvider(new GrokProvider(xaiKey));
+    }
   }
 
   // --- Agents ---
@@ -66,6 +115,14 @@ export function bootstrap(): void {
   }
 
   bootstrapped = true;
+}
+
+/**
+ * Register a new provider class at runtime.
+ * Allows extending the system with new providers without code changes to bootstrap.
+ */
+export function registerProviderClass(slug: string, ProviderClass: ProviderConstructor): void {
+  providerClasses[slug] = ProviderClass;
 }
 
 // --- Singleton AgentRegistry ---

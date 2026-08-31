@@ -1,8 +1,14 @@
 // AI Provider Types
 // These types define the contract for all AI providers.
 // Providers implement these interfaces, agents consume them.
+//
+// FASE 4: AIProviderSlug is now dynamic (string) — providers are loaded from DB.
 
-export type AIProviderSlug = "gemini" | "anthropic" | "xai";
+/**
+ * Provider slug — dynamic, loaded from ai_providers table.
+ * Previously a hardcoded union type, now a string for extensibility.
+ */
+export type AIProviderSlug = string;
 
 export type AITaskType =
   | "product_analysis"

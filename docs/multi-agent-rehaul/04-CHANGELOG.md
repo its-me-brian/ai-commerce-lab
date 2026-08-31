@@ -136,3 +136,34 @@ CEO (executive)
 - ✅ Green
 
 ---
+
+## FASE 4 — Dynamic Provider Manager
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/015_add_provider_manager.sql` — description, api_key_env_var, base_url, capabilities, config columns + seed data
+- `src/lib/ai/provider-manager.ts` — ProviderManager service with CRUD, capability queries, config status
+- `src/lib/ai/provider-manager.test.ts` — 16 tests for ProviderManager
+
+### Archivos modificados
+- `src/lib/ai/types.ts` — AIProviderSlug changed from hardcoded union to dynamic string
+- `src/lib/ai/bootstrap.ts` — Now loads providers from DB via ProviderManager, falls back to hardcoded
+- `src/lib/database/supabase.ts` — ai_providers types updated with new columns
+
+### Key changes
+- AIProviderSlug is now `string` instead of `"gemini" | "anthropic" | "xai"`
+- ProviderManager loads providers from DB at startup
+- Provider class registry maps slugs to constructors for dynamic registration
+- registerProviderClass() allows adding new providers at runtime
+- Bootstrap falls back to hardcoded providers if DB unavailable
+- Providers now have: description, api_key_env_var, base_url, capabilities, config
+
+### Tests
+- 151/151 passing (+16 nuevos)
+
+### Build
+- ✅ Green
+
+---

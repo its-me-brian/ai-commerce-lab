@@ -13,6 +13,7 @@
 | FASE 1 | 92 | +9 | ✅ 92/92 passing |
 | FASE 2 | 116 | +24 | ✅ 116/116 passing |
 | FASE 3 | 135 | +19 | ✅ 135/135 passing |
+| FASE 4 | 151 | +16 | ✅ 151/151 passing |
 
 ---
 
@@ -28,6 +29,7 @@
 | `src/lib/agents/core/prompt-builder.test.ts` | — | ✅ FASE 3 |
 | `src/lib/agents/core/personality-presets.test.ts` | 15 | ✅ FASE 3 |
 | `src/lib/ai/router.test.ts` | — | ✅ |
+| `src/lib/ai/provider-manager.test.ts` | 16 | ✅ FASE 4 |
 | `src/lib/permissions/checker.test.ts` | — | ✅ |
 | `src/lib/workspaces/workspace.test.ts` | 9 | ✅ FASE 1 |
 

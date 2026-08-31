@@ -29,6 +29,11 @@ export interface Database {
           id: string;
           name: string;
           slug: string;
+          description: string | null;
+          api_key_env_var: string | null;
+          base_url: string | null;
+          capabilities: string[];
+          config: Record<string, unknown>;
           enabled: boolean;
           created_at: string;
         };
@@ -36,12 +41,22 @@ export interface Database {
           id: string;
           name: string;
           slug: string;
+          description?: string | null;
+          api_key_env_var?: string | null;
+          base_url?: string | null;
+          capabilities?: string[];
+          config?: Record<string, unknown>;
           enabled?: boolean;
           created_at?: string;
         };
         Update: {
           name?: string;
           slug?: string;
+          description?: string | null;
+          api_key_env_var?: string | null;
+          base_url?: string | null;
+          capabilities?: string[];
+          config?: Record<string, unknown>;
           enabled?: boolean;
         };
       };
