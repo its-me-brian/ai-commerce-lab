@@ -1,12 +1,17 @@
 // Agent Registry
-// Central registry of all available agents.
-// New agents are registered here and become available to the system.
+// Central registry of all available agents AND agent definitions.
+// - Agents: runtime implementations (BaseAgent classes)
+// - Definitions: identity, mission, personality, expertise, rules, skills
 
 import type { BaseAgent } from "./agent";
 import type { AgentMetadata } from "./types";
+import type { AgentDefinition } from "./types-agent-definition";
 
 export class AgentRegistry {
   private agents: Map<string, BaseAgent> = new Map();
+  private definitions: Map<string, AgentDefinition> = new Map();
+
+  // --- Agent (runtime) registration ---
 
   register(agent: BaseAgent): void {
     if (this.agents.has(agent.metadata.id)) {
@@ -42,5 +47,31 @@ export class AgentRegistry {
       console.log(`[AgentRegistry] Unregistered agent: ${agentId}`);
     }
     return deleted;
+  }
+
+  // --- Agent Definition registration ---
+
+  registerDefinition(definition: AgentDefinition): void {
+    if (this.definitions.has(definition.slug)) {
+      console.warn(
+        `[AgentRegistry] Definition ${definition.slug} already registered, overwriting`
+      );
+    }
+    this.definitions.set(definition.slug, definition);
+    console.log(
+      `[AgentRegistry] Registered definition: ${definition.identity.name} (${definition.slug})`
+    );
+  }
+
+  getDefinition(slug: string): AgentDefinition | undefined {
+    return this.definitions.get(slug);
+  }
+
+  listDefinitions(): AgentDefinition[] {
+    return Array.from(this.definitions.values());
+  }
+
+  listDefinitionsByStatus(status: AgentDefinition["status"]): AgentDefinition[] {
+    return this.listDefinitions().filter((d) => d.status === status);
   }
 }

@@ -9,6 +9,23 @@ interface AgentConfig {
     description: string;
     status: string;
     enabled: boolean;
+    identity: {
+      name: string;
+      role: string;
+      description: string;
+    } | null;
+    mission: string | null;
+    personality: {
+      traits: string[];
+      communicationStyle: string[];
+      decisionStyle: string;
+    } | null;
+    expertise: string[] | null;
+    agent_rules: string[] | null;
+    output_instructions: {
+      format: string;
+      constraints?: string[];
+    } | null;
   };
   config: {
     primary_provider_id: string;
@@ -35,6 +52,16 @@ interface AgentConfig {
     duration_ms: number;
     status: string;
     created_at: string;
+  }>;
+  skills: Array<{
+    skill_id: string;
+    skills: {
+      id: string;
+      name: string;
+      slug: string;
+      description: string;
+      category: string;
+    };
   }>;
 }
 
@@ -213,11 +240,95 @@ export default function AgentDetailPage({
         <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginBottom: 4 }}>
           <a href="/dashboard/agents" style={{ color: "var(--accent)", textDecoration: "none" }}>Agents</a>
           {" / "}
-          {config.agent.name}
+          {config.agent.identity?.name || config.agent.name}
         </p>
-        <h1 style={{ marginBottom: 3 }}>{config.agent.name}</h1>
-        <p>{config.agent.description}</p>
+        <h1 style={{ marginBottom: 3 }}>{config.agent.identity?.name || config.agent.name}</h1>
+        <p>{config.agent.identity?.role || config.agent.description}</p>
       </div>
+
+      {/* Agent Definition (Identity, Mission, Personality, Expertise, Rules, Skills) */}
+      {config.agent.identity && (
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20, marginBottom: 14 }}>
+          <h2 style={{ marginBottom: 16 }}>Agent Definition</h2>
+
+          {/* Identity + Mission */}
+          <div style={{ marginBottom: 16 }}>
+            <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Identity</h3>
+            <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginBottom: 8 }}>
+              {config.agent.identity.description}
+            </p>
+            {config.agent.mission && (
+              <>
+                <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Mission</h3>
+                <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>{config.agent.mission}</p>
+              </>
+            )}
+          </div>
+
+          {/* Personality */}
+          {config.agent.personality && (
+            <div style={{ marginBottom: 16 }}>
+              <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Personality</h3>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                {config.agent.personality.traits.map((trait) => (
+                  <span key={trait} style={{
+                    fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
+                    background: "var(--bg-sunken)", color: "var(--text-secondary)",
+                  }}>{trait}</span>
+                ))}
+              </div>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>
+                Communication: {config.agent.personality.communicationStyle.join(", ")}
+              </p>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>
+                Decision: {config.agent.personality.decisionStyle}
+              </p>
+            </div>
+          )}
+
+          {/* Expertise */}
+          {config.agent.expertise && config.agent.expertise.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Expertise</h3>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {config.agent.expertise.map((item) => (
+                  <span key={item} style={{
+                    fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
+                    background: "var(--accent-bg)", color: "var(--accent)",
+                  }}>{item}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Rules */}
+          {config.agent.agent_rules && config.agent.agent_rules.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Rules</h3>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {config.agent.agent_rules.map((rule, i) => (
+                  <li key={i} style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: 4 }}>{rule}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Skills */}
+          {config.skills && config.skills.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Skills</h3>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {config.skills.map((s) => (
+                  <span key={s.skill_id} style={{
+                    fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
+                    background: "var(--success-bg)", color: "var(--success)",
+                  }}>{s.skills.name}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }} className="config-grid">
         {/* Left: Config */}

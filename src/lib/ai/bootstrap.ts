@@ -1,5 +1,5 @@
 // Application Bootstrap
-// The ONLY file that imports concrete implementations (providers, agents).
+// The ONLY file that imports concrete implementations (providers, agents, definitions).
 // Registers everything into singletons (router, registry).
 
 import { getRouter } from "./router";
@@ -18,10 +18,13 @@ import { MarketingAgent } from "../agents/marketing";
 import { SecretaryAgent } from "../agents/secretary";
 import { FinanceAgent } from "../agents/finance";
 
+// Agent Definitions (identity, mission, personality, expertise, rules, skills)
+import { agentDefinitions } from "../agents/definitions";
+
 let bootstrapped = false;
 
 /**
- * Initialize all providers and agents.
+ * Initialize all providers, agents, and definitions.
  * Called once per server process. Safe to call multiple times (idempotent).
  */
 export function bootstrap(): void {
@@ -35,7 +38,6 @@ export function bootstrap(): void {
     router.registerProvider(new GeminiProvider(geminiKey));
   }
 
-  // Future providers — uncomment when implemented:
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (anthropicKey) {
     router.registerProvider(new ClaudeProvider(anthropicKey));
@@ -45,9 +47,6 @@ export function bootstrap(): void {
   if (xaiKey) {
     router.registerProvider(new GrokProvider(xaiKey));
   }
-  // if (xaiKey) {
-  //   router.registerProvider(new GrokProvider(xaiKey));
-  // }
 
   // --- Agents ---
   const registry = getAgentRegistry();
@@ -60,7 +59,11 @@ export function bootstrap(): void {
   registry.register(new MarketingAgent());
   registry.register(new SecretaryAgent());
   registry.register(new FinanceAgent());
-  // registry.register(new CEOAgent());
+
+  // --- Agent Definitions ---
+  for (const definition of Object.values(agentDefinitions)) {
+    registry.registerDefinition(definition);
+  }
 
   bootstrapped = true;
 }

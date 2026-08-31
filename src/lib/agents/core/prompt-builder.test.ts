@@ -1,0 +1,176 @@
+import { describe, it, expect } from "vitest";
+import { AgentPromptBuilder, getPromptBuilder } from "./prompt-builder";
+import { productHunterDefinition } from "../definitions/product-hunter";
+import { storeBuilderDefinition } from "../definitions/store-builder";
+import { marketingDefinition } from "../definitions/marketing";
+import { secretaryDefinition } from "../definitions/secretary";
+import { financeDefinition } from "../definitions/finance";
+import { ceoDefinition } from "../definitions/ceo";
+import {
+  agentDefinitions,
+  getAgentDefinition,
+  listAgentDefinitions,
+} from "../definitions";
+
+describe("AgentPromptBuilder", () => {
+  const builder = new AgentPromptBuilder();
+
+  it("should build system prompt from definition", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+
+    expect(result.systemPrompt).toBeDefined();
+    expect(typeof result.systemPrompt).toBe("string");
+    expect(result.systemPrompt.length).toBeGreaterThan(0);
+  });
+
+  it("should include identity in prompt", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+
+    expect(result.sections.identity).toContain("Product Hunter");
+    expect(result.sections.identity).toContain("Senior Ecommerce Product Researcher");
+  });
+
+  it("should include mission in prompt", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+
+    expect(result.sections.mission).toContain("Find and evaluate ecommerce product opportunities");
+  });
+
+  it("should include personality in prompt", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+
+    expect(result.sections.personality).toContain("analytical");
+    expect(result.sections.personality).toContain("skeptical");
+    expect(result.sections.personality).toContain("data driven");
+  });
+
+  it("should include expertise in prompt", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+
+    expect(result.sections.expertise).toContain("Ecommerce");
+    expect(result.sections.expertise).toContain("Product research");
+  });
+
+  it("should include rules in prompt", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+
+    expect(result.sections.rules).toContain("Never fabricate supplier information");
+    expect(result.sections.rules).toContain("Never fabricate prices");
+  });
+
+  it("should include skills in prompt", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+
+    expect(result.sections.skills).toContain("Product Discovery");
+    expect(result.sections.skills).toContain("Market Analysis");
+  });
+
+  it("should include output instructions", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+
+    expect(result.sections.outputInstructions).toContain("json");
+  });
+
+  it("should produce complete prompt with all sections", () => {
+    const result = builder.build({ definition: productHunterDefinition });
+
+    expect(result.systemPrompt).toContain("# IDENTITY");
+    expect(result.systemPrompt).toContain("# MISSION");
+    expect(result.systemPrompt).toContain("# PERSONALITY");
+    expect(result.systemPrompt).toContain("# EXPERTISE");
+    expect(result.systemPrompt).toContain("# RULES");
+    expect(result.systemPrompt).toContain("# SKILLS");
+    expect(result.systemPrompt).toContain("# OUTPUT INSTRUCTIONS");
+  });
+});
+
+describe("Agent Definitions", () => {
+  it("should have all 6 definitions", () => {
+    const definitions = listAgentDefinitions();
+    expect(definitions).toHaveLength(6);
+  });
+
+  it("should retrieve definition by slug", () => {
+    const ph = getAgentDefinition("product-hunter");
+    expect(ph).toBeDefined();
+    expect(ph?.id).toBe("product-hunter");
+  });
+
+  it("should return undefined for unknown slug", () => {
+    const unknown = getAgentDefinition("unknown-agent");
+    expect(unknown).toBeUndefined();
+  });
+
+  it("Product Hunter should have full definition", () => {
+    const ph = getAgentDefinition("product-hunter");
+    expect(ph).toBeDefined();
+    expect(ph?.identity.name).toBe("Product Hunter");
+    expect(ph?.identity.role).toBe("Senior Ecommerce Product Researcher");
+    expect(ph?.mission).toContain("ecommerce product opportunities");
+    expect(ph?.personality.traits.length).toBeGreaterThan(0);
+    expect(ph?.expertise.length).toBeGreaterThan(0);
+    expect(ph?.rules.length).toBeGreaterThan(0);
+    expect(ph?.skills.length).toBeGreaterThan(0);
+    expect(ph?.status).toBe("ready");
+  });
+
+  it("Other agents should have coming_soon status", () => {
+    expect(storeBuilderDefinition.status).toBe("coming_soon");
+    expect(marketingDefinition.status).toBe("coming_soon");
+    expect(secretaryDefinition.status).toBe("coming_soon");
+    expect(financeDefinition.status).toBe("coming_soon");
+    expect(ceoDefinition.status).toBe("coming_soon");
+  });
+
+  it("All definitions should have valid structure", () => {
+    for (const def of listAgentDefinitions()) {
+      expect(def.id).toBeDefined();
+      expect(def.slug).toBeDefined();
+      expect(def.identity).toBeDefined();
+      expect(def.identity.name).toBeDefined();
+      expect(def.identity.role).toBeDefined();
+      expect(def.mission).toBeDefined();
+      expect(def.personality).toBeDefined();
+      expect(Array.isArray(def.personality.traits)).toBe(true);
+      expect(Array.isArray(def.expertise)).toBe(true);
+      expect(Array.isArray(def.rules)).toBe(true);
+      expect(Array.isArray(def.skills)).toBe(true);
+    }
+  });
+});
+
+describe("Skill Assignment", () => {
+  it("Product Hunter should have 6 skills", () => {
+    const ph = getAgentDefinition("product-hunter");
+    expect(ph?.skills).toHaveLength(6);
+    expect(ph?.skills).toContain("product-discovery");
+    expect(ph?.skills).toContain("supplier-research");
+    expect(ph?.skills).toContain("market-analysis");
+    expect(ph?.skills).toContain("competitor-analysis");
+    expect(ph?.skills).toContain("pricing-analysis");
+    expect(ph?.skills).toContain("profitability-analysis");
+  });
+
+  it("Marketing should share competitor-analysis skill with Product Hunter", () => {
+    const ph = getAgentDefinition("product-hunter");
+    const mkt = getAgentDefinition("marketing");
+
+    const shared = ph?.skills.filter((s) => mkt?.skills.includes(s));
+    expect(shared).toContain("competitor-analysis");
+  });
+
+  it("CEO should have strategic skills", () => {
+    const ceo = getAgentDefinition("ceo");
+    expect(ceo?.skills).toContain("strategic-planning");
+    expect(ceo?.skills).toContain("task-delegation");
+    expect(ceo?.skills).toContain("decision-making");
+  });
+});
+
+describe("Singleton", () => {
+  it("should return same instance", () => {
+    const b1 = getPromptBuilder();
+    const b2 = getPromptBuilder();
+    expect(b1).toBe(b2);
+  });
+});

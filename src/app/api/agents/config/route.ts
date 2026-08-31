@@ -61,6 +61,12 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false })
       .limit(5);
 
+    // Get agent skills
+    const { data: agentSkills } = await supabase
+      .from("agent_skills")
+      .select("skill_id, skills(id, name, slug, description, category)")
+      .eq("agent_id", agentId);
+
     return NextResponse.json({
       success: true,
       agent,
@@ -68,6 +74,7 @@ export async function GET(request: Request) {
       providers: providers || [],
       models: models || [],
       recentRuns: recentRuns || [],
+      skills: agentSkills || [],
     });
   } catch (error) {
     return NextResponse.json(
