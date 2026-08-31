@@ -1,167 +1,170 @@
 // Agent Engine
 // Orchestrates agent execution, manages tasks, and coordinates with AI Router.
+// Uses Supabase as the source of truth for tasks, runs, and agent config.
 
-import type { AIModelRouter, RouterConfig } from "../../ai/router";
+import { supabase } from "../../database/supabase";
+import { getRouter, type RouterConfig } from "../../ai/router";
 import type { BaseAgent } from "./agent";
 import type {
   AgentContext,
   AgentResult,
   AgentConfiguration,
-  TaskRecord,
-  RunRecord,
 } from "./types";
+import type { AIProviderSlug } from "../../ai/types";
 import { randomUUID } from "crypto";
 
 export class AgentEngine {
-  private router: AIModelRouter;
-  private tasks: Map<string, TaskRecord> = new Map();
-  private runs: Map<string, RunRecord> = new Map();
-
-  constructor(router: AIModelRouter) {
-    this.router = router;
-  }
-
+  /**
+   * Execute an agent task end-to-end:
+   * 1. Create task in Supabase
+   * 2. Load agent config from Supabase
+   * 3. Execute agent via router
+   * 4. Save run to Supabase
+   * 5. Complete task in Supabase
+   */
   async executeTask(
     agent: BaseAgent,
     input: Record<string, unknown>,
-    config: AgentConfiguration
-  ): Promise<{ task: TaskRecord; result: AgentResult; run: RunRecord }> {
+    options?: { taskType?: string }
+  ): Promise<{ taskId: string; result: AgentResult }> {
     const taskId = randomUUID();
     const startTime = Date.now();
+    const taskType = options?.taskType || "general";
 
-    // Create task record
-    const task: TaskRecord = {
+    // 1. Create task in Supabase
+    await supabase.from("agent_tasks").insert({
       id: taskId,
-      agentId: agent.metadata.id,
+      agent_id: agent.metadata.id,
       status: "running",
-      taskType: "general",
+      task_type: taskType,
       input,
-      priority: 5,
-      createdAt: new Date(),
-      startedAt: new Date(),
+      started_at: new Date().toISOString(),
+    });
+
+    // 2. Validate input
+    const validationErrors = agent.validateInput(input);
+    if (validationErrors.length > 0) {
+      const errorMsg = `Input validation failed: ${validationErrors.join(", ")}`;
+      await this.failTask(taskId, errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    // 3. Load config from Supabase
+    const config = await this.loadAgentConfig(agent.metadata.id);
+
+    // 4. Build context
+    const context: AgentContext = {
+      taskId,
+      taskType: taskType as AgentContext["taskType"],
+      input,
+      configuration: config,
+      tools: [],
     };
-    this.tasks.set(taskId, task);
 
     try {
-      // Validate input
-      const validationErrors = agent.validateInput(input);
-      if (validationErrors.length > 0) {
-        throw new Error(`Input validation failed: ${validationErrors.join(", ")}`);
-      }
-
-      // Build router config from agent config
-      const routerConfig: RouterConfig = {
-        agentId: config.agentId,
-        primaryProvider: config.primaryProvider,
-        primaryModel: config.primaryModel,
-        fallbackProvider: config.fallbackProvider,
-        fallbackModel: config.fallbackModel,
-        temperature: config.temperature,
-        maxTokens: config.maxTokens,
-      };
-
-      // Build agent context
-      const context: AgentContext = {
-        taskId,
-        taskType: "general",
-        input,
-        configuration: config,
-        tools: [],
-      };
-
-      // Execute agent
+      // 5. Execute agent via router
       const result = await agent.execute(context);
 
-      // Create run record
-      const run: RunRecord = {
-        id: randomUUID(),
-        taskId,
-        agentId: agent.metadata.id,
+      // 6. Save run to Supabase
+      await supabase.from("agent_runs").insert({
+        task_id: taskId,
+        agent_id: agent.metadata.id,
         provider: result.metadata.providerUsed,
         model: result.metadata.modelUsed,
-        inputTokens: result.metadata.inputTokens,
-        outputTokens: result.metadata.outputTokens,
-        durationMs: result.metadata.durationMs,
-        status: "success",
-        createdAt: new Date(),
-      };
-      this.runs.set(run.id, run);
+        input_tokens: result.metadata.inputTokens,
+        output_tokens: result.metadata.outputTokens,
+        duration_ms: result.metadata.durationMs,
+        status: result.success ? "success" : "error",
+      });
 
-      // Update task
-      task.status = "completed";
-      task.output = result;
-      task.completedAt = new Date();
+      // 7. Complete task in Supabase
+      await supabase
+        .from("agent_tasks")
+        .update({
+          status: result.success ? "completed" : "failed",
+          output: result.structuredData || null,
+          error: result.errors.length > 0 ? result.errors.join(", ") : null,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", taskId);
 
-      return { task, result, run };
+      return { taskId, result };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
 
-      // Update task as failed
-      task.status = "failed";
-      task.error = errorMessage;
-      task.completedAt = new Date();
-
-      // Create error run record
-      const run: RunRecord = {
-        id: randomUUID(),
-        taskId,
-        agentId: agent.metadata.id,
+      // Save error run
+      await supabase.from("agent_runs").insert({
+        task_id: taskId,
+        agent_id: agent.metadata.id,
         provider: config.primaryProvider,
         model: config.primaryModel,
-        inputTokens: 0,
-        outputTokens: 0,
-        durationMs: Date.now() - startTime,
+        input_tokens: 0,
+        output_tokens: 0,
+        duration_ms: Date.now() - startTime,
         status: "error",
-        error: errorMessage,
-        createdAt: new Date(),
-      };
-      this.runs.set(run.id, run);
+        error: errorMsg,
+      });
 
-      // Return error result
-      const result: AgentResult = {
-        success: false,
-        output: "",
-        errors: [errorMessage],
-        metadata: {
-          providerUsed: config.primaryProvider,
-          modelUsed: config.primaryModel,
-          inputTokens: 0,
-          outputTokens: 0,
-          durationMs: Date.now() - startTime,
-          cached: false,
-        },
-      };
+      // Fail task
+      await this.failTask(taskId, errorMsg);
 
-      return { task, result, run };
+      throw error;
     }
   }
 
-  getTask(taskId: string): TaskRecord | undefined {
-    return this.tasks.get(taskId);
+  /**
+   * Load agent configuration from Supabase.
+   * Resolves provider/model IDs to actual slugs/names.
+   */
+  private async loadAgentConfig(agentId: string): Promise<AgentConfiguration> {
+    const { data: configRow, error: configError } = await supabase
+      .from("agent_configs")
+      .select("*")
+      .eq("agent_id", agentId)
+      .single();
+
+    if (configError || !configRow) {
+      throw new Error(`Agent config not found for: ${agentId}`);
+    }
+
+    // Resolve provider/model slugs from IDs
+    const { data: primaryModel } = await supabase
+      .from("ai_models")
+      .select("model_id")
+      .eq("id", configRow.primary_model_id)
+      .single();
+
+    let fallbackModelSlug: string | undefined;
+    if (configRow.fallback_model_id) {
+      const { data } = await supabase
+        .from("ai_models")
+        .select("model_id")
+        .eq("id", configRow.fallback_model_id)
+        .single();
+      fallbackModelSlug = data?.model_id;
+    }
+
+    return {
+      agentId,
+      primaryProvider: configRow.primary_provider_id as AIProviderSlug,
+      primaryModel: primaryModel?.model_id || "gemini-3-flash-preview",
+      fallbackProvider: configRow.fallback_provider_id
+        ? (configRow.fallback_provider_id as AIProviderSlug)
+        : undefined,
+      fallbackModel: fallbackModelSlug,
+      temperature: configRow.temperature,
+      maxTokens: configRow.max_output_tokens,
+    };
   }
 
-  getRun(runId: string): RunRecord | undefined {
-    return this.runs.get(runId);
-  }
-
-  getAllTasks(): TaskRecord[] {
-    return Array.from(this.tasks.values());
-  }
-
-  getAllRuns(): RunRecord[] {
-    return Array.from(this.runs.values());
-  }
-
-  getTasksByAgent(agentId: string): TaskRecord[] {
-    return Array.from(this.tasks.values()).filter(
-      (t) => t.agentId === agentId
-    );
-  }
-
-  getRunsByAgent(agentId: string): RunRecord[] {
-    return Array.from(this.runs.values()).filter(
-      (r) => r.agentId === agentId
-    );
+  private async failTask(taskId: string, error: string): Promise<void> {
+    await supabase
+      .from("agent_tasks")
+      .update({
+        status: "failed",
+        error,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", taskId);
   }
 }
