@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { bootstrapProviders } from "@/lib/ai/bootstrap";
 import { ProductHunterAgent } from "@/lib/agents/product-hunter";
 import type { AgentConfiguration } from "@/lib/agents/core/types";
 import type { AIProviderSlug } from "@/lib/ai/types";
@@ -75,6 +76,9 @@ export async function POST(request: Request) {
       configuration,
       tools: [],
     };
+
+    // Ensure AI providers are registered (only knows env vars, not concrete classes)
+    bootstrapProviders();
 
     // Execute
     const result = await agent.execute(context);

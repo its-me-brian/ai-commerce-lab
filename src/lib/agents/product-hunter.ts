@@ -1,5 +1,6 @@
 // Product Hunter Agent
 // Analyzes product opportunities and returns structured scores
+// This agent NEVER knows about specific AI providers — it only uses the router.
 
 import { BaseAgent } from "./core/agent";
 import type {
@@ -8,7 +9,6 @@ import type {
   AgentResult,
 } from "./core/types";
 import { getRouter } from "../ai/router";
-import { GeminiProvider } from "../ai/providers/gemini";
 import { z } from "zod";
 
 // Zod schema for structured output validation
@@ -27,16 +27,6 @@ export const ProductAnalysisSchema = z.object({
 });
 
 export type ProductAnalysis = z.infer<typeof ProductAnalysisSchema>;
-
-// Ensure providers are registered once
-function ensureProviders() {
-  const router = getRouter();
-  if (!router.getProvider("gemini")) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
-    router.registerProvider(new GeminiProvider(apiKey));
-  }
-}
 
 export class ProductHunterAgent extends BaseAgent {
   readonly metadata: AgentMetadata = {
@@ -62,9 +52,7 @@ export class ProductHunterAgent extends BaseAgent {
 
   async execute(context: AgentContext): Promise<AgentResult> {
     const { input, configuration } = context;
-    const startTime = Date.now();
 
-    ensureProviders();
     const router = getRouter();
 
     // Call AI via router (primary + fallback handled automatically)
