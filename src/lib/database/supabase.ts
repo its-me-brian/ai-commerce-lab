@@ -202,6 +202,34 @@ export interface Database {
           updated_at?: string;
         };
       };
+      agent_model_routes: {
+        Row: {
+          id: string;
+          agent_id: string;
+          model_id: string;
+          priority: number;
+          policy: string;
+          enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          agent_id: string;
+          model_id: string;
+          priority?: number;
+          policy?: string;
+          enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          priority?: number;
+          policy?: string;
+          enabled?: boolean;
+          updated_at?: string;
+        };
+      };
       agent_tasks: {
         Row: {
           id: string;
