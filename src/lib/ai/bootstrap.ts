@@ -4,7 +4,7 @@
 
 import { getRouter } from "./router";
 import { GeminiProvider } from "./providers/gemini";
-// import { ClaudeProvider } from "./providers/claude";
+import { ClaudeProvider } from "./providers/claude";
 // import { GrokProvider } from "./providers/grok";
 
 import { AgentRegistry } from "../agents/core/registry";
@@ -33,10 +33,10 @@ export function bootstrap(): void {
   }
 
   // Future providers — uncomment when implemented:
-  // const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  // if (anthropicKey) {
-  //   router.registerProvider(new ClaudeProvider(anthropicKey));
-  // }
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (anthropicKey) {
+    router.registerProvider(new ClaudeProvider(anthropicKey));
+  }
 
   // const xaiKey = process.env.XAI_API_KEY;
   // if (xaiKey) {
