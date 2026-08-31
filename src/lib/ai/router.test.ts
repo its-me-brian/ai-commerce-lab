@@ -8,6 +8,35 @@ import type {
   AIConnectionTestResult,
 } from "./types";
 
+// Mock supabase (needed because router.ts imports agent-model-routes → supabase)
+vi.mock("../database/supabase", () => ({
+  supabase: {
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      single: vi.fn(),
+    })),
+  },
+}));
+
+// Mock agent-model-routes (not needed for legacy generate tests)
+vi.mock("./agent-model-routes", () => ({
+  getAgentModelRoutes: vi.fn().mockReturnValue({
+    listEnabledByAgent: vi.fn().mockResolvedValue([]),
+  }),
+}));
+
+// Mock model-registry (not needed for legacy generate tests)
+vi.mock("./model-registry", () => ({
+  getModelRegistry: vi.fn().mockReturnValue({
+    getById: vi.fn().mockResolvedValue(null),
+  }),
+}));
+
 // --- Mock Provider ---
 
 class MockProvider extends AIProvider {

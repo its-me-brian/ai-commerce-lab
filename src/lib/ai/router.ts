@@ -1,6 +1,6 @@
 // AI Model Router
 // Central component that decides which model to use for each execution.
-// Handles primary/fallback logic and logging.
+// FASE 10: Supports both legacy RouterConfig and new agent-based routing via agent_model_routes.
 
 import type {
   AIProviderSlug,
@@ -8,6 +8,8 @@ import type {
   AIGenerateResult,
 } from "./types";
 import type { AIProvider } from "./providers/base";
+import { getAgentModelRoutes, type AgentModelRoute } from "./agent-model-routes";
+import { getModelRegistry, type ModelRecord } from "./model-registry";
 
 export interface RouterConfig {
   agentId: string;
@@ -44,6 +46,10 @@ export class AIModelRouter {
     return this.providers.get(slug);
   }
 
+  /**
+   * Legacy generate — uses explicit RouterConfig with primary/fallback.
+   * Kept for backward compatibility with existing agents.
+   */
   async generate(
     config: RouterConfig,
     options: AIGenerateOptions
@@ -134,6 +140,98 @@ export class AIModelRouter {
       this.executionLogs.push(log);
       return { result, log };
     }
+  }
+
+  /**
+   * FASE 10: Generate using agent_model_routes.
+   * Loads routes from DB, tries each in priority order, falls back on failure.
+   */
+  async generateForAgent(
+    agentId: string,
+    options: AIGenerateOptions,
+    overrides?: { temperature?: number; maxTokens?: number }
+  ): Promise<{ result: AIGenerateResult; log: RouterExecutionLog }> {
+    const startTime = Date.now();
+    const routesManager = getAgentModelRoutes();
+    const modelRegistry = getModelRegistry();
+
+    // Load enabled routes for this agent
+    const routes = await routesManager.listEnabledByAgent(agentId);
+    if (routes.length === 0) {
+      throw new Error(`No model routes configured for agent: ${agentId}`);
+    }
+
+    // Load model records to resolve provider slugs
+    const modelRecords = new Map<string, ModelRecord>();
+    for (const route of routes) {
+      const model = await modelRegistry.getById(route.model_id);
+      if (model) {
+        modelRecords.set(route.model_id, model);
+      }
+    }
+
+    // Try each route in priority order
+    let lastError: Error | null = null;
+
+    for (const route of routes) {
+      const model = modelRecords.get(route.model_id);
+      if (!model) continue;
+
+      const provider = this.providers.get(model.provider_id);
+      if (!provider) {
+        console.warn(
+          `[AI Router] Provider ${model.provider_id} not registered, skipping route ${route.id}`
+        );
+        continue;
+      }
+
+      try {
+        const result = await provider.generate({
+          ...options,
+          model: options.model ?? model.model_id,
+          temperature: options.temperature ?? overrides?.temperature,
+          maxOutputTokens: options.maxOutputTokens ?? overrides?.maxTokens,
+        });
+
+        const log: RouterExecutionLog = {
+          agentId,
+          provider: model.provider_id,
+          model: model.model_id,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+          durationMs: Date.now() - startTime,
+          success: true,
+          usedFallback: route.priority > 0,
+          timestamp: new Date(),
+        };
+
+        this.executionLogs.push(log);
+        return { result, log };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.warn(
+          `[AI Router] Route ${route.id} (${model.provider_id}/${model.model_id}) failed:`,
+          lastError.message
+        );
+        continue;
+      }
+    }
+
+    // All routes failed
+    const log: RouterExecutionLog = {
+      agentId,
+      provider: routes.length > 0 ? modelRecords.get(routes[0].model_id)?.provider_id ?? "unknown" : "unknown",
+      model: routes.length > 0 ? modelRecords.get(routes[0].model_id)?.model_id ?? "unknown" : "unknown",
+      inputTokens: 0,
+      outputTokens: 0,
+      durationMs: Date.now() - startTime,
+      success: false,
+      usedFallback: false,
+      error: lastError?.message ?? "No routes available",
+      timestamp: new Date(),
+    };
+    this.executionLogs.push(log);
+    throw lastError ?? new Error(`No routes available for agent: ${agentId}`);
   }
 
   getExecutionLogs(): RouterExecutionLog[] {
