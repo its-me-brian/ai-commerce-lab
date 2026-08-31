@@ -1,20 +1,32 @@
-// AI Provider Bootstrap
-// The ONLY file that imports concrete provider implementations.
-// Registers providers into the router based on available env vars.
+// Application Bootstrap
+// The ONLY file that imports concrete implementations (providers, agents).
+// Registers everything into singletons (router, registry).
 
 import { getRouter } from "./router";
 import { GeminiProvider } from "./providers/gemini";
 // import { ClaudeProvider } from "./providers/claude";
 // import { GrokProvider } from "./providers/grok";
 
+import { AgentRegistry } from "../agents/core/registry";
+import { ProductHunterAgent } from "../agents/product-hunter";
+// import { StoreBuilderAgent } from "../agents/store-builder";
+// import { MarketingAgent } from "../agents/marketing";
+// import { SecretaryAgent } from "../agents/secretary";
+// import { FinanceAgent } from "../agents/finance";
+// import { CEOAgent } from "../agents/ceo";
+
 let bootstrapped = false;
 
-export function bootstrapProviders(): void {
+/**
+ * Initialize all providers and agents.
+ * Called once per server process. Safe to call multiple times (idempotent).
+ */
+export function bootstrap(): void {
   if (bootstrapped) return;
 
+  // --- Providers ---
   const router = getRouter();
 
-  // Gemini
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
     router.registerProvider(new GeminiProvider(geminiKey));
@@ -31,5 +43,32 @@ export function bootstrapProviders(): void {
   //   router.registerProvider(new GrokProvider(xaiKey));
   // }
 
+  // --- Agents ---
+  const registry = getAgentRegistry();
+  registry.register(new ProductHunterAgent());
+  // registry.register(new StoreBuilderAgent());
+  // registry.register(new MarketingAgent());
+  // registry.register(new SecretaryAgent());
+  // registry.register(new FinanceAgent());
+  // registry.register(new CEOAgent());
+
   bootstrapped = true;
+}
+
+// --- Singleton AgentRegistry ---
+
+let _registry: AgentRegistry | null = null;
+
+export function getAgentRegistry(): AgentRegistry {
+  if (!_registry) {
+    _registry = new AgentRegistry();
+  }
+  return _registry;
+}
+
+/**
+ * @deprecated Use bootstrap() instead. Kept for backward compatibility.
+ */
+export function bootstrapProviders(): void {
+  bootstrap();
 }

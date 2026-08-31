@@ -1,12 +1,51 @@
-export default function AgentsPage() {
-  const agents = [
-    { id: "product-hunter", name: "Product Hunter", desc: "Searches and evaluates ecommerce opportunities", status: "ready", model: "Gemini 3 Flash", provider: "Google" },
-    { id: "store-builder", name: "Store Builder", desc: "Creates product listings and store content", status: "coming-soon", model: "-", provider: "-" },
-    { id: "marketing", name: "Marketing", desc: "Generates ad copy, hooks, and campaigns", status: "coming-soon", model: "-", provider: "-" },
-    { id: "secretary", name: "Secretary", desc: "Manages supplier communication", status: "coming-soon", model: "-", provider: "-" },
-    { id: "finance", name: "Finance", desc: "Tracks costs, margins, and profitability", status: "coming-soon", model: "-", provider: "-" },
-    { id: "ceo", name: "CEO", desc: "Orchestrates all agents and decisions", status: "coming-soon", model: "-", provider: "-" },
-  ];
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export default async function AgentsPage() {
+  // Fetch agents from Supabase
+  const { data: agents } = await supabase
+    .from("agents")
+    .select("*")
+    .order("name");
+
+  // Fetch configs to show model/provider info
+  const { data: configs } = await supabase
+    .from("agent_configs")
+    .select("agent_id, primary_provider_id, primary_model_id");
+
+  // Fetch models to resolve model names
+  const { data: models } = await supabase
+    .from("ai_models")
+    .select("id, name");
+
+  // Fetch providers to resolve provider names
+  const { data: providers } = await supabase
+    .from("ai_providers")
+    .select("id, name");
+
+  // Build a lookup map for config info
+  const configMap = new Map(
+    (configs || []).map((c) => [c.agent_id, c])
+  );
+  const modelMap = new Map(
+    (models || []).map((m) => [m.id, m.name])
+  );
+  const providerMap = new Map(
+    (providers || []).map((p) => [p.id, p.name])
+  );
+
+  const agentList = (agents || []).map((a) => {
+    const cfg = configMap.get(a.id);
+    return {
+      ...a,
+      modelName: cfg ? modelMap.get(cfg.primary_model_id) || "-" : "-",
+      providerName: cfg ? providerMap.get(cfg.primary_provider_id) || "-" : "-",
+    };
+  });
 
   return (
     <div className="page-padding" style={{ maxWidth: 1100 }}>
@@ -16,7 +55,7 @@ export default function AgentsPage() {
       </div>
 
       <div className="agents-grid" style={{ display: "grid", gap: 14 }}>
-        {agents.map((a) => (
+        {agentList.map((a) => (
           <div key={a.id} style={{
             background: "var(--bg-card)", border: "1px solid var(--border)",
             borderRadius: "var(--r-lg)", padding: 20,
@@ -25,7 +64,7 @@ export default function AgentsPage() {
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
               <div style={{ minWidth: 0 }}>
                 <h3 style={{ marginBottom: 2 }}>{a.name}</h3>
-                <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{a.desc}</p>
+                <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{a.description}</p>
               </div>
               <span style={{
                 fontSize: "0.6875rem", fontWeight: 500, padding: "2px 8px", borderRadius: 9999, flexShrink: 0, marginLeft: 8,
@@ -39,12 +78,12 @@ export default function AgentsPage() {
             <div style={{ display: "flex", gap: 16, padding: "10px 14px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)", marginBottom: 14 }}>
               <div>
                 <p style={{ fontSize: "0.625rem", color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Model</p>
-                <p style={{ fontSize: "0.75rem", fontWeight: 500 }}>{a.model}</p>
+                <p style={{ fontSize: "0.75rem", fontWeight: 500 }}>{a.modelName}</p>
               </div>
               <div style={{ width: 1, background: "var(--border)" }} />
               <div>
                 <p style={{ fontSize: "0.625rem", color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Provider</p>
-                <p style={{ fontSize: "0.75rem", fontWeight: 500 }}>{a.provider}</p>
+                <p style={{ fontSize: "0.75rem", fontWeight: 500 }}>{a.providerName}</p>
               </div>
             </div>
 

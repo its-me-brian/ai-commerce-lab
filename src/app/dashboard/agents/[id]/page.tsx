@@ -149,10 +149,10 @@ export default function AgentDetailPage({
     setTesting(true);
     setTestResult(null);
     try {
-      const res = await fetch("/api/agents/product-hunter/run", {
+      const res = await fetch("/api/agents/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(testProduct),
+        body: JSON.stringify({ agentId: id, input: testProduct }),
       });
       const data = await res.json();
       setTestResult(data);
