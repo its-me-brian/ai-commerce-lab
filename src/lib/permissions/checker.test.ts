@@ -299,4 +299,48 @@ describe("PermissionChecker", () => {
       expect(role).toBe("restricted");
     });
   });
+
+  describe("canDelegate", () => {
+    it("should allow admin to delegate to any agent", async () => {
+      vi.spyOn(checker, "hasPermission").mockResolvedValue(true);
+      vi.spyOn(checker as unknown as { getDelegationRules: () => Promise<unknown[]> }, "getDelegationRules").mockResolvedValue([]);
+      vi.spyOn(checker, "getAgentRole").mockResolvedValue("admin");
+
+      const result = await checker.canDelegate("ceo", "product-hunter");
+      expect(result.allowed).toBe(true);
+    });
+
+    it("should deny restricted agent from delegating", async () => {
+      vi.spyOn(checker, "hasPermission").mockResolvedValue(false);
+      vi.spyOn(checker as unknown as { getDelegationRules: () => Promise<unknown[]> }, "getDelegationRules").mockResolvedValue([]);
+      vi.spyOn(checker, "getAgentRole").mockResolvedValue("restricted");
+
+      const result = await checker.canDelegate("market-research", "product-hunter");
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain("does not have delegate_to");
+    });
+
+    it("should deny when explicit deny rule exists", async () => {
+      vi.spyOn(checker, "hasPermission").mockResolvedValue(true);
+      vi.spyOn(checker as unknown as { getDelegationRules: () => Promise<unknown[]> }, "getDelegationRules").mockResolvedValue([
+        { id: "no-delegate", from_agent_id: "agent-a", to_agent_id: "*", allowed: false },
+      ]);
+      vi.spyOn(checker, "getAgentRole").mockResolvedValue("agent");
+
+      const result = await checker.canDelegate("agent-a", "agent-b");
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain("denied by rule");
+    });
+
+    it("should deny when delegation depth exceeds max", async () => {
+      vi.spyOn(checker, "hasPermission").mockResolvedValue(true);
+      vi.spyOn(checker as unknown as { getDelegationRules: () => Promise<unknown[]> }, "getDelegationRules").mockResolvedValue([
+        { id: "depth-rule", from_agent_id: "agent-a", to_agent_id: "agent-b", allowed: true, maxDepth: 2 },
+      ]);
+
+      const result = await checker.canDelegate("agent-a", "agent-b", 3);
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain("depth");
+    });
+  });
 });

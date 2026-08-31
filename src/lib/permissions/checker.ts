@@ -1,10 +1,11 @@
 // Permission Checker
 // Validates agent permissions before execution.
 // Checks against database-stored permissions with fallback to defaults.
+// FASE 17: Added delegation permission validation.
 
 import { supabase } from "../database/supabase";
-import type { Permission, PermissionAction, AgentPermissions } from "./types";
-import { DEFAULT_PERMISSIONS } from "./types";
+import type { Permission, PermissionAction, AgentPermissions, DelegationRule } from "./types";
+import { DEFAULT_PERMISSIONS, DEFAULT_DELEGATION_RULES } from "./types";
 
 export class PermissionChecker {
   /**
@@ -45,6 +46,86 @@ export class PermissionChecker {
         p.granted &&
         (p.target === "*" || p.target === target)
     );
+  }
+
+  /**
+   * FASE 17: Check if an agent can delegate to another agent.
+   * Validates both permission and delegation rules.
+   */
+  async canDelegate(
+    fromAgentId: string,
+    toAgentId: string,
+    currentDepth: number = 0
+  ): Promise<{ allowed: boolean; reason?: string }> {
+    // 1. Check basic permission
+    const hasPerm = await this.hasPermission(fromAgentId, "delegate_to", toAgentId);
+    if (!hasPerm) {
+      return {
+        allowed: false,
+        reason: `Agent ${fromAgentId} does not have delegate_to permission for ${toAgentId}`,
+      };
+    }
+
+    // 2. Check delegation rules from DB
+    const rules = await this.getDelegationRules(fromAgentId, toAgentId);
+
+    // Find explicit deny
+    const denyRule = rules.find((r) => !r.allowed);
+    if (denyRule) {
+      return {
+        allowed: false,
+        reason: `Delegation denied by rule: ${denyRule.id}`,
+      };
+    }
+
+    // Find explicit allow with depth check
+    const allowRule = rules.find((r) => r.allowed);
+    if (allowRule) {
+      if (allowRule.maxDepth !== undefined && currentDepth >= allowRule.maxDepth) {
+        return {
+          allowed: false,
+          reason: `Delegation depth ${currentDepth} exceeds max depth ${allowRule.maxDepth}`,
+        };
+      }
+      return { allowed: true };
+    }
+
+    // 3. Check role-based defaults
+    const role = await this.getAgentRole(fromAgentId);
+    if (role === "restricted") {
+      return {
+        allowed: false,
+        reason: `Restricted agents cannot delegate`,
+      };
+    }
+
+    // Admin and agent roles can delegate by default
+    return { allowed: true };
+  }
+
+  /**
+   * FASE 17: Get delegation rules for a specific agent pair.
+   */
+  async getDelegationRules(
+    fromAgentId: string,
+    toAgentId: string
+  ): Promise<DelegationRule[]> {
+    const { data, error } = await supabase
+      .from("delegation_rules")
+      .select("*")
+      .or(`from_agent_id.eq.${fromAgentId},from_agent_id.eq.*`)
+      .or(`to_agent_id.eq.${toAgentId},to_agent_id.eq.*`);
+
+    if (error || !data) {
+      // Fallback to default rules
+      return DEFAULT_DELEGATION_RULES.filter(
+        (r) =>
+          (r.fromAgentId === fromAgentId || r.fromAgentId === "*") &&
+          (r.toAgentId === toAgentId || r.toAgentId === "*")
+      );
+    }
+
+    return data as DelegationRule[];
   }
 
   /**
