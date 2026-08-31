@@ -71,10 +71,70 @@ class DummyJsonSource implements ProductSource {
   }
 }
 
+// --- FakeStoreAPI Source (free, no API key, ~20 real products) ---
+
+class FakeStoreSource implements ProductSource {
+  readonly id = "fakestore";
+  readonly name = "FakeStore Products";
+
+  async search(
+    query: string,
+    options?: { limit?: number; minPrice?: number; maxPrice?: number }
+  ): Promise<RawProduct[]> {
+    const limit = options?.limit || 10;
+
+    // FakeStoreAPI doesn't support search — fetch all and filter client-side
+    const response = await fetch("https://fakestoreapi.com/products");
+    if (!response.ok) {
+      throw new Error(`FakeStore API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const queryLower = query.toLowerCase();
+
+    const products: RawProduct[] = (data || [])
+      .map((p: Record<string, unknown>) => ({
+        source: "fakestore",
+        externalId: String(p.id),
+        name: String(p.title),
+        price: Number(p.price),
+        currency: "USD",
+        imageUrl: String(p.image || ""),
+        url: `https://fakestoreapi.com/products/${p.id}`,
+        category: String(p.category || ""),
+        rating: typeof p.rating === "object" ? Number((p.rating as Record<string, unknown>).rate || 0) : 0,
+        reviewCount: typeof p.rating === "object" ? Number((p.rating as Record<string, unknown>).count || 0) : 0,
+      }))
+      .filter((p: RawProduct) => {
+        // Client-side search: match name or category
+        const matchesQuery = !queryLower ||
+          p.name.toLowerCase().includes(queryLower) ||
+          (p.category && p.category.toLowerCase().includes(queryLower));
+        if (!matchesQuery) return false;
+        if (options?.minPrice && p.price < options.minPrice) return false;
+        if (options?.maxPrice && p.price > options.maxPrice) return false;
+        return true;
+      })
+      .slice(0, limit);
+
+    return products;
+  }
+}
+
 // --- Tool Implementation ---
 
 // Registry of search sources — add new sources here
-const SEARCH_SOURCES: ProductSource[] = [new DummyJsonSource()];
+const SEARCH_SOURCES: ProductSource[] = [
+  new DummyJsonSource(),
+  new FakeStoreSource(),
+];
+
+/**
+ * Get available search sources (for Dashboard UI).
+ */
+export function getAvailableSources(): Array<{ id: string; name: string }> {
+  return SEARCH_SOURCES.map((s) => ({ id: s.id, name: s.name }));
+}
 
 export class SearchProductsTool implements Tool {
   readonly id = "search_products";

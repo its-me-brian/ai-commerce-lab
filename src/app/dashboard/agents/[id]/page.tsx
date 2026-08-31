@@ -75,6 +75,13 @@ const DEFAULT_TEST_INPUTS: Record<string, string> = {
   }, null, 2),
 };
 
+const DISCOVER_TEST_INPUT = JSON.stringify({
+  mode: "discover",
+  query: "wireless earbuds",
+  source: "dummyjson",
+  limit: 5,
+}, null, 2);
+
 export default function AgentDetailPage({
   params,
 }: {
@@ -106,6 +113,8 @@ export default function AgentDetailPage({
     DEFAULT_TEST_INPUTS[id] || '{\n  "name": "Test Product",\n  "supplierPrice": 10\n}'
   );
   const [testInputError, setTestInputError] = useState("");
+  const [searchMode, setSearchMode] = useState<"analyze" | "discover">("analyze");
+  const [searchSource, setSearchSource] = useState("dummyjson");
 
   useEffect(() => {
     fetchConfig();
@@ -502,7 +511,54 @@ export default function AgentDetailPage({
               </div>
 
               {testResult.success ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Product Hunter: Mode + Source selectors */}
+              {isProductHunter && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Mode</label>
+                    <select
+                      value={searchMode}
+                      onChange={(e) => {
+                        const mode = e.target.value as "analyze" | "discover";
+                        setSearchMode(mode);
+                        if (mode === "discover") {
+                          setTestInput(DISCOVER_TEST_INPUT.replace('"dummyjson"', `"${searchSource}"`));
+                        } else {
+                          setTestInput(DEFAULT_TEST_INPUTS[id] || '{\n  "name": "Test Product",\n  "supplierPrice": 10\n}');
+                        }
+                      }}
+                      style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.8125rem", background: "var(--bg-card)" }}
+                    >
+                      <option value="analyze">Analyze (provide product)</option>
+                      <option value="discover">Discover (search products)</option>
+                    </select>
+                  </div>
+                  {searchMode === "discover" && (
+                    <div>
+                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Source</label>
+                      <select
+                        value={searchSource}
+                        onChange={(e) => {
+                          setSearchSource(e.target.value);
+                          // Update source in current JSON input
+                          try {
+                            const parsed = JSON.parse(testInput);
+                            parsed.source = e.target.value;
+                            setTestInput(JSON.stringify(parsed, null, 2));
+                          } catch {
+                            // If JSON is invalid, just update the state
+                          }
+                        }}
+                        style={{ width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.8125rem", background: "var(--bg-card)" }}
+                      >
+                        <option value="dummyjson">DummyJSON (194 products)</option>
+                        <option value="fakestore">FakeStore (20 products)</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
                   {/* Product Hunter specific display */}
                   {isProductHunter && testResult.data && typeof testResult.data === "object" && "score" in testResult.data ? (
                     <>
