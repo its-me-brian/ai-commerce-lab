@@ -46,6 +46,8 @@ function makeContext(
       primaryModel: "gemini-3-flash",
       temperature: 0.2,
       maxTokens: 4096,
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0,
     },
     tools: ["calculate_margin", "search_products"],
     ...overrides,

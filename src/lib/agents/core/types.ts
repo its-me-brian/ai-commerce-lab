@@ -33,6 +33,9 @@ export interface AgentConfiguration {
   fallbackModel?: string;
   temperature: number;
   maxTokens: number;
+  // Model pricing (per million tokens) — from ai_models table
+  inputPricePerMillion: number;
+  outputPricePerMillion: number;
 }
 
 export interface AgentResult {

@@ -103,15 +103,25 @@ export class AgentEngine {
       // 7. Execute agent via router
       const result = await agent.execute(context);
 
-      // 8. Persist run
+      // 8. Persist run with cost calculation
+      const inputTokens = result.metadata.inputTokens;
+      const outputTokens = result.metadata.outputTokens;
+      const totalTokens = inputTokens + outputTokens;
+      const cost = this.calculateCost(
+        inputTokens, outputTokens,
+        config.inputPricePerMillion, config.outputPricePerMillion
+      );
+
       const { error: runError } = await supabase.from("agent_runs").insert({
         task_id: taskId,
         agent_id: agentId,
         provider: result.metadata.providerUsed,
         model: result.metadata.modelUsed,
-        input_tokens: result.metadata.inputTokens,
-        output_tokens: result.metadata.outputTokens,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        total_tokens: totalTokens,
         duration_ms: result.metadata.durationMs,
+        cost,
         status: result.success ? "completed" : "failed",
       });
 
@@ -119,13 +129,14 @@ export class AgentEngine {
         console.error(`[AgentEngine] Failed to persist run: ${runError.message}`);
       }
 
-      // 9. Update task status
+      // 9. Update task status with cost
       const { error: updateError } = await supabase
         .from("agent_tasks")
         .update({
           status: result.success ? "completed" : "failed",
           output: result.structuredData || null,
           error: result.errors.length > 0 ? result.errors.join(", ") : null,
+          total_cost: cost,
           completed_at: new Date().toISOString(),
         })
         .eq("id", taskId);
@@ -167,13 +178,13 @@ export class AgentEngine {
    * Resolves provider/model IDs → slugs via JOIN with ai_providers/ai_models.
    */
   private async loadAgentConfig(agentId: string): Promise<AgentConfiguration> {
-    // Load config + resolve provider slug in one query
+    // Load config + resolve provider slug + model pricing in one query
     const { data: configRow, error: configError } = await supabase
       .from("agent_configs")
       .select(`
         *,
         primary_provider:ai_providers!agent_configs_primary_provider_id_fkey(slug),
-        primary_model:ai_models!agent_configs_primary_model_id_fkey(model_id),
+        primary_model:ai_models!agent_configs_primary_model_id_fkey(model_id, input_price, output_price),
         fallback_provider:ai_providers!agent_configs_fallback_provider_id_fkey(slug),
         fallback_model:ai_models!agent_configs_fallback_model_id_fkey(model_id)
       `)
@@ -190,8 +201,9 @@ export class AgentEngine {
       throw new Error(`Primary provider not found for agent: ${agentId}`);
     }
 
-    // Resolve model ID from joined data
-    const primaryModelId = (configRow.primary_model as { model_id: string } | null)?.model_id;
+    // Resolve model ID + pricing from joined data
+    const primaryModel = configRow.primary_model as { model_id: string; input_price: number; output_price: number } | null;
+    const primaryModelId = primaryModel?.model_id;
     if (!primaryModelId) {
       throw new Error(`Primary model not found for agent: ${agentId}`);
     }
@@ -217,6 +229,8 @@ export class AgentEngine {
       fallbackModel: fallbackModelId,
       temperature: configRow.temperature,
       maxTokens: configRow.max_output_tokens,
+      inputPricePerMillion: primaryModel?.input_price || 0,
+      outputPricePerMillion: primaryModel?.output_price || 0,
     };
   }
 
@@ -256,5 +270,26 @@ export class AgentEngine {
     if (updateError) {
       console.error(`[AgentEngine] Failed to mark task as failed: ${updateError.message}`);
     }
+  }
+
+  /**
+   * Calculate cost from token usage and model pricing.
+   * Prices are per million tokens. Returns 0 if pricing is unavailable.
+   */
+  private calculateCost(
+    inputTokens: number,
+    outputTokens: number,
+    inputPricePerMillion: number,
+    outputPricePerMillion: number
+  ): number {
+    if (inputPricePerMillion === 0 && outputPricePerMillion === 0) {
+      return 0; // Free tier or unknown pricing
+    }
+
+    const inputCost = (inputTokens / 1_000_000) * inputPricePerMillion;
+    const outputCost = (outputTokens / 1_000_000) * outputPricePerMillion;
+
+    // Round to 6 decimal places for currency precision
+    return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000;
   }
 }

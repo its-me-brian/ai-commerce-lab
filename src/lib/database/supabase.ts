@@ -179,6 +179,7 @@ export interface Database {
           output: Record<string, unknown> | null;
           priority: number;
           error: string | null;
+          total_cost: number;
           created_at: string;
           started_at: string | null;
           completed_at: string | null;
@@ -192,6 +193,7 @@ export interface Database {
           output?: Record<string, unknown> | null;
           priority?: number;
           error?: string | null;
+          total_cost?: number;
           created_at?: string;
           started_at?: string | null;
           completed_at?: string | null;
@@ -200,6 +202,7 @@ export interface Database {
           status?: string;
           output?: Record<string, unknown> | null;
           error?: string | null;
+          total_cost?: number;
           completed_at?: string | null;
         };
       };
@@ -212,7 +215,9 @@ export interface Database {
           model: string;
           input_tokens: number;
           output_tokens: number;
+          total_tokens: number;
           duration_ms: number;
+          cost: number;
           status: string;
           error: string | null;
           created_at: string;
@@ -225,7 +230,9 @@ export interface Database {
           model: string;
           input_tokens?: number;
           output_tokens?: number;
+          total_tokens?: number;
           duration_ms?: number;
+          cost?: number;
           status?: string;
           error?: string | null;
           created_at?: string;
@@ -233,6 +240,7 @@ export interface Database {
         Update: {
           status?: string;
           error?: string | null;
+          cost?: number;
         };
       };
       agent_permissions: {

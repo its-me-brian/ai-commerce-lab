@@ -151,6 +151,8 @@ export class CEOAgent extends BaseAgent {
             fallbackModel: configuration.fallbackModel,
             temperature: configuration.temperature,
             maxTokens: configuration.maxTokens,
+            inputPricePerMillion: configuration.inputPricePerMillion,
+            outputPricePerMillion: configuration.outputPricePerMillion,
           },
           tools: [],
         });

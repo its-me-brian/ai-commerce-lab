@@ -36,6 +36,25 @@ export default async function DashboardPage() {
     ? Math.round(((completedTasks || 0) / totalTasks) * 100)
     : null;
 
+  // Fetch total AI cost from runs
+  const { data: costData } = await supabase
+    .from("agent_runs")
+    .select("cost")
+    .gt("cost", 0);
+
+  const totalCost = costData
+    ? costData.reduce((sum, run) => sum + (run.cost || 0), 0)
+    : 0;
+
+  // Fetch total tokens used
+  const { data: tokenData } = await supabase
+    .from("agent_runs")
+    .select("total_tokens");
+
+  const totalTokens = tokenData
+    ? tokenData.reduce((sum, run) => sum + (run.total_tokens || 0), 0)
+    : 0;
+
   // Fetch recent runs for activity
   const { data: recentRuns } = await supabase
     .from("agent_runs")
@@ -68,8 +87,8 @@ export default async function DashboardPage() {
         />
         <KpiCard
           label="AI Cost"
-          value="$0.00"
-          sub="Free tier (Gemini)"
+          value={totalCost > 0 ? `$${totalCost.toFixed(4)}` : "—"}
+          sub={totalCost > 0 ? `${totalTokens.toLocaleString()} tokens used` : "Not tracked yet"}
         />
       </div>
 
@@ -82,15 +101,15 @@ export default async function DashboardPage() {
           {recentRuns && recentRuns.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {recentRuns.map((run) => (
-                <div key={run.id} style={{
+                <a key={run.id} href={`/dashboard/runs/${run.id}`} style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   padding: "8px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)",
-                  fontSize: "0.75rem",
+                  fontSize: "0.75rem", textDecoration: "none", color: "inherit",
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{
                       width: 6, height: 6, borderRadius: "50%",
-                      background: run.status === "success" ? "var(--success)" : "var(--error)",
+                      background: run.status === "completed" ? "var(--success)" : run.status === "failed" ? "var(--error)" : "var(--text-tertiary)",
                     }} />
                     <span style={{ fontWeight: 500 }}>{run.agent_id}</span>
                     <span style={{ color: "var(--text-tertiary)" }}>· {run.model}</span>
@@ -98,7 +117,7 @@ export default async function DashboardPage() {
                   <span style={{ color: "var(--text-tertiary)" }}>
                     {(run.duration_ms / 1000).toFixed(1)}s
                   </span>
-                </div>
+                </a>
               ))}
             </div>
           ) : (
@@ -115,8 +134,9 @@ export default async function DashboardPage() {
           <h2 style={{ marginBottom: 16 }}>Quick Actions</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <QuickAction href="/dashboard/agents" label="Run Product Hunter" description="Analyze a new product opportunity" />
+            <QuickAction href="/dashboard/runs" label="Run History" description="View all agent executions" />
             <QuickAction href="/dashboard/models" label="Configure Models" description="Set up AI providers and API keys" />
-            <QuickAction href="/dashboard/settings" label="Environment Variables" description="Check API key configuration" />
+            <QuickAction href="/dashboard/settings" label="Settings" description="Check API key configuration" />
           </div>
         </div>
       </div>
