@@ -13,7 +13,7 @@ import { SupplierResearchAgent } from "../agents/supplier-research";
 import { MarketResearchAgent } from "../agents/market-research";
 import { OpportunityScoringAgent } from "../agents/opportunity-scoring";
 import { CEOAgent } from "../agents/ceo";
-// import { StoreBuilderAgent } from "../agents/store-builder";
+import { StoreBuilderAgent } from "../agents/store-builder";
 // import { MarketingAgent } from "../agents/marketing";
 // import { SecretaryAgent } from "../agents/secretary";
 // import { FinanceAgent } from "../agents/finance";
@@ -56,7 +56,7 @@ export function bootstrap(): void {
   registry.register(new MarketResearchAgent());
   registry.register(new OpportunityScoringAgent());
   registry.register(new CEOAgent());
-  // registry.register(new StoreBuilderAgent());
+  registry.register(new StoreBuilderAgent());
   // registry.register(new MarketingAgent());
   // registry.register(new SecretaryAgent());
   // registry.register(new FinanceAgent());
