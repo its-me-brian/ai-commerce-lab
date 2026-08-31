@@ -1,5 +1,6 @@
 // Calculate Margin Tool
 // Deterministic profit margin calculation — no AI needed.
+// Input validation via type guards, not `as` casts.
 
 import type { Tool, ToolResult } from "./types";
 
@@ -45,10 +46,19 @@ export class CalculateMarginTool implements Tool {
   };
 
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
-    const costPrice = input.costPrice as number;
-    const sellingPrice = input.sellingPrice as number;
-    const shippingCost = (input.shippingCost as number) || 0;
-    const platformFeePercent = (input.platformFeePercent as number) || 15;
+    // Runtime validation — no `as` casts
+    const costPrice = typeof input.costPrice === "number" ? input.costPrice : NaN;
+    const sellingPrice = typeof input.sellingPrice === "number" ? input.sellingPrice : NaN;
+    const shippingCost = typeof input.shippingCost === "number" ? input.shippingCost : 0;
+    const platformFeePercent = typeof input.platformFeePercent === "number" ? input.platformFeePercent : 15;
+
+    if (isNaN(costPrice) || isNaN(sellingPrice)) {
+      return {
+        success: false,
+        output: null,
+        error: "costPrice and sellingPrice must be valid numbers",
+      };
+    }
 
     if (costPrice <= 0 || sellingPrice <= 0) {
       return {
@@ -58,11 +68,27 @@ export class CalculateMarginTool implements Tool {
       };
     }
 
+    if (shippingCost < 0) {
+      return {
+        success: false,
+        output: null,
+        error: "shippingCost must be non-negative",
+      };
+    }
+
+    if (platformFeePercent < 0 || platformFeePercent > 100) {
+      return {
+        success: false,
+        output: null,
+        error: "platformFeePercent must be between 0 and 100",
+      };
+    }
+
     const platformFee = sellingPrice * (platformFeePercent / 100);
     const totalCost = costPrice + shippingCost + platformFee;
     const profit = sellingPrice - totalCost;
     const marginPercent = (profit / sellingPrice) * 100;
-    const roiPercent = (profit / totalCost) * 100;
+    const roiPercent = totalCost > 0 ? (profit / totalCost) * 100 : 0;
 
     // Break-even: how many units to cover a $50 fixed cost estimate
     const fixedCostEstimate = 50;

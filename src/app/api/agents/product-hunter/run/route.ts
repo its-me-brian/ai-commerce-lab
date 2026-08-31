@@ -1,31 +1,30 @@
 import { NextResponse } from "next/server";
-import { bootstrapProviders } from "@/lib/ai/bootstrap";
+import { bootstrap, getAgentRegistry } from "@/lib/ai/bootstrap";
 import { AgentEngine } from "@/lib/agents/core/engine";
-import { ProductHunterAgent } from "@/lib/agents/product-hunter";
 
 // POST /api/agents/product-hunter/run
-// Runs the Product Hunter agent with a given product
+// Legacy endpoint — redirects to generic /api/agents/run
+// Kept for backward compatibility.
 export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const agent = new ProductHunterAgent();
+    // Ensure providers + agents are registered
+    bootstrap();
 
-    // Validate input
-    const errors = agent.validateInput(body);
-    if (errors.length > 0) {
+    // Verify agent exists
+    const registry = getAgentRegistry();
+    const agentId = "product-hunter";
+    if (!registry.has(agentId)) {
       return NextResponse.json(
-        { success: false, errors },
-        { status: 400 }
+        { error: { code: "AGENT_NOT_FOUND", message: `Agent not found: ${agentId}` } },
+        { status: 404 }
       );
     }
 
-    // Ensure AI providers are registered
-    bootstrapProviders();
-
-    // Execute via engine (handles: config loading, task creation, run logging)
+    // Execute via engine (handles: config, tasks, runs, permissions, Supabase)
     const engine = new AgentEngine();
-    const { taskId, result } = await engine.executeTask(agent, body, {
+    const { taskId, result } = await engine.executeTask(agentId, body, {
       taskType: "product_analysis",
     });
 
@@ -37,10 +36,13 @@ export async function POST(request: Request) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
       {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: {
+          code: "AGENT_ERROR",
+          message: message.startsWith("Input validation failed") ? message : "An unexpected error occurred",
+        },
       },
       { status: 500 }
     );

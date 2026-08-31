@@ -1,31 +1,35 @@
 // Agent Engine
 // Orchestrates agent execution, manages tasks, and coordinates with AI Router.
 // Uses Supabase as the source of truth for tasks, runs, and agent config.
+//
+// Flow:
+//   agentId → AgentRegistry → Agent
+//   agentId → Supabase config → Provider/Model resolution → Router → LLM
 
 import { supabase } from "../../database/supabase";
-import { getRouter, type RouterConfig } from "../../ai/router";
 import { getToolRegistry } from "../../tools/bootstrap";
 import { getPermissionChecker } from "../../permissions/checker";
-import type { BaseAgent } from "./agent";
-import type {
-  AgentContext,
-  AgentResult,
-  AgentConfiguration,
-} from "./types";
+import { getAgentRegistry } from "../../ai/bootstrap";
+import type { AgentContext, AgentResult, AgentConfiguration } from "./types";
 import type { AIProviderSlug } from "../../ai/types";
 import { randomUUID } from "crypto";
 
 export class AgentEngine {
   /**
    * Execute an agent task end-to-end:
-   * 1. Create task in Supabase
-   * 2. Load agent config from Supabase
-   * 3. Execute agent via router
-   * 4. Save run to Supabase
-   * 5. Complete task in Supabase
+   * 1. Resolve agent from Registry (never accept arbitrary agent object)
+   * 2. Validate input
+   * 3. Load config from Supabase
+   * 4. Resolve provider/model slugs from DB IDs
+   * 5. Check permissions
+   * 6. Create Task
+   * 7. Create Run
+   * 8. Execute agent via Router
+   * 9. Persist result
+   * 10. Update Task/Run status
    */
   async executeTask(
-    agent: BaseAgent,
+    agentId: string,
     input: Record<string, unknown>,
     options?: { taskType?: string }
   ): Promise<{ taskId: string; result: AgentResult }> {
@@ -33,40 +37,52 @@ export class AgentEngine {
     const startTime = Date.now();
     const taskType = options?.taskType || "general";
 
-    // 1. Create task in Supabase
-    await supabase.from("agent_tasks").insert({
+    // 1. Resolve agent from Registry (source of truth)
+    const registry = getAgentRegistry();
+    const agent = registry.get(agentId);
+
+    if (!agent) {
+      throw new Error(`Agent not found in registry: ${agentId}`);
+    }
+
+    if (!agent.isEnabled()) {
+      throw new Error(`Agent is not enabled: ${agentId}`);
+    }
+
+    // 2. Validate input
+    const validationErrors = agent.validateInput(input);
+    if (validationErrors.length > 0) {
+      const errorMsg = `Input validation failed: ${validationErrors.join(", ")}`;
+      await this.createAndFailTask(taskId, agentId, taskType, input, errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    // 3. Create task in Supabase
+    const { error: taskError } = await supabase.from("agent_tasks").insert({
       id: taskId,
-      agent_id: agent.metadata.id,
+      agent_id: agentId,
       status: "running",
       task_type: taskType,
       input,
       started_at: new Date().toISOString(),
     });
 
-    // 2. Validate input
-    const validationErrors = agent.validateInput(input);
-    if (validationErrors.length > 0) {
-      const errorMsg = `Input validation failed: ${validationErrors.join(", ")}`;
-      await this.failTask(taskId, errorMsg);
-      throw new Error(errorMsg);
+    if (taskError) {
+      throw new Error(`Failed to create task: ${taskError.message}`);
     }
 
-    // 3. Load config from Supabase
-    const config = await this.loadAgentConfig(agent.metadata.id);
-
-    // 4. Load tools from registry
-    const toolRegistry = getToolRegistry();
-    const availableTools = toolRegistry.list().map((t) => t.id);
+    // 4. Load config from Supabase with proper provider/model resolution
+    const config = await this.loadAgentConfig(agentId);
 
     // 5. Check permissions
     const permissionChecker = getPermissionChecker();
-    const permissionCheck = await permissionChecker.validateExecution(
-      agent.metadata.id,
-      {
-        tools: availableTools,
-        provider: config.primaryProvider,
-      }
-    );
+    const toolRegistry = getToolRegistry();
+    const availableTools = toolRegistry.list().map((t) => t.id);
+
+    const permissionCheck = await permissionChecker.validateExecution(agentId, {
+      tools: availableTools,
+      provider: config.primaryProvider,
+    });
 
     if (!permissionCheck.allowed) {
       const errorMsg = `Permission denied: ${permissionCheck.denied.join(", ")}`;
@@ -87,20 +103,24 @@ export class AgentEngine {
       // 7. Execute agent via router
       const result = await agent.execute(context);
 
-      // 8. Save run to Supabase
-      await supabase.from("agent_runs").insert({
+      // 8. Persist run
+      const { error: runError } = await supabase.from("agent_runs").insert({
         task_id: taskId,
-        agent_id: agent.metadata.id,
+        agent_id: agentId,
         provider: result.metadata.providerUsed,
         model: result.metadata.modelUsed,
         input_tokens: result.metadata.inputTokens,
         output_tokens: result.metadata.outputTokens,
         duration_ms: result.metadata.durationMs,
-        status: result.success ? "success" : "error",
+        status: result.success ? "completed" : "failed",
       });
 
-      // 9. Complete task in Supabase
-      await supabase
+      if (runError) {
+        console.error(`[AgentEngine] Failed to persist run: ${runError.message}`);
+      }
+
+      // 9. Update task status
+      const { error: updateError } = await supabase
         .from("agent_tasks")
         .update({
           status: result.success ? "completed" : "failed",
@@ -110,22 +130,30 @@ export class AgentEngine {
         })
         .eq("id", taskId);
 
+      if (updateError) {
+        console.error(`[AgentEngine] Failed to update task: ${updateError.message}`);
+      }
+
       return { taskId, result };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
 
-      // Save error run
-      await supabase.from("agent_runs").insert({
+      // Persist error run
+      const { error: runError } = await supabase.from("agent_runs").insert({
         task_id: taskId,
-        agent_id: agent.metadata.id,
+        agent_id: agentId,
         provider: config.primaryProvider,
         model: config.primaryModel,
         input_tokens: 0,
         output_tokens: 0,
         duration_ms: Date.now() - startTime,
-        status: "error",
+        status: "failed",
         error: errorMsg,
       });
+
+      if (runError) {
+        console.error(`[AgentEngine] Failed to persist error run: ${runError.message}`);
+      }
 
       // Fail task
       await this.failTask(taskId, errorMsg);
@@ -136,12 +164,19 @@ export class AgentEngine {
 
   /**
    * Load agent configuration from Supabase.
-   * Resolves provider/model IDs to actual slugs/names.
+   * Resolves provider/model IDs → slugs via JOIN with ai_providers/ai_models.
    */
   private async loadAgentConfig(agentId: string): Promise<AgentConfiguration> {
+    // Load config + resolve provider slug in one query
     const { data: configRow, error: configError } = await supabase
       .from("agent_configs")
-      .select("*")
+      .select(`
+        *,
+        primary_provider:ai_providers!agent_configs_primary_provider_id_fkey(slug),
+        primary_model:ai_models!agent_configs_primary_model_id_fkey(model_id),
+        fallback_provider:ai_providers!agent_configs_fallback_provider_id_fkey(slug),
+        fallback_model:ai_models!agent_configs_fallback_model_id_fkey(model_id)
+      `)
       .eq("agent_id", agentId)
       .single();
 
@@ -149,38 +184,67 @@ export class AgentEngine {
       throw new Error(`Agent config not found for: ${agentId}`);
     }
 
-    // Resolve provider/model slugs from IDs
-    const { data: primaryModel } = await supabase
-      .from("ai_models")
-      .select("model_id")
-      .eq("id", configRow.primary_model_id)
-      .single();
+    // Resolve provider slug from joined data
+    const primaryProviderSlug = (configRow.primary_provider as { slug: string } | null)?.slug;
+    if (!primaryProviderSlug) {
+      throw new Error(`Primary provider not found for agent: ${agentId}`);
+    }
 
-    let fallbackModelSlug: string | undefined;
-    if (configRow.fallback_model_id) {
-      const { data } = await supabase
-        .from("ai_models")
-        .select("model_id")
-        .eq("id", configRow.fallback_model_id)
-        .single();
-      fallbackModelSlug = data?.model_id;
+    // Resolve model ID from joined data
+    const primaryModelId = (configRow.primary_model as { model_id: string } | null)?.model_id;
+    if (!primaryModelId) {
+      throw new Error(`Primary model not found for agent: ${agentId}`);
+    }
+
+    // Resolve fallback if configured
+    let fallbackProviderSlug: AIProviderSlug | undefined;
+    let fallbackModelId: string | undefined;
+
+    if (configRow.fallback_provider_id && configRow.fallback_model_id) {
+      const fp = configRow.fallback_provider as { slug: string } | null;
+      const fm = configRow.fallback_model as { model_id: string } | null;
+      if (fp?.slug && fm?.model_id) {
+        fallbackProviderSlug = fp.slug as AIProviderSlug;
+        fallbackModelId = fm.model_id;
+      }
     }
 
     return {
       agentId,
-      primaryProvider: configRow.primary_provider_id as AIProviderSlug,
-      primaryModel: primaryModel?.model_id || "gemini-3-flash-preview",
-      fallbackProvider: configRow.fallback_provider_id
-        ? (configRow.fallback_provider_id as AIProviderSlug)
-        : undefined,
-      fallbackModel: fallbackModelSlug,
+      primaryProvider: primaryProviderSlug as AIProviderSlug,
+      primaryModel: primaryModelId,
+      fallbackProvider: fallbackProviderSlug,
+      fallbackModel: fallbackModelId,
       temperature: configRow.temperature,
       maxTokens: configRow.max_output_tokens,
     };
   }
 
+  /**
+   * Create a task and immediately mark it as failed.
+   * Used when pre-execution checks fail.
+   */
+  private async createAndFailTask(
+    taskId: string,
+    agentId: string,
+    taskType: string,
+    input: Record<string, unknown>,
+    error: string
+  ): Promise<void> {
+    await supabase.from("agent_tasks").insert({
+      id: taskId,
+      agent_id: agentId,
+      status: "failed",
+      task_type: taskType,
+      input,
+      error,
+      started_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    });
+  }
+
   private async failTask(taskId: string, error: string): Promise<void> {
-    await supabase
+    const { error: updateError } = await supabase
       .from("agent_tasks")
       .update({
         status: "failed",
@@ -188,5 +252,9 @@ export class AgentEngine {
         completed_at: new Date().toISOString(),
       })
       .eq("id", taskId);
+
+    if (updateError) {
+      console.error(`[AgentEngine] Failed to mark task as failed: ${updateError.message}`);
+    }
   }
 }

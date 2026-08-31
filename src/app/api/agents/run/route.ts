@@ -13,9 +13,16 @@ export async function POST(request: Request) {
       input: Record<string, unknown>;
     };
 
-    if (!agentId || !input) {
+    if (!agentId || typeof agentId !== "string") {
       return NextResponse.json(
-        { success: false, error: "agentId and input are required" },
+        { error: { code: "INVALID_INPUT", message: "agentId is required and must be a string" } },
+        { status: 400 }
+      );
+    }
+
+    if (!input || typeof input !== "object") {
+      return NextResponse.json(
+        { error: { code: "INVALID_INPUT", message: "input is required and must be an object" } },
         { status: 400 }
       );
     }
@@ -23,28 +30,19 @@ export async function POST(request: Request) {
     // Ensure providers + agents are registered
     bootstrap();
 
-    // Look up agent from registry
+    // Verify agent exists in registry (defense in depth)
     const registry = getAgentRegistry();
-    const agent = registry.get(agentId);
-
-    if (!agent) {
+    if (!registry.has(agentId)) {
       return NextResponse.json(
-        { success: false, error: `Agent not found: ${agentId}` },
+        { error: { code: "AGENT_NOT_FOUND", message: `Agent not found: ${agentId}` } },
         { status: 404 }
       );
     }
 
-    if (!agent.isEnabled()) {
-      return NextResponse.json(
-        { success: false, error: `Agent is not enabled: ${agentId}` },
-        { status: 400 }
-      );
-    }
-
-    // Execute via engine (handles: config, tasks, runs, Supabase)
+    // Execute via engine (handles: config, tasks, runs, permissions, Supabase)
     const engine = new AgentEngine();
-    const { taskId, result } = await engine.executeTask(agent, input, {
-      taskType: "product_analysis",
+    const { taskId, result } = await engine.executeTask(agentId, input, {
+      taskType: "general",
     });
 
     return NextResponse.json({
@@ -56,12 +54,23 @@ export async function POST(request: Request) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    // Don't expose internal details
+    const isKnownError = message.startsWith("Agent not found") ||
+      message.startsWith("Agent is not enabled") ||
+      message.startsWith("Input validation failed") ||
+      message.startsWith("Permission denied") ||
+      message.startsWith("Agent config not found");
+
     return NextResponse.json(
       {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: {
+          code: isKnownError ? "AGENT_ERROR" : "INTERNAL_ERROR",
+          message: isKnownError ? message : "An unexpected error occurred",
+        },
       },
-      { status: 500 }
+      { status: isKnownError ? 400 : 500 }
     );
   }
 }

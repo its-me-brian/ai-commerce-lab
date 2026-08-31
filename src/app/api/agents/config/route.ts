@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabase } from "@/lib/database/supabase";
 
 // GET /api/agents/config?agentId=product-hunter
 // Get agent configuration
@@ -15,7 +10,7 @@ export async function GET(request: Request) {
 
     if (!agentId) {
       return NextResponse.json(
-        { success: false, error: "agentId is required" },
+        { error: { code: "INVALID_INPUT", message: "agentId query parameter is required" } },
         { status: 400 }
       );
     }
@@ -29,48 +24,69 @@ export async function GET(request: Request) {
 
     if (agentError || !agent) {
       return NextResponse.json(
-        { success: false, error: "Agent not found" },
+        { error: { code: "AGENT_NOT_FOUND", message: "Agent not found" } },
         { status: 404 }
       );
     }
 
     // Get config
-    const { data: config } = await supabase
+    const { data: config, error: configError } = await supabase
       .from("agent_configs")
       .select("*")
       .eq("agent_id", agentId)
       .single();
 
+    if (configError && configError.code !== "PGRST116") {
+      // PGRST116 = no rows returned, which is OK (agent might not have config yet)
+      console.error(`[API] Failed to load config for ${agentId}:`, configError.message);
+    }
+
     // Get providers
-    const { data: providers } = await supabase
+    const { data: providers, error: providersError } = await supabase
       .from("ai_providers")
       .select("*")
       .order("name");
 
+    if (providersError) {
+      console.error("[API] Failed to load providers:", providersError.message);
+    }
+
     // Get models
-    const { data: models } = await supabase
+    const { data: models, error: modelsError } = await supabase
       .from("ai_models")
       .select("*")
       .order("name");
 
+    if (modelsError) {
+      console.error("[API] Failed to load models:", modelsError.message);
+    }
+
     // Get recent runs
-    const { data: recentRuns } = await supabase
+    const { data: recentRuns, error: runsError } = await supabase
       .from("agent_runs")
       .select("*")
       .eq("agent_id", agentId)
       .order("created_at", { ascending: false })
       .limit(5);
 
+    if (runsError) {
+      console.error("[API] Failed to load runs:", runsError.message);
+    }
+
     // Get agent skills
-    const { data: agentSkills } = await supabase
+    const { data: agentSkills, error: skillsError } = await supabase
       .from("agent_skills")
       .select("skill_id, skills(id, name, slug, description, category)")
       .eq("agent_id", agentId);
 
+    if (skillsError) {
+      console.error("[API] Failed to load skills:", skillsError.message);
+    }
+
     return NextResponse.json({
       success: true,
       agent,
-      config,
+      config: config || null,
       providers: providers || [],
       models: models || [],
       recentRuns: recentRuns || [],
@@ -79,8 +95,10 @@ export async function GET(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: {
+          code: "INTERNAL_ERROR",
+          message: error instanceof Error ? error.message : "An unexpected error occurred",
+        },
       },
       { status: 500 }
     );
@@ -104,7 +122,28 @@ export async function PUT(request: Request) {
 
     if (!agentId || !primaryProviderId || !primaryModelId) {
       return NextResponse.json(
-        { success: false, error: "agentId, primaryProviderId, and primaryModelId are required" },
+        {
+          error: {
+            code: "INVALID_INPUT",
+            message: "agentId, primaryProviderId, and primaryModelId are required",
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate temperature range
+    if (temperature !== undefined && (temperature < 0 || temperature > 2)) {
+      return NextResponse.json(
+        { error: { code: "INVALID_INPUT", message: "Temperature must be between 0 and 2" } },
+        { status: 400 }
+      );
+    }
+
+    // Validate maxTokens range
+    if (maxTokens !== undefined && (maxTokens < 256 || maxTokens > 128000)) {
+      return NextResponse.json(
+        { error: { code: "INVALID_INPUT", message: "maxTokens must be between 256 and 128000" } },
         { status: 400 }
       );
     }
@@ -119,8 +158,8 @@ export async function PUT(request: Request) {
           primary_model_id: primaryModelId,
           fallback_provider_id: fallbackProviderId || null,
           fallback_model_id: fallbackModelId || null,
-          temperature: temperature || 0.2,
-          max_output_tokens: maxTokens || 4096,
+          temperature: temperature ?? 0.2,
+          max_output_tokens: maxTokens ?? 4096,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "agent_id" }
@@ -139,8 +178,10 @@ export async function PUT(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: {
+          code: "INTERNAL_ERROR",
+          message: error instanceof Error ? error.message : "An unexpected error occurred",
+        },
       },
       { status: 500 }
     );

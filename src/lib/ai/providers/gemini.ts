@@ -101,8 +101,13 @@ export class GeminiProvider extends AIProvider {
     if (options.responseFormat === "json") {
       try {
         structuredData = JSON.parse(content);
-      } catch {
-        // If JSON parsing fails, return raw content
+      } catch (parseError) {
+        // JSON parsing failed — return raw content without structuredData.
+        // The agent layer will handle this by parsing content directly.
+        console.warn(
+          `[Gemini] Response was not valid JSON despite responseFormat=json. ` +
+          `Parse error: ${parseError instanceof Error ? parseError.message : "unknown"}`
+        );
       }
     }
 

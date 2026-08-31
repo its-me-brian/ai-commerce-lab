@@ -92,8 +92,11 @@ export class ClaudeProvider extends AIProvider {
     if (options.responseFormat === "json") {
       try {
         structuredData = JSON.parse(content);
-      } catch {
-        // If JSON parsing fails, return raw content
+      } catch (parseError) {
+        console.warn(
+          `[Claude] Response was not valid JSON despite responseFormat=json. ` +
+          `Parse error: ${parseError instanceof Error ? parseError.message : "unknown"}`
+        );
       }
     }
 

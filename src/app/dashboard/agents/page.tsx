@@ -1,16 +1,15 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabase } from "@/lib/database/supabase";
 
 export default async function AgentsPage() {
   // Fetch agents from Supabase
-  const { data: agents } = await supabase
+  const { data: agents, error: agentsError } = await supabase
     .from("agents")
     .select("*")
     .order("name");
+
+  if (agentsError) {
+    console.error("[AgentsPage] Failed to load agents:", agentsError.message);
+  }
 
   // Fetch configs to show model/provider info
   const { data: configs } = await supabase
@@ -53,6 +52,16 @@ export default async function AgentsPage() {
         <h1 style={{ marginBottom: 3 }}>Agents</h1>
         <p>Manage and configure your AI agents</p>
       </div>
+
+      {agentsError && (
+        <div style={{
+          padding: "12px 16px", marginBottom: 16,
+          background: "var(--error-bg)", color: "var(--error)",
+          borderRadius: "var(--r-md)", fontSize: "0.8125rem",
+        }}>
+          Failed to load agents. Please try refreshing.
+        </div>
+      )}
 
       <div className="agents-grid" style={{ display: "grid", gap: 14 }}>
         {agentList.map((a) => (

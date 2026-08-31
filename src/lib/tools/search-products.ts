@@ -119,11 +119,12 @@ export class SearchProductsTool implements Tool {
   };
 
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
-    const query = input.query as string;
-    const sourceId = (input.source as string) || "dummyjson";
-    const limit = (input.limit as number) || 10;
-    const minPrice = input.minPrice as number | undefined;
-    const maxPrice = input.maxPrice as number | undefined;
+    // Runtime validation — no `as` casts
+    const query = typeof input.query === "string" ? input.query : "";
+    const sourceId = typeof input.source === "string" ? input.source : "dummyjson";
+    const limit = typeof input.limit === "number" ? input.limit : 10;
+    const minPrice = typeof input.minPrice === "number" ? input.minPrice : undefined;
+    const maxPrice = typeof input.maxPrice === "number" ? input.maxPrice : undefined;
 
     if (!query || query.trim().length === 0) {
       return { success: false, output: null, error: "Query is required" };

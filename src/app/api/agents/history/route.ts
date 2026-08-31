@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabase } from "@/lib/database/supabase";
 
 // GET /api/agents/history?agentId=product-hunter&limit=20
 // Get agent task history
@@ -12,7 +7,8 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const agentId = searchParams.get("agentId");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const limitParam = searchParams.get("limit");
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 20, 100) : 20;
 
     let query = supabase
       .from("agent_tasks")
@@ -37,8 +33,10 @@ export async function GET(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: {
+          code: "INTERNAL_ERROR",
+          message: error instanceof Error ? error.message : "An unexpected error occurred",
+        },
       },
       { status: 500 }
     );

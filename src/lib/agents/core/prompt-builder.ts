@@ -153,6 +153,7 @@ export class AgentPromptBuilder {
       intuitive: "intuitive when data is unavailable",
       collaborative: "collaborative, seeking input before decisions",
       "fast-paced": "fast-paced, acting quickly on strong signals",
+      cautious: "cautious, verifying facts before committing to decisions",
     };
     return map[style] || style;
   }
