@@ -471,67 +471,14 @@ export default function AgentDetailPage({
             <h2 style={{ marginBottom: 4 }}>Test Agent</h2>
             <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginBottom: 16 }}>
               {isProductHunter
-                ? "Analyze a product opportunity"
+                ? (searchMode === "discover" ? "Search and analyze products" : "Analyze a product opportunity")
                 : `Send input to ${config.agent.name}`}
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Input (JSON)</label>
-                <textarea
-                  value={testInput}
-                  onChange={(e) => setTestInput(e.target.value)}
-                  rows={8}
-                  className="mono"
-                  style={{
-                    width: "100%", padding: "8px 12px", border: `1px solid ${testInputError ? "var(--error)" : "var(--border)"}`,
-                    borderRadius: "var(--r-md)", fontSize: "0.75rem", background: "var(--bg-card)",
-                    resize: "vertical", lineHeight: 1.5,
-                  }}
-                />
-                {testInputError && (
-                  <p style={{ fontSize: "0.6875rem", color: "var(--error)", marginTop: 4 }}>{testInputError}</p>
-                )}
-              </div>
-
-              <button
-                onClick={handleTest}
-                disabled={testing}
-                style={{
-                  padding: "9px 18px",
-                  background: testing ? "var(--bg-sunken)" : "var(--accent)",
-                  color: "white", border: "none", borderRadius: "var(--r-md)",
-                  fontSize: "0.8125rem", fontWeight: 500,
-                  cursor: testing ? "not-allowed" : "pointer",
-                }}
-              >
-                {testing ? "Running..." : "Run Agent"}
-              </button>
-            </div>
-          </div>
-
-          {/* Results */}
-          {testResult && (
-            <div style={{
-              background: "var(--bg-card)", border: "1px solid var(--border)",
-              borderRadius: "var(--r-lg)", padding: 20,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <h2>Result</h2>
-                <span style={{
-                  fontSize: "0.6875rem", fontWeight: 500, padding: "2px 8px", borderRadius: 9999,
-                  background: testResult.success ? "var(--success-bg)" : "var(--error-bg)",
-                  color: testResult.success ? "var(--success)" : "var(--error)",
-                }}>
-                  {testResult.success ? "Success" : "Error"}
-                </span>
-              </div>
-
-              {testResult.success ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {/* Product Hunter: Mode + Source selectors */}
               {isProductHunter && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: searchMode === "discover" ? "1fr 1fr" : "1fr", gap: 12 }}>
                   <div>
                     <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Mode</label>
                     <select
@@ -585,7 +532,59 @@ export default function AgentDetailPage({
                   )}
                 </div>
               )}
+              <div>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Input (JSON)</label>
+                <textarea
+                  value={testInput}
+                  onChange={(e) => setTestInput(e.target.value)}
+                  rows={8}
+                  className="mono"
+                  style={{
+                    width: "100%", padding: "8px 12px", border: `1px solid ${testInputError ? "var(--error)" : "var(--border)"}`,
+                    borderRadius: "var(--r-md)", fontSize: "0.75rem", background: "var(--bg-card)",
+                    resize: "vertical", lineHeight: 1.5,
+                  }}
+                />
+                {testInputError && (
+                  <p style={{ fontSize: "0.6875rem", color: "var(--error)", marginTop: 4 }}>{testInputError}</p>
+                )}
+              </div>
 
+              <button
+                onClick={handleTest}
+                disabled={testing}
+                style={{
+                  padding: "9px 18px",
+                  background: testing ? "var(--bg-sunken)" : "var(--accent)",
+                  color: "white", border: "none", borderRadius: "var(--r-md)",
+                  fontSize: "0.8125rem", fontWeight: 500,
+                  cursor: testing ? "not-allowed" : "pointer",
+                }}
+              >
+                {testing ? "Running..." : "Run Agent"}
+              </button>
+            </div>
+          </div>
+
+          {/* Results */}
+          {testResult && (
+            <div style={{
+              background: "var(--bg-card)", border: "1px solid var(--border)",
+              borderRadius: "var(--r-lg)", padding: 20,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <h2>Result</h2>
+                <span style={{
+                  fontSize: "0.6875rem", fontWeight: 500, padding: "2px 8px", borderRadius: 9999,
+                  background: testResult.success ? "var(--success-bg)" : "var(--error-bg)",
+                  color: testResult.success ? "var(--success)" : "var(--error)",
+                }}>
+                  {testResult.success ? "Success" : "Error"}
+                </span>
+              </div>
+
+              {testResult.success ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {/* Discover mode: Multiple opportunities */}
               {isProductHunter && testResult.data && typeof testResult.data === "object" && "opportunities" in testResult.data ? (
                 <DiscoverResults data={testResult.data as Record<string, unknown>} errors={testResult.errors} />
