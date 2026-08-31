@@ -30,6 +30,7 @@
 | FASE 18 | 316 | +0 | ✅ 316/316 passing |
 | FASE 19 | 324 | +8 | ✅ 324/324 passing |
 | FASE 20 | 334 | +10 | ✅ 334/334 passing |
+| FASE 21 | 340 | +6 | ✅ 340/340 passing |
 
 ---
 
@@ -61,6 +62,7 @@
 | `src/lib/permissions/checker.test.ts` | — | ✅ FASE 17 |
 | `src/lib/ai/agent-memory.test.ts` | 8 | ✅ FASE 19 |
 | `src/lib/ai/multi-agent-orchestrator.test.ts` | 10 | ✅ FASE 20 |
+| `src/lib/ai/supplier-workflow.test.ts` | 6 | ✅ FASE 21 |
 | `src/lib/workspaces/workspace.test.ts` | 9 | ✅ FASE 1 |
 
 ---

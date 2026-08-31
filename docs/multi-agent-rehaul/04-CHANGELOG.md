@@ -569,3 +569,27 @@ CEO (executive)
 
 ### Commit
 - `FASE20`
+
+---
+
+## FASE 21 — Supplier Workflow
+
+**Fecha**: 31 Aug 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/supplier-workflow.ts` — SupplierWorkflow con execute(), calculateLandedCosts()
+- `src/lib/ai/supplier-workflow.test.ts` — 6 tests
+
+### Key changes
+- Workflow dedicado para supplier research con cadena de análisis
+- Flow: Product info → (Optional) Market context → Supplier research → Landed cost calculation
+- calculateLandedCosts() estima costos totales (producto + envío + plataforma)
+- Soporte para market context enrichment (competition, demand, trends)
+- Metadata tracking: agents used, token counts, duration
+
+### Tests
+- 340/340 passing (+6 nuevos)
+
+### Commit
+- `FASE21`
