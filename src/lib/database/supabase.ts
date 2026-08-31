@@ -318,6 +318,51 @@ export interface Database {
           skill_id?: string;
         };
       };
+      workspaces: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          target_country: string;
+          currency: string;
+          target_customer: string | null;
+          brand_voice: string | null;
+          target_margin: number;
+          supplier_countries: string[];
+          business_rules: Record<string, unknown>;
+          approval_rules: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          description?: string | null;
+          target_country?: string;
+          currency?: string;
+          target_customer?: string | null;
+          brand_voice?: string | null;
+          target_margin?: number;
+          supplier_countries?: string[];
+          business_rules?: Record<string, unknown>;
+          approval_rules?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          target_country?: string;
+          currency?: string;
+          target_customer?: string | null;
+          brand_voice?: string | null;
+          target_margin?: number;
+          supplier_countries?: string[];
+          business_rules?: Record<string, unknown>;
+          approval_rules?: Record<string, unknown>;
+          updated_at?: string;
+        };
+      };
     };
   };
 }
