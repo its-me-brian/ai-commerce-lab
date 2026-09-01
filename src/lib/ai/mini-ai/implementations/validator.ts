@@ -7,7 +7,7 @@ import type { MiniAIDefinition } from "../types";
 
 // F10: Zod schemas for runtime validation
 export const ValidatorInputSchema = z.object({
-  data: z.record(z.unknown()),
+  data: z.record(z.string(), z.unknown()),
   rules: z.array(z.string()).min(1, "at least one rule required"),
   strictMode: z.boolean().optional(),
 });

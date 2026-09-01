@@ -433,7 +433,7 @@ export class AgentEngine {
     input: Record<string, unknown>
   ): Promise<MiniAIResult> {
     const engine = getMiniAIEngine();
-    const result = await engine.execute(miniAIId, input);
+    const result = await engine.execute(miniAIId, { input });
 
     // Log delegation event for observability
     try {
@@ -474,7 +474,7 @@ export class AgentEngine {
     let currentInput = steps[0]?.input || {};
 
     for (const step of steps) {
-      const result = await engine.execute(step.miniAIId, currentInput);
+      const result = await engine.execute(step.miniAIId, { input: currentInput });
       results.push(result);
 
       // Chain: next step gets this step's output as input

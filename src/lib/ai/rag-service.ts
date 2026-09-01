@@ -10,8 +10,9 @@
 // F7: Minimal viable RAG for agent context injection.
 
 // Lazy import — only loaded when no client is injected (production use)
-let _supabaseClient: SupabaseClient | null = null;
-async function getDefaultClient(): Promise<SupabaseClient> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _supabaseClient: any = null;
+async function getDefaultClient(): Promise<any> {
   if (!_supabaseClient) {
     const { supabase } = await import("../database/supabase");
     _supabaseClient = supabase;
@@ -133,14 +134,17 @@ function cosineSimilarity(a: number[], b: number[]): number {
 // ============================================
 
 export class RAGService {
-  private db: SupabaseClient | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private db: any;
 
-  constructor(db?: SupabaseClient) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(db?: any) {
     this.db = db ?? null;
   }
 
   /** Get the DB client — injected or lazy-loaded from module */
-  private async getClient(): Promise<SupabaseClient> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async getClient(): Promise<any> {
     return this.db ?? getDefaultClient();
   }
 

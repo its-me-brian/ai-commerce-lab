@@ -279,11 +279,14 @@ IMPORTANT: Respond with ONLY the JSON object, nothing else.`;
     try {
       const registry = await loadAgentRegistry();
       const definitions = registry.listDefinitions?.() ?? [];
-      return definitions.map((def: Record<string, unknown>) => ({
-        id: def.id as string,
-        role: (def.role as string) || (def.description as string) || "general",
-        capabilities: (def.capabilities as string[]) || [],
-      }));
+      return definitions.map((def) => {
+        const d = def as unknown as Record<string, unknown>;
+        return {
+          id: d.id as string,
+          role: (d.role as string) || (d.description as string) || "general",
+          capabilities: (d.capabilities as string[]) || [],
+        };
+      });
     } catch {
       // Registry not bootstrapped — return minimal list
       return [

@@ -12,7 +12,7 @@ export const ExtractorInputSchema = z.object({
 });
 
 export const ExtractorOutputSchema = z.object({
-  extracted: z.record(z.unknown()),
+  extracted: z.record(z.string(), z.unknown()),
   confidence: z.number().min(0).max(1),
   missingFields: z.array(z.string()),
   reasoning: z.string().optional(),

@@ -116,7 +116,7 @@ describe("AgentEngine — Mini-AI Delegation", () => {
       });
 
       expect(mockMiniAIExecute).toHaveBeenCalledWith("classifier", {
-        text: "Wireless headphones",
+        input: { text: "Wireless headphones" },
       });
       expect(result.success).toBe(true);
       expect(result.output).toEqual({ bestCategory: "electronics", confidence: 0.9 });
