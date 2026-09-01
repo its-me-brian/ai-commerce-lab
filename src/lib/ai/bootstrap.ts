@@ -10,6 +10,7 @@ import { GeminiProvider } from "./providers/gemini";
 import { ClaudeProvider } from "./providers/claude";
 import { GrokProvider } from "./providers/grok";
 import { getProviderManager } from "./provider-manager";
+import { bootstrapMiniAIs } from "./mini-ai/bootstrap";
 
 import { AgentRegistry } from "../agents/core/registry";
 import { ProductHunterAgent } from "../agents/product-hunter";
@@ -115,6 +116,9 @@ export async function bootstrap(): Promise<void> {
   for (const definition of Object.values(definitions)) {
     registry.registerDefinition(definition);
   }
+
+  // --- Mini-IAs (built-in deterministic + LLM implementations) ---
+  bootstrapMiniAIs();
 
   bootstrapped = true;
 }

@@ -4,26 +4,28 @@ import { WorkflowExecutor, resetWorkflowExecutor } from "./executor";
 import type { WorkflowDefinition } from "./types";
 
 // Mock AgentEngine
-vi.mock("../../agents/core/engine", () => ({
-  getAgentEngine: () => ({
-    executeTask: vi.fn().mockResolvedValue({
-      result: {
-        success: true,
-        output: "Agent output",
-        structuredData: { recommendation: "APPROVE", score: 90 },
-        errors: [],
-        metadata: {
-          providerUsed: "gemini",
-          modelUsed: "gemini-3-flash",
-          inputTokens: 100,
-          outputTokens: 50,
-          durationMs: 500,
-          cached: false,
+vi.mock("../../agents/core/engine", () => {
+  return {
+    AgentEngine: class MockAgentEngine {
+      executeTask = vi.fn().mockResolvedValue({
+        result: {
+          success: true,
+          output: "Agent output",
+          structuredData: { recommendation: "APPROVE", score: 90 },
+          errors: [],
+          metadata: {
+            providerUsed: "gemini",
+            modelUsed: "gemini-3-flash",
+            inputTokens: 100,
+            outputTokens: 50,
+            durationMs: 500,
+            cached: false,
+          },
         },
-      },
-    }),
-  }),
-}));
+      });
+    },
+  };
+});
 
 // Mock MiniAIEngine
 const mockMiniAIExecute = vi.fn();

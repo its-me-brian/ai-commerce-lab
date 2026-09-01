@@ -167,92 +167,84 @@ export class OrchestratorV2 {
       intent: plan.intent,
     };
 
-    for (const step of plan.steps) {
+    for (let i = 0; i < plan.steps.length; i++) {
+      const step = plan.steps[i];
       const stepStart = Date.now();
       let stepSuccess = false;
       let stepOutput: unknown = null;
       let stepCost = 0;
+      let lastError: string | null = null;
+      const maxRetries = step.required !== false ? 1 : 0;
 
-      try {
-        // Map input from previous results or working memory
-        const input = this.mapStepInput(step, workingMemory);
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          // Map input from previous results or working memory
+          const input = this.mapStepInput(step, workingMemory);
 
-        if (step.type === "agent") {
-          // Execute agent via AgentEngine
-          const { result } = await this.agentEngine.executeTask(
-            step.agentId!,
-            input as Record<string, unknown>,
-            { taskType: plan.intent || "general" }
-          );
+          if (step.type === "agent") {
+            // Execute agent via AgentEngine
+            const { result } = await this.agentEngine.executeTask(
+              step.agentId!,
+              input as Record<string, unknown>,
+              { taskType: plan.intent || "general" }
+            );
 
-          stepSuccess = result.success;
-          stepOutput = result.structuredData || result.output;
-          stepCost = (result.metadata.inputTokens + result.metadata.outputTokens) * 0.000001;
-          totalTokens += result.metadata.inputTokens + result.metadata.outputTokens;
-        } else if (step.type === "mini-ai") {
-          // Execute single mini-AI
-          const engine = getMiniAIEngine();
-          const miniAIResult = await engine.execute(step.miniAIId!, {
-            input: input as Record<string, unknown>,
-            workingMemory,
-          });
+            stepSuccess = result.success;
+            stepOutput = result.structuredData || result.output;
+            stepCost = (result.metadata.inputTokens + result.metadata.outputTokens) * 0.000001;
+            totalTokens += result.metadata.inputTokens + result.metadata.outputTokens;
+          } else if (step.type === "mini-ai") {
+            // Execute single mini-AI
+            const engine = getMiniAIEngine();
+            const miniAIResult = await engine.execute(step.miniAIId!, {
+              input: input as Record<string, unknown>,
+              workingMemory,
+            });
 
-          stepSuccess = miniAIResult.success;
-          stepOutput = miniAIResult.output;
-          stepCost = miniAIResult.metadata.costDollars || 0;
-          totalTokens += miniAIResult.metadata.inputTokens + miniAIResult.metadata.outputTokens;
-        } else if (step.type === "chain") {
-          // Execute mini-AI chain
-          const engine = getMiniAIEngine();
-          const chainResults = await engine.executeChain(
-            step.chainSteps || [],
-            input as Record<string, unknown>
-          );
+            stepSuccess = miniAIResult.success;
+            stepOutput = miniAIResult.output;
+            stepCost = miniAIResult.metadata.costDollars || 0;
+            totalTokens += miniAIResult.metadata.inputTokens + miniAIResult.metadata.outputTokens;
+          } else if (step.type === "chain") {
+            // Execute mini-AI chain
+            const engine = getMiniAIEngine();
+            const chainResults = await engine.executeChain(
+              step.chainSteps || [],
+              input as Record<string, unknown>
+            );
 
-          stepSuccess = chainResults.every((r: MiniAIResult) => r.success);
-          stepOutput = chainResults.map((r: MiniAIResult) => r.output);
-          stepCost = chainResults.reduce((sum: number, r: MiniAIResult) => sum + (r.metadata.costDollars || 0), 0);
-          totalTokens += chainResults.reduce(
-            (sum: number, r: MiniAIResult) => sum + r.metadata.inputTokens + r.metadata.outputTokens,
-            0
-          );
+            stepSuccess = chainResults.every((r: MiniAIResult) => r.success);
+            stepOutput = chainResults.map((r: MiniAIResult) => r.output);
+            stepCost = chainResults.reduce((sum: number, r: MiniAIResult) => sum + (r.metadata.costDollars || 0), 0);
+            totalTokens += chainResults.reduce(
+              (sum: number, r: MiniAIResult) => sum + r.metadata.inputTokens + r.metadata.outputTokens,
+              0
+            );
+          }
+
+          // Success — break retry loop
+          lastError = null;
+          break;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+          if (attempt < maxRetries) {
+            retriedSteps++;
+            // Wait before retry
+            await new Promise((r) => setTimeout(r, 1000));
+          }
         }
+      }
 
-        // Store result in working memory for next steps
+      // Store result in working memory for next steps
+      if (stepSuccess) {
         workingMemory[step.id] = stepOutput;
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-
-        // Retry logic (1 retry for required steps)
-        if (step.required !== false && retriedSteps < 1) {
-          retriedSteps++;
-          // Will retry on next loop iteration (simplified — in production would use retry logic)
-          stepResults.push({
-            stepId: step.id,
-            success: false,
-            output: { error: msg },
-            durationMs: Date.now() - stepStart,
-            cost: 0,
-          });
-          continue;
-        }
-
-        stepResults.push({
-          stepId: step.id,
-          success: false,
-          output: { error: msg },
-          durationMs: Date.now() - stepStart,
-          cost: 0,
-        });
-        totalCost += stepCost;
-        continue;
       }
 
       totalCost += stepCost;
       stepResults.push({
         stepId: step.id,
         success: stepSuccess,
-        output: stepOutput,
+        output: stepSuccess ? stepOutput : { error: lastError },
         durationMs: Date.now() - stepStart,
         cost: stepCost,
       });
@@ -452,8 +444,25 @@ export class OrchestratorV2 {
     const input: Record<string, unknown> = {};
     for (const [key, ref] of Object.entries(step.inputMapping)) {
       if (ref.startsWith("input.")) {
-        // Reference to original request fields
-        input[key] = workingMemory.request;
+        // Reference to original request — try to extract field from request object
+        const fieldPath = ref.slice("input.".length);
+        const requestObj = workingMemory.request;
+        if (fieldPath && typeof requestObj === "object" && requestObj !== null) {
+          // Navigate dot-notation path in request object
+          let value: unknown = requestObj;
+          for (const segment of fieldPath.split(".")) {
+            if (typeof value === "object" && value !== null) {
+              value = (value as Record<string, unknown>)[segment];
+            } else {
+              value = undefined;
+              break;
+            }
+          }
+          input[key] = value;
+        } else {
+          // Fallback: use raw request string
+          input[key] = requestObj;
+        }
       } else if (ref.includes(".")) {
         // Reference to a previous step's output
         const [stepId, ...path] = ref.split(".");

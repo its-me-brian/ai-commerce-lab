@@ -14,7 +14,7 @@
 //   5. Return final output from the designated output node
 
 import { detectCycles } from "../dag-executor";
-import { getAgentEngine } from "../../agents/core/engine";
+import { AgentEngine } from "../../agents/core/engine";
 import { getMiniAIEngine } from "../mini-ai/engine";
 import type { MiniAIResult } from "../mini-ai/types";
 import { WorkflowInputResolver } from "./input-resolver";
@@ -294,7 +294,7 @@ export class WorkflowExecutor {
     }
 
     const input = resolver.resolveNodeInput(node);
-    const engine = getAgentEngine();
+    const engine = new AgentEngine();
     const { result } = await engine.executeTask(node.agentId, input);
 
     if (!result.success) {
