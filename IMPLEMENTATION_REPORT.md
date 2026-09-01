@@ -95,9 +95,12 @@ Ver `docs/AUDIT_V1.md` para el reporte detallado.
 - [x] Agentes se cargan dinámicamente desde la BD
 
 ### FASE K: Observability
-- [ ] Persistir observability en Supabase (no solo memoria)
-- [ ] Persistir budgets en Supabase
-- [ ] Persistir evaluation en Supabase
+- [x] Crear migración 033 — tablas structured_logs, metrics, traces, spans, cost_budgets, cost_records
+- [x] Agregar tipos de tablas observability a database.ts
+- [x] StructuredLogger persiste a `structured_logs` (async, non-blocking)
+- [x] ExecutionTracer persiste a `spans` + `traces` (async, non-blocking)
+- [x] MetricsCollector persiste a `metrics` (async, non-blocking)
+- [ ] Persistir cost budgets en Supabase (pendiente)
 
 ### FASE L: Frontend cleanup
 - [ ] Eliminar 17 componentes muertos

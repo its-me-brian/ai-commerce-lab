@@ -897,6 +897,161 @@ export interface Database {
           updated_at?: string;
         };
       };
+      // ============================================
+      // OBSERVABILITY TABLES (Migration 033)
+      // ============================================
+      structured_logs: {
+        Row: {
+          id: string;
+          severity: string;
+          component: string;
+          message: string;
+          context: Record<string, unknown>;
+          trace_id: string | null;
+          duration_ms: number | null;
+          success: boolean | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          severity: string;
+          component: string;
+          message: string;
+          context?: Record<string, unknown>;
+          trace_id?: string | null;
+          duration_ms?: number | null;
+          success?: boolean | null;
+          created_at?: string;
+        };
+      };
+      metrics: {
+        Row: {
+          id: string;
+          name: string;
+          value: number;
+          unit: string | null;
+          tags: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          value: number;
+          unit?: string | null;
+          tags?: Record<string, unknown>;
+          created_at?: string;
+        };
+      };
+      traces: {
+        Row: {
+          id: string;
+          root_span_id: string;
+          operation: string;
+          agent_id: string | null;
+          status: string;
+          started_at: string;
+          completed_at: string | null;
+          duration_ms: number | null;
+          metadata: Record<string, unknown>;
+        };
+        Insert: {
+          id: string;
+          root_span_id: string;
+          operation: string;
+          agent_id?: string | null;
+          status: string;
+          started_at?: string;
+          completed_at?: string | null;
+          duration_ms?: number | null;
+          metadata?: Record<string, unknown>;
+        };
+      };
+      spans: {
+        Row: {
+          id: string;
+          trace_id: string;
+          parent_span_id: string | null;
+          operation: string;
+          component: string | null;
+          status: string;
+          started_at: string;
+          completed_at: string | null;
+          duration_ms: number | null;
+          input: Record<string, unknown> | null;
+          output: Record<string, unknown> | null;
+          error: string | null;
+          metadata: Record<string, unknown>;
+        };
+        Insert: {
+          id: string;
+          trace_id: string;
+          parent_span_id?: string | null;
+          operation: string;
+          component?: string | null;
+          status: string;
+          started_at?: string;
+          completed_at?: string | null;
+          duration_ms?: number | null;
+          input?: Record<string, unknown> | null;
+          output?: Record<string, unknown> | null;
+          error?: string | null;
+          metadata?: Record<string, unknown>;
+        };
+      };
+      cost_budgets: {
+        Row: {
+          id: string;
+          entity_id: string;
+          entity_type: string;
+          max_dollars: number;
+          window: string;
+          description: string | null;
+          alert_thresholds: number[];
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          entity_id: string;
+          entity_type: string;
+          max_dollars: number;
+          window?: string;
+          description?: string | null;
+          alert_thresholds?: number[];
+          active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      cost_records: {
+        Row: {
+          id: string;
+          entity_id: string;
+          entity_type: string;
+          cost_dollars: number;
+          provider: string | null;
+          model: string | null;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          task_id: string | null;
+          run_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_id: string;
+          entity_type: string;
+          cost_dollars: number;
+          provider?: string | null;
+          model?: string | null;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          task_id?: string | null;
+          run_id?: string | null;
+          created_at?: string;
+        };
+      };
     };
   };
 }

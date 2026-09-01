@@ -96,7 +96,33 @@ export class StructuredLogger {
       }
     }
 
+    // Persist to Supabase (async, non-blocking)
+    this.persistToSupabase(full).catch(() => {});
+
     return full;
+  }
+
+  /**
+   * Persist a log entry to Supabase structured_logs table.
+   * Non-blocking — failures are silently logged.
+   */
+  private async persistToSupabase(entry: StructuredLogEntry): Promise<void> {
+    try {
+      const { supabase } = await import("../../database/supabase");
+      await supabase.from("structured_logs").insert({
+        id: entry.id,
+        severity: entry.severity,
+        component: entry.component,
+        message: entry.message,
+        context: entry.context ?? {},
+        trace_id: entry.traceId ?? null,
+        duration_ms: entry.durationMs ?? null,
+        success: entry.success ?? null,
+        created_at: new Date(entry.timestamp).toISOString(),
+      });
+    } catch {
+      // Silently fail — in-memory log still works
+    }
   }
 
   /** Convenience: log info */
@@ -331,6 +357,49 @@ export class ExecutionTracer {
     if (error) span.error = error;
 
     this.activeSpans.delete(spanId);
+
+    // Persist to Supabase (async, non-blocking)
+    this.persistSpan(span).catch(() => {});
+  }
+
+  /**
+   * Persist a completed span to Supabase.
+   */
+  private async persistSpan(span: TraceSpan): Promise<void> {
+    try {
+      const { supabase } = await import("../../database/supabase");
+
+      // Persist the span
+      await supabase.from("spans").insert({
+        id: span.spanId,
+        trace_id: span.traceId,
+        parent_span_id: span.parentSpanId,
+        operation: span.operation,
+        component: span.componentType,
+        status: span.success ? "completed" : "failed",
+        started_at: new Date(span.startTime).toISOString(),
+        completed_at: span.endTime ? new Date(span.endTime).toISOString() : null,
+        duration_ms: span.durationMs || null,
+        error: span.error ?? null,
+        metadata: span.attributes ?? {},
+      });
+
+      // If this is the root span (no parent), also persist the trace
+      if (!span.parentSpanId) {
+        await supabase.from("traces").upsert({
+          id: span.traceId,
+          root_span_id: span.spanId,
+          operation: span.operation,
+          status: span.success ? "completed" : "failed",
+          started_at: new Date(span.startTime).toISOString(),
+          completed_at: span.endTime ? new Date(span.endTime).toISOString() : null,
+          duration_ms: span.durationMs || null,
+          metadata: span.attributes ?? {},
+        });
+      }
+    } catch {
+      // Silently fail
+    }
   }
 
   /**
@@ -498,6 +567,26 @@ export class MetricsCollector {
       this.metrics.set(name, trimmed);
     } else {
       this.metrics.set(name, existing);
+    }
+
+    // Persist to Supabase (async, non-blocking)
+    this.persistToSupabase(point).catch(() => {});
+  }
+
+  /**
+   * Persist a metric point to Supabase metrics table.
+   */
+  private async persistToSupabase(point: MetricPoint): Promise<void> {
+    try {
+      const { supabase } = await import("../../database/supabase");
+      await supabase.from("metrics").insert({
+        name: point.name,
+        value: point.value,
+        tags: point.tags ?? {},
+        created_at: new Date(point.timestamp).toISOString(),
+      });
+    } catch {
+      // Silently fail
     }
   }
 
