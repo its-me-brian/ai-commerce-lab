@@ -24,6 +24,7 @@ const mockConversation: Conversation = {
   id: "conv-1",
   agent_id: "product-hunter",
   workspace_id: "ws-1",
+  conversation_type: "direct",
   title: "Product Research Session",
   status: "active",
   message_count: 2,

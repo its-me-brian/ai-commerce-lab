@@ -3,46 +3,35 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardContent } from "../ui/Card";
 import { Badge } from "../ui/Badge";
-import { EmptyState } from "../ui/EmptyState";
 
 interface Task {
   id: string;
   agent_id: string;
-  task_type: string;
   status: string;
-  priority: string | null;
+  task_type: string;
+  input: Record<string, unknown>;
+  output: Record<string, unknown> | null;
+  priority: number;
+  error: string | null;
   created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
   agents?: { name: string } | null;
 }
 
-const STATUS_BADGES: Record<string, "success" | "warning" | "error" | "info" | "outline"> = {
+const STATUS_VARIANT: Record<string, "info" | "success" | "warning" | "error" | "outline"> = {
+  pending: "outline",
+  ready: "info",
+  running: "warning",
   completed: "success",
-  running: "info",
-  pending: "warning",
   failed: "error",
   cancelled: "outline",
 };
 
-function formatTime(timestamp: string): string {
+function formatTime(timestamp: string | null): string {
+  if (!timestamp) return "—";
   try {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return "";
-  }
-}
-
-function formatDate(timestamp: string): string {
-  try {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) return "Today";
-    if (days === 1) return "Yesterday";
-    if (days < 7) return `${days} days ago`;
-    return date.toLocaleDateString();
+    return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   } catch {
     return "";
   }
@@ -53,60 +42,65 @@ export function TaskList({ limit = 10 }: { limit?: number }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchTasks() {
       try {
         const res = await fetch(`/api/tasks?limit=${limit}`);
         const data = await res.json();
-        if (data.success) {
+        if (!cancelled && data.success) {
           setTasks(data.tasks);
         }
       } catch {
         // Silently fail
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     fetchTasks();
-  }, [limit]);
 
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader title="Recent Tasks" />
-        <CardContent>
-          <div className="text-xs text-center py-4" style={{ color: "var(--text-tertiary)" }}>
-            Loading...
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+    // Poll for updates every 30s
+    const interval = setInterval(fetchTasks, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [limit]);
 
   return (
     <Card>
       <CardHeader title="Recent Tasks" />
       <CardContent>
-        {tasks.length === 0 ? (
-          <EmptyState icon="📋" title="No tasks yet" description="Tasks will appear here when agents run" />
+        {loading ? (
+          <div className="py-8 text-center">
+            <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>Loading...</p>
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="py-8 text-center">
+            <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>No tasks yet</p>
+            <p className="text-[10px] mt-1" style={{ color: "var(--text-tertiary)" }}>
+              Tasks will appear when agents run
+            </p>
+          </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {tasks.map((task) => (
               <div
                 key={task.id}
-                className="flex items-center justify-between p-2 rounded-[var(--r-md)]"
-                style={{ background: "var(--bg-sunken)" }}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                    {task.agents?.name || task.agent_id}
-                  </span>
-                  <Badge variant="outline">{task.task_type}</Badge>
-                  <Badge variant={STATUS_BADGES[task.status] || "outline"}>
-                    {task.status}
-                  </Badge>
+                <Badge variant={STATUS_VARIANT[task.status] || "outline"}>
+                  {task.status}
+                </Badge>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                    {task.agents?.name || task.agent_id} — {task.task_type}
+                  </p>
+                  <p className="text-[10px] truncate" style={{ color: "var(--text-tertiary)" }}>
+                    {typeof task.input === "object"
+                      ? JSON.stringify(task.input).slice(0, 80)
+                      : String(task.input).slice(0, 80)}
+                  </p>
                 </div>
-                <span className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
-                  {formatDate(task.created_at)} {formatTime(task.created_at)}
+                <span className="text-[10px] shrink-0" style={{ color: "var(--text-tertiary)" }}>
+                  {formatTime(task.created_at)}
                 </span>
               </div>
             ))}

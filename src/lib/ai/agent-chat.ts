@@ -55,10 +55,11 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
       throw new Error(`Conversation ${input.conversationId} is not active`);
     }
   } else {
-    conversation = await conversationEngine.create({
-      agent_id: input.agentId,
-      workspace_id: input.workspaceId,
-    });
+    // FASE 6: Reuse existing direct conversation instead of creating new one each time
+    conversation = await conversationEngine.getOrCreateDirect(
+      input.agentId,
+      input.workspaceId,
+    );
     if (!conversation) {
       throw new Error("Failed to create conversation");
     }
@@ -181,6 +182,19 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   // FASE 27: CEO continuity — include recent task results for reference resolution
   if (taskHistorySection) {
     systemPromptParts.push(``, taskHistorySection);
+  }
+
+  // Inject conversation history into system prompt (providers don't support messages array)
+  if (messages.length > 1) {
+    const historyLines = messages.slice(0, -1).map((m) => {
+      const role = m.role === "user" ? "User" : "Assistant";
+      return `${role}: ${m.content}`;
+    });
+    systemPromptParts.push(
+      ``,
+      `## Conversation History`,
+      historyLines.join(`\n`),
+    );
   }
 
   const systemPrompt = systemPromptParts.join("\n");

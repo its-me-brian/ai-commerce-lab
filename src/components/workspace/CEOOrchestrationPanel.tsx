@@ -142,6 +142,11 @@ export function CEOOrchestrationPanel() {
             <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--text-secondary)" }}>
               {result.response.content}
             </p>
+            {result.conversationId && (
+              <p className="text-[10px] mt-2" style={{ color: "var(--text-tertiary)" }}>
+                Conversation saved · ID: {result.conversationId.slice(0, 8)}…
+              </p>
+            )}
           </div>
         )}
       </CardContent>

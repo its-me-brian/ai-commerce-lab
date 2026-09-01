@@ -1,16 +1,29 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { MessageList } from "./MessageList";
 import type { ChatMessage } from "./MessageBubble";
 import { ChatComposer } from "./ChatComposer";
 import type { AgentRecord } from "../agents/AgentCard";
 
+/** Full result from chat API — conversation + both messages with real DB IDs */
+export interface ChatResultData {
+  conversationId: string;
+  userMessageId: string;
+  assistantMessageId: string;
+  content: string;
+}
+
 interface ChatContainerProps {
   agents: AgentRecord[];
   selectedAgentId?: string;
   sessionId?: string;
-  onSendMessage?: (message: string, agentId: string) => Promise<string>;
+  /** Optional override — if not provided, ChatContainer calls /api/agents/chat directly */
+  onSendMessage?: (
+    message: string,
+    agentId: string,
+    conversationId?: string
+  ) => Promise<ChatResultData>;
 }
 
 export function ChatContainer({
@@ -20,68 +33,166 @@ export function ChatContainer({
   onSendMessage,
 }: ChatContainerProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(
     propAgentId || agents.find((a) => a.enabled !== false)?.id || null,
   );
   const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const loadingRef = useRef(false);
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
 
+  // ─── Load messages from Supabase when conversation changes ─────
+  useEffect(() => {
+    if (!conversationId) {
+      setMessages([]);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingHistory(true);
+
+    fetch(`/api/conversations/${conversationId}/messages`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data.success && data.messages) {
+          const mapped: ChatMessage[] = data.messages.map(
+            (m: {
+              id: string;
+              role: string;
+              content: string;
+              created_at: string;
+              metadata?: Record<string, unknown>;
+            }) => ({
+              id: m.id,
+              role: m.role as "user" | "assistant" | "system",
+              content: m.content,
+              agentName:
+                m.role === "assistant"
+                  ? selectedAgent?.name
+                  : undefined,
+              agentId:
+                m.role === "assistant"
+                  ? selectedAgentId ?? undefined
+                  : undefined,
+              timestamp: m.created_at,
+              card: m.metadata?.card as ChatMessage["card"],
+            })
+          );
+          setMessages(mapped);
+        }
+      })
+      .catch(() => {
+        // Silently fail — messages start empty
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingHistory(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, selectedAgent?.name, selectedAgentId]);
+
+  // ─── Send message ─────────────────────────────────────────────
   const handleSend = useCallback(
     async (content: string) => {
-      if (!selectedAgentId) return;
+      if (!selectedAgentId || loadingRef.current) return;
+      loadingRef.current = true;
+      setLoading(true);
 
-      const userMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
+      // Optimistic user message (temporary ID until API responds)
+      const tempUserId = `temp-user-${Date.now()}`;
+      const userMsg: ChatMessage = {
+        id: tempUserId,
         role: "user",
         content,
         timestamp: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev, userMessage]);
-      setLoading(true);
+      setMessages((prev) => [...prev, userMsg]);
 
       try {
+        let result: ChatResultData;
+
         if (onSendMessage) {
-          const response = await onSendMessage(content, selectedAgentId);
-          const agent = agents.find((a) => a.id === selectedAgentId);
-          const assistantMessage: ChatMessage = {
-            id: `assistant-${Date.now()}`,
-            role: "assistant",
-            content: response,
-            agentName: agent?.name,
-            agentId: selectedAgentId,
-            timestamp: new Date().toISOString(),
-          };
-          setMessages((prev) => [...prev, assistantMessage]);
+          // Use parent-provided handler
+          result = await onSendMessage(content, selectedAgentId, conversationId ?? undefined);
         } else {
-          const assistantMessage: ChatMessage = {
-            id: `assistant-${Date.now()}`,
-            role: "assistant",
-            content: "Backend not connected yet.",
-            timestamp: new Date().toISOString(),
+          // Call API directly
+          const res = await fetch("/api/agents/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              agentId: selectedAgentId,
+              message: content,
+              conversationId: conversationId ?? undefined,
+            }),
+          });
+          const data = await res.json();
+          if (!data.success) {
+            throw new Error(data.error || "Failed to send message");
+          }
+          result = {
+            conversationId: data.conversationId,
+            userMessageId: data.userMessage?.id,
+            assistantMessageId: data.assistantMessage?.id,
+            content: data.assistantMessage?.content || "No response",
           };
-          setMessages((prev) => [...prev, assistantMessage]);
         }
-      } catch {
-        const errorMessage: ChatMessage = {
-          id: `error-${Date.now()}`,
-          role: "system",
-          content: "Failed to send message. Please try again.",
+
+        // Update conversation ID (first message creates the conversation)
+        if (result.conversationId && !conversationId) {
+          setConversationId(result.conversationId);
+        }
+
+        // Replace optimistic user message with real DB message
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempUserId
+              ? { ...m, id: result.userMessageId || tempUserId }
+              : m
+          )
+        );
+
+        // Add assistant message with real DB ID
+        const assistantMsg: ChatMessage = {
+          id: result.assistantMessageId || `asst-${Date.now()}`,
+          role: "assistant",
+          content: result.content,
+          agentName: selectedAgent?.name,
+          agentId: selectedAgentId,
           timestamp: new Date().toISOString(),
         };
-        setMessages((prev) => [...prev, errorMessage]);
+        setMessages((prev) => [...prev, assistantMsg]);
+      } catch {
+        // Replace optimistic message with error
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempUserId
+              ? {
+                  ...m,
+                  id: `error-${Date.now()}`,
+                  role: "system" as const,
+                  content: "Failed to send message. Please try again.",
+                }
+              : m
+          )
+        );
       } finally {
         setLoading(false);
+        loadingRef.current = false;
       }
     },
-    [onSendMessage, selectedAgentId, agents],
+    [onSendMessage, selectedAgentId, agents, conversationId, selectedAgent],
   );
 
   return (
     <div className="flex flex-col h-full">
       {/* Chat header */}
       <div
-        className="px-4 py-3 shrink-0"
+        className="px-6 py-4 shrink-0"
         style={{ borderBottom: "1px solid var(--border-subtle)" }}
       >
         <div className="flex items-center gap-2">
@@ -110,7 +221,7 @@ export function ChatContainer({
       </div>
 
       {/* Messages */}
-      <MessageList messages={messages} loading={loading} />
+      <MessageList messages={messages} loading={loading || loadingHistory} />
 
       {/* Composer */}
       <ChatComposer

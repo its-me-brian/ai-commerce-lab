@@ -18,7 +18,7 @@ export function MessageList({ messages, loading }: MessageListProps) {
   // Empty state
   if (messages.length === 0 && !loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+      <div className="flex-1 flex flex-col items-center justify-center px-8 py-16">
         <div
           className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4"
           style={{ background: "var(--bg-sunken)" }}
@@ -38,7 +38,7 @@ export function MessageList({ messages, loading }: MessageListProps) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4">
+    <div className="flex-1 overflow-y-auto px-6 py-5">
       {messages.map((msg) => (
         <MessageBubble key={msg.id} message={msg} />
       ))}

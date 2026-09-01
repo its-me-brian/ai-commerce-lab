@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Hoisted mocks
-const { mockGetAgent, mockGetDefinition, mockGenerateForAgent, mockCreate, mockGetById, mockAddMessage, mockGetLastMessages, mockBuildCompanyContext, mockFormatContextForPrompt, mockListByAgent } = vi.hoisted(() => ({
+const { mockGetAgent, mockGetDefinition, mockGenerateForAgent, mockCreate, mockGetById, mockAddMessage, mockGetLastMessages, mockBuildCompanyContext, mockFormatContextForPrompt, mockListByAgent, mockGetOrCreateDirect } = vi.hoisted(() => ({
   mockGetAgent: vi.fn(),
   mockGetDefinition: vi.fn(),
   mockGenerateForAgent: vi.fn(),
@@ -14,6 +14,7 @@ const { mockGetAgent, mockGetDefinition, mockGenerateForAgent, mockCreate, mockG
   mockBuildCompanyContext: vi.fn(),
   mockFormatContextForPrompt: vi.fn().mockReturnValue(""),
   mockListByAgent: vi.fn().mockResolvedValue([]),
+  mockGetOrCreateDirect: vi.fn(),
 }));
 
 vi.mock("./bootstrap", () => ({
@@ -36,6 +37,7 @@ vi.mock("./conversation-engine", () => ({
     getById: mockGetById,
     addMessage: mockAddMessage,
     getLastMessages: mockGetLastMessages,
+    getOrCreateDirect: mockGetOrCreateDirect,
   }),
 }));
 
@@ -85,7 +87,7 @@ describe("AgentChat", () => {
       status: "active",
       message_count: 0,
     };
-    mockCreate.mockResolvedValue(mockConv);
+    mockGetOrCreateDirect.mockResolvedValue(mockConv);
     mockGetLastMessages.mockResolvedValue([]);
     mockGenerateForAgent.mockResolvedValue({
       result: {
@@ -122,10 +124,7 @@ describe("AgentChat", () => {
     expect(result.conversation.id).toBe("conv-new");
     expect(result.userMessage.role).toBe("user");
     expect(result.assistantMessage.role).toBe("assistant");
-    expect(mockCreate).toHaveBeenCalledWith({
-      agent_id: "product-hunter",
-      workspace_id: undefined,
-    });
+    expect(mockGetOrCreateDirect).toHaveBeenCalledWith("product-hunter", undefined);
   });
 
   it("should continue existing conversation", async () => {
@@ -206,7 +205,7 @@ describe("AgentChat", () => {
   });
 
   it("should include system prompt from agent definition", async () => {
-    mockCreate.mockResolvedValue({
+    mockGetOrCreateDirect.mockResolvedValue({
       id: "conv-1",
       agent_id: "product-hunter",
       status: "active",

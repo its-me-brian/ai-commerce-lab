@@ -41,7 +41,7 @@ export function ChatComposer({
   return (
     <form
       onSubmit={handleSubmit}
-      className="px-4 py-3 shrink-0"
+      className="px-6 py-4 shrink-0"
       style={{ borderTop: "1px solid var(--border-subtle)" }}
     >
       <div
