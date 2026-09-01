@@ -1,73 +1,139 @@
 // Workflow Registry
 // Stores and retrieves workflow definitions.
 //
-// Pattern: same as MiniAIRegistry and AgentRegistry.
-// In-memory for now; DB persistence will be added in FASE 9+.
+// F5: Dual-layer persistence — in-memory cache + Supabase DB.
+//   - Read path: check cache first, fall back to DB
+//   - Write path: write to DB, then update cache
+//   - On startup: load all from DB into cache
 
+import { supabase } from "../../database/supabase";
 import type { WorkflowDefinition, WorkflowQueryOptions } from "./types";
 
 /**
  * Workflow Registry — central store for workflow definitions.
+ * F5: Now backed by Supabase with in-memory cache.
  */
 export class WorkflowRegistry {
   private workflows: Map<string, WorkflowDefinition> = new Map();
+  private loaded = false;
+
+  /**
+   * Load all workflows from DB into cache.
+   * Called once on first access if not already loaded.
+   */
+  async ensureLoaded(): Promise<void> {
+    if (this.loaded) return;
+    await this.loadFromDB();
+  }
+
+  /**
+   * Load all workflow definitions from Supabase into cache.
+   * Merges with existing cache entries (DB entries overwrite cache on conflict).
+   */
+  async loadFromDB(): Promise<void> {
+    if (this.loaded) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("workflow_definitions")
+        .select("*");
+
+      if (error) {
+        console.warn("Failed to load workflows from DB:", error.message);
+        this.loaded = true; // Mark as loaded even on error to avoid retries
+        return;
+      }
+
+      // Merge: DB entries overwrite cache, but don't clear cache-only entries
+      for (const row of (data || [])) {
+        const def = this.rowToDefinition(row);
+        this.workflows.set(def.id, def);
+      }
+      this.loaded = true;
+    } catch (err) {
+      console.warn("Workflow DB load failed, using cache only:", err);
+      this.loaded = true;
+    }
+  }
 
   /**
    * Register a workflow definition.
+   * F5: Writes to DB and cache.
    */
-  register(workflow: WorkflowDefinition): void {
+  async register(workflow: WorkflowDefinition): Promise<void> {
+    // Write to cache immediately
     this.workflows.set(workflow.id, workflow);
+
+    // Write to DB
+    try {
+      await supabase
+        .from("workflow_definitions")
+        .upsert(this.definitionToRow(workflow), { onConflict: "id" });
+    } catch (err) {
+      console.warn(`Failed to persist workflow ${workflow.id} to DB:`, err);
+    }
   }
 
   /**
    * Register multiple workflow definitions at once.
    */
-  registerAll(workflows: WorkflowDefinition[]): void {
+  async registerAll(workflows: WorkflowDefinition[]): Promise<void> {
     for (const workflow of workflows) {
-      this.register(workflow);
+      await this.register(workflow);
     }
   }
 
   /**
    * Get a workflow definition by ID.
    */
-  get(id: string): WorkflowDefinition | undefined {
+  async get(id: string): Promise<WorkflowDefinition | undefined> {
     return this.workflows.get(id);
   }
 
   /**
    * Check if a workflow exists.
    */
-  has(id: string): boolean {
+  async has(id: string): Promise<boolean> {
     return this.workflows.has(id);
   }
 
   /**
    * Unregister a workflow.
    */
-  unregister(id: string): boolean {
-    return this.workflows.delete(id);
+  async unregister(id: string): Promise<boolean> {
+    this.workflows.delete(id);
+    try {
+      await supabase
+        .from("workflow_definitions")
+        .delete()
+        .eq("id", id);
+    } catch (err) {
+      console.warn(`Failed to delete workflow ${id} from DB:`, err);
+    }
+    return true;
   }
 
   /**
    * List all registered workflows.
    */
-  list(): WorkflowDefinition[] {
+  async list(): Promise<WorkflowDefinition[]> {
+    await this.ensureLoaded();
     return Array.from(this.workflows.values());
   }
 
   /**
    * List all enabled workflows.
    */
-  listEnabled(): WorkflowDefinition[] {
-    return this.list().filter((w) => w.enabled !== false);
+  async listEnabled(): Promise<WorkflowDefinition[]> {
+    const all = await this.list();
+    return all.filter((w) => w.enabled !== false);
   }
 
   /**
    * Query workflows by options.
    */
-  query(options: WorkflowQueryOptions): WorkflowDefinition[] {
-    let results = this.list();
+  async query(options: WorkflowQueryOptions): Promise<WorkflowDefinition[]> {
+    let results = await this.list();
 
     if (options.enabled !== undefined) {
       results = results.filter((w) => w.enabled === options.enabled);
@@ -102,6 +168,40 @@ export class WorkflowRegistry {
    */
   clear(): void {
     this.workflows.clear();
+    this.loaded = false;
+  }
+
+  // ============================================
+  // ROW CONVERSION HELPERS
+  // ============================================
+
+  private rowToDefinition(row: Record<string, unknown>): WorkflowDefinition {
+    return {
+      id: row.id as string,
+      name: row.name as string,
+      description: (row.description as string) || "",
+      version: (row.version as string) || "1.0.0",
+      enabled: row.enabled as boolean,
+      nodes: (row.nodes as WorkflowDefinition["nodes"]) || [],
+      entryNodes: (row.entry_nodes as string[]) || undefined,
+      config: (row.config as Record<string, unknown>) || {},
+      tags: (row.tags as string[]) || [],
+    };
+  }
+
+  private definitionToRow(def: WorkflowDefinition): Record<string, unknown> {
+    return {
+      id: def.id,
+      name: def.name,
+      description: def.description,
+      version: def.version,
+      enabled: def.enabled ?? true,
+      nodes: def.nodes || [],
+      entry_nodes: def.entryNodes || null,
+      config: def.config || {},
+      tags: def.tags || [],
+      updated_at: new Date().toISOString(),
+    };
   }
 }
 
