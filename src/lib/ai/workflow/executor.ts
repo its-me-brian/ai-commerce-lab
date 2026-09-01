@@ -643,6 +643,7 @@ export class WorkflowExecutor {
       workflowId: definition.id,
       status: "failed",
       nodeStates: new Map(),
+      workingMemory: {},
       input: options.input,
       totalCostDollars: 0,
       totalDurationMs: Date.now() - startTime,

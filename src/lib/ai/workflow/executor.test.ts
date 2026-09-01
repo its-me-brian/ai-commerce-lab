@@ -111,7 +111,7 @@ describe("WorkflowExecutor", () => {
 
     it("rejects condition node without branches.true", async () => {
       const wf = makeWorkflow([
-        { id: "a", name: "A", type: "condition", condition: { source: "x", operator: "equals", branches: {} } },
+        { id: "a", name: "A", type: "condition", condition: { source: "x", operator: "equals", branches: {} as { true: string } } },
       ]);
       const result = await executor.execute(wf, { input: {} });
 

@@ -184,7 +184,6 @@ export class WorkflowRegistry {
       enabled: row.enabled as boolean,
       nodes: (row.nodes as WorkflowDefinition["nodes"]) || [],
       entryNodes: (row.entry_nodes as string[]) || undefined,
-      config: (row.config as Record<string, unknown>) || {},
       tags: (row.tags as string[]) || [],
     };
   }
@@ -198,7 +197,6 @@ export class WorkflowRegistry {
       enabled: def.enabled ?? true,
       nodes: def.nodes || [],
       entry_nodes: def.entryNodes || null,
-      config: def.config || {},
       tags: def.tags || [],
       updated_at: new Date().toISOString(),
     };

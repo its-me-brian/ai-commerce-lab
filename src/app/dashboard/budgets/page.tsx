@@ -43,7 +43,7 @@ export default function BudgetsPage() {
       const data = await res.json();
       if (data.success) setBudgets(data.budgets);
 
-      const entities = [...new Set(data.budgets.map((b: Budget) => `${b.entityType}:${b.entityId}`))];
+      const entities = [...new Set(data.budgets.map((b: Budget) => `${b.entityType}:${b.entityId}`))] as string[];
       const statusResults = await Promise.all(
         entities.map(async (key: string) => {
           const [type, id] = key.split(":");

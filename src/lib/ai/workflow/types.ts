@@ -9,7 +9,7 @@
 // Key concept: WorkflowNode is the universal building block.
 // A workflow is a directed acyclic graph (DAG) of nodes.
 
-import type { MiniAIResult } from "./mini-ai/types";
+import type { MiniAIResult } from "../mini-ai/types";
 
 // ============================================
 // WORKFLOW NODE TYPES

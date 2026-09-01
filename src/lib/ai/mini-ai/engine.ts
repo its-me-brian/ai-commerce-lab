@@ -301,7 +301,7 @@ export class MiniAIEngine {
           definition.modelRequirements
         );
         primaryModel = modelSelection.match.model.id;
-        primaryProvider = modelSelection.match.model.provider;
+        primaryProvider = modelSelection.match.model.provider_id;
       } catch {
         // Fallback to defaults if complexity routing fails
         primaryModel = "gemini-3-flash";
