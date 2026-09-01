@@ -82,12 +82,13 @@ Ver `docs/AUDIT_V1.md` para el reporte detallado.
 - [x] Conectar frontend — `/dashboard/runs` (server component) consulta `agent_runs` directamente, detalle muestra task input/output
 
 ### FASE I: MiniAI/ONNX
-- [ ] Implementar BrowserMiniAIProvider con Transformers.js
-- [ ] Configurar ONNX Runtime Web
-- [ ] Seleccionar modelo: all-MiniLM-L6-v2 cuantizado (~23MB)
-- [ ] Implementar Web Worker
-- [ ] Lazy loading + cache
-- [ ] Fallback: si falla, sistema sigue funcionando
+- [x] Instalar `@huggingface/transformers` (Transformers.js v3)
+- [x] Crear Web Worker (`browser-ml/worker.js`) — carga modelos ONNX y ejecuta inference off-thread
+- [x] Crear BrowserMLProvider (`browser-ml/provider.ts`) — gestiona worker, lazy loading, cache de modelos
+- [x] Crear hook `useBrowserML()` (`browser-ml/use-browser-ml.ts`) — interfaz React para inference client-side
+- [x] Crear endpoint `/api/mini-ai/browser-ml` — lista modelos disponibles + fallback server-side
+- [x] Modelos soportados: MiniLM L6 v2 (embeddings), DistilBERT (sentiment), BERT NER (entity extraction)
+- [x] Lazy loading + fallback: sistema sigue funcionando si browser-ml no está disponible
 
 ### FASE J: Test Center
 - [ ] Reemplazar datos hardcodeados con API real
