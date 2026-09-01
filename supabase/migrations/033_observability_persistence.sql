@@ -22,6 +22,9 @@ CREATE INDEX idx_structured_logs_component ON structured_logs(component);
 CREATE INDEX idx_structured_logs_trace_id ON structured_logs(trace_id);
 CREATE INDEX idx_structured_logs_created_at ON structured_logs(created_at DESC);
 
+ALTER TABLE structured_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access" ON structured_logs FOR ALL USING (true);
+
 -- ============================================
 -- METRICS
 -- ============================================
@@ -37,6 +40,9 @@ CREATE TABLE IF NOT EXISTS metrics (
 CREATE INDEX idx_metrics_name ON metrics(name);
 CREATE INDEX idx_metrics_created_at ON metrics(created_at DESC);
 CREATE INDEX idx_metrics_name_created ON metrics(name, created_at DESC);
+
+ALTER TABLE metrics ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access" ON metrics FOR ALL USING (true);
 
 -- ============================================
 -- TRACES
@@ -56,6 +62,9 @@ CREATE TABLE IF NOT EXISTS traces (
 CREATE INDEX idx_traces_status ON traces(status);
 CREATE INDEX idx_traces_agent_id ON traces(agent_id);
 CREATE INDEX idx_traces_started_at ON traces(started_at DESC);
+
+ALTER TABLE traces ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access" ON traces FOR ALL USING (true);
 
 -- ============================================
 -- SPANS (child of traces)
@@ -79,6 +88,9 @@ CREATE TABLE IF NOT EXISTS spans (
 CREATE INDEX idx_spans_trace_id ON spans(trace_id);
 CREATE INDEX idx_spans_parent_span_id ON spans(parent_span_id);
 
+ALTER TABLE spans ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access" ON spans FOR ALL USING (true);
+
 -- ============================================
 -- COST BUDGETS
 -- ============================================
@@ -87,7 +99,7 @@ CREATE TABLE IF NOT EXISTS cost_budgets (
   entity_id TEXT NOT NULL,
   entity_type TEXT NOT NULL CHECK (entity_type IN ('agent', 'workflow', 'mini-ai', 'global')),
   max_dollars DOUBLE PRECISION NOT NULL,
-  window TEXT NOT NULL DEFAULT 'day',
+  time_window TEXT NOT NULL DEFAULT 'day',
   description TEXT,
   alert_thresholds JSONB DEFAULT '[0.5, 0.75, 0.9]',
   active BOOLEAN NOT NULL DEFAULT true,
@@ -96,6 +108,9 @@ CREATE TABLE IF NOT EXISTS cost_budgets (
 );
 
 CREATE INDEX idx_cost_budgets_entity ON cost_budgets(entity_id, entity_type);
+
+ALTER TABLE cost_budgets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access" ON cost_budgets FOR ALL USING (true);
 
 -- ============================================
 -- COST RECORDS
@@ -116,6 +131,9 @@ CREATE TABLE IF NOT EXISTS cost_records (
 
 CREATE INDEX idx_cost_records_entity ON cost_records(entity_id, entity_type);
 CREATE INDEX idx_cost_records_created_at ON cost_records(created_at DESC);
+
+ALTER TABLE cost_records ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access" ON cost_records FOR ALL USING (true);
 
 -- ============================================
 -- RETENTION: auto-cleanup old logs (30 days)

@@ -1004,7 +1004,7 @@ export interface Database {
           entity_id: string;
           entity_type: string;
           max_dollars: number;
-          window: string;
+          time_window: string;
           description: string | null;
           alert_thresholds: number[];
           active: boolean;
@@ -1016,7 +1016,7 @@ export interface Database {
           entity_id: string;
           entity_type: string;
           max_dollars: number;
-          window?: string;
+          time_window?: string;
           description?: string | null;
           alert_thresholds?: number[];
           active?: boolean;
