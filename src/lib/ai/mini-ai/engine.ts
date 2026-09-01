@@ -16,6 +16,7 @@
 
 import { getMiniAIRegistry } from "./registry";
 import { selectModelByComplexity } from "../complexity-router";
+import { calculateModelCost } from "../model-pricing";
 import type {
   MiniAIDefinition,
   MiniAIInput,
@@ -515,18 +516,10 @@ export class MiniAIEngine {
   private calculateCost(
     inputTokens: number,
     outputTokens: number,
-    provider: string,
-    _model: string
+    _provider: string,
+    model: string
   ): number {
-    // Simple cost calculation — will be enhanced with actual pricing in FASE 4
-    // For now, use rough estimates
-    const inputPricePerMillion = provider === "gemini" ? 0 : 0.8;
-    const outputPricePerMillion = provider === "gemini" ? 0 : 4.0;
-
-    return (
-      (inputTokens / 1_000_000) * inputPricePerMillion +
-      (outputTokens / 1_000_000) * outputPricePerMillion
-    );
+    return calculateModelCost(model, inputTokens, outputTokens);
   }
 
   private createErrorResult(
