@@ -6,8 +6,8 @@ export const financeDefinition: AgentDefinition = {
   id: "finance",
   slug: "finance",
   version: "0.1.0",
-  status: "coming_soon",
-  enabled: false,
+  status: "active",
+  enabled: true,
 
   identity: {
     name: "Finance Agent",

@@ -6,8 +6,8 @@ export const ceoDefinition: AgentDefinition = {
   id: "ceo",
   slug: "ceo",
   version: "0.1.0",
-  status: "coming_soon",
-  enabled: false,
+  status: "active",
+  enabled: true,
 
   identity: {
     name: "CEO Agent",

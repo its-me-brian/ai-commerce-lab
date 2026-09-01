@@ -6,8 +6,8 @@ export const storeBuilderDefinition: AgentDefinition = {
   id: "store-builder",
   slug: "store-builder",
   version: "0.1.0",
-  status: "coming_soon",
-  enabled: false,
+  status: "active",
+  enabled: true,
 
   identity: {
     name: "Store Builder",

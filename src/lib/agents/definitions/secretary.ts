@@ -6,8 +6,8 @@ export const secretaryDefinition: AgentDefinition = {
   id: "secretary",
   slug: "secretary",
   version: "0.1.0",
-  status: "coming_soon",
-  enabled: false,
+  status: "active",
+  enabled: true,
 
   identity: {
     name: "Secretary Agent",

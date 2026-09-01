@@ -103,6 +103,36 @@ export default function AgentDetailPage({
   } | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  // Workspace state
+  const [memory, setMemory] = useState<Array<{ id: string; key: string; value: string; created_at: string }>>([]);
+  const [handoffs, setHandoffs] = useState<Array<{ id: string; from_agent_id: string; to_agent_id: string; status: string; created_at: string }>>([]);
+  const [approvals, setApprovals] = useState<Array<{ id: string; task_id: string; status: string; risk_level: string; created_at: string }>>([]);
+  const [events, setEvents] = useState<Array<{ id: string; task_id: string; event_type: string; description: string; created_at: string }>>([]);
+
+  // Model routes state
+  interface ModelRoute {
+    id: string;
+    model_id: string;
+    priority: number;
+    policy: string;
+    enabled: boolean;
+    ai_models: {
+      name: string;
+      model_id: string;
+      provider_id: string;
+      context_window: number;
+      input_price: number;
+      output_price: number;
+      capabilities: string[];
+      ai_providers: { name: string; slug: string };
+    };
+  }
+  const [modelRoutes, setModelRoutes] = useState<ModelRoute[]>([]);
+  const [addingRoute, setAddingRoute] = useState(false);
+  const [newRouteModelId, setNewRouteModelId] = useState("");
+  const [newRoutePriority, setNewRoutePriority] = useState(1);
+  const [newRoutePolicy, setNewRoutePolicy] = useState("preferred");
+
   // Form state
   const [selectedProvider, setSelectedProvider] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -123,6 +153,7 @@ export default function AgentDetailPage({
   useEffect(() => {
     fetchConfig();
     fetchSources();
+    fetchWorkspace();
     setTestInput(DEFAULT_TEST_INPUTS[id] || '{\n  "name": "Test Product",\n  "supplierPrice": 10\n}');
   }, [id]);
 
@@ -158,6 +189,90 @@ export default function AgentDetailPage({
     } catch (err) {
       console.error("Failed to load sources:", err);
     }
+  }
+
+  async function fetchWorkspace() {
+    try {
+      const [memoryRes, handoffsRes, approvalsRes, eventsRes] = await Promise.all([
+        fetch(`/api/agents/${id}/memory`),
+        fetch(`/api/agents/${id}/handoffs`),
+        fetch(`/api/agents/${id}/approvals`),
+        fetch(`/api/agents/${id}/events`),
+      ]);
+
+      const [memoryData, handoffsData, approvalsData, eventsData] = await Promise.all([
+        memoryRes.json(),
+        handoffsRes.json(),
+        approvalsRes.json(),
+        eventsRes.json(),
+      ]);
+
+      if (memoryData.success) setMemory(memoryData.memory);
+      if (handoffsData.success) setHandoffs(handoffsData.handoffs);
+      if (approvalsData.success) setApprovals(approvalsData.approvals);
+      if (eventsData.success) setEvents(eventsData.events);
+    } catch (err) {
+      console.error("Failed to load workspace data:", err);
+    }
+
+    // Model routes
+    try {
+      const res = await fetch(`/api/agents/${id}/model-routes`);
+      const data = await res.json();
+      if (data.success) setModelRoutes(data.routes);
+    } catch (err) {
+      console.error("Failed to load model routes:", err);
+    }
+  }
+
+  async function addModelRoute() {
+    if (!newRouteModelId) return;
+    try {
+      const res = await fetch(`/api/agents/${id}/model-routes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modelId: newRouteModelId, priority: newRoutePriority, policy: newRoutePolicy }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAddingRoute(false);
+        setNewRouteModelId("");
+        setNewRoutePriority(1);
+        setNewRoutePolicy("preferred");
+        fetchModelRoutes();
+      }
+    } catch (err) {
+      console.error("Failed to add model route:", err);
+    }
+  }
+
+  async function toggleRoute(routeId: string, enabled: boolean) {
+    try {
+      await fetch(`/api/agents/${id}/model-routes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ routeId, enabled }),
+      });
+      fetchModelRoutes();
+    } catch (err) {
+      console.error("Failed to toggle route:", err);
+    }
+  }
+
+  async function deleteRoute(routeId: string) {
+    try {
+      await fetch(`/api/agents/${id}/model-routes?routeId=${routeId}`, { method: "DELETE" });
+      fetchModelRoutes();
+    } catch (err) {
+      console.error("Failed to delete route:", err);
+    }
+  }
+
+  function fetchModelRoutes() {
+    fetch(`/api/agents/${id}/model-routes`)
+      .then(r => r.json())
+      .then(data => { if (data.success) setModelRoutes(data.routes); })
+      .catch(err => console.error("Failed to load model routes:", err));
   }
 
   async function handleSave() {
@@ -435,6 +550,142 @@ export default function AgentDetailPage({
             </div>
           </div>
 
+          {/* Model Pool (Model Assignment) */}
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <h2>Model Pool</h2>
+              <button
+                onClick={() => setAddingRoute(!addingRoute)}
+                style={{
+                  padding: "4px 12px", fontSize: "0.75rem", fontWeight: 500,
+                  background: addingRoute ? "var(--bg-sunken)" : "var(--accent-bg)",
+                  color: addingRoute ? "var(--text-secondary)" : "var(--accent)",
+                  border: "1px solid var(--border)", borderRadius: "var(--r-md)", cursor: "pointer",
+                }}
+              >
+                {addingRoute ? "Cancel" : "+ Add Model"}
+              </button>
+            </div>
+            <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginBottom: 12 }}>
+              Models this agent can use, ordered by priority. Higher priority = tried first.
+            </p>
+
+            {/* Add model form */}
+            {addingRoute && (
+              <div style={{
+                padding: 12, background: "var(--bg-sunken)", borderRadius: "var(--r-md)",
+                marginBottom: 12, display: "flex", flexDirection: "column", gap: 8,
+              }}>
+                <select
+                  value={newRouteModelId}
+                  onChange={(e) => setNewRouteModelId(e.target.value)}
+                  style={{ width: "100%", padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.75rem", background: "var(--bg-card)" }}
+                >
+                  <option value="">Select a model...</option>
+                  {config?.models.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginBottom: 2, display: "block" }}>Priority</label>
+                    <input
+                      type="number"
+                      value={newRoutePriority}
+                      onChange={(e) => setNewRoutePriority(parseInt(e.target.value))}
+                      min={1}
+                      max={100}
+                      style={{ width: "100%", padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.75rem", background: "var(--bg-card)" }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginBottom: 2, display: "block" }}>Policy</label>
+                    <select
+                      value={newRoutePolicy}
+                      onChange={(e) => setNewRoutePolicy(e.target.value)}
+                      style={{ width: "100%", padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.75rem", background: "var(--bg-card)" }}
+                    >
+                      <option value="preferred">Preferred</option>
+                      <option value="fallback">Fallback</option>
+                      <option value="required">Required</option>
+                      <option value="excluded">Excluded</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  onClick={addModelRoute}
+                  disabled={!newRouteModelId}
+                  style={{
+                    padding: "6px 12px", fontSize: "0.75rem", fontWeight: 500,
+                    background: newRouteModelId ? "var(--accent)" : "var(--bg-sunken)",
+                    color: "white", border: "none", borderRadius: "var(--r-md)",
+                    cursor: newRouteModelId ? "pointer" : "not-allowed",
+                    opacity: newRouteModelId ? 1 : 0.5,
+                  }}
+                >
+                  Add to Pool
+                </button>
+              </div>
+            )}
+
+            {/* Route list */}
+            {modelRoutes.length === 0 ? (
+              <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>No models in pool</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {modelRoutes.map((route) => (
+                  <div key={route.id} style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "8px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)",
+                    fontSize: "0.75rem", opacity: route.enabled ? 1 : 0.5,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                      <span style={{
+                        fontSize: "0.625rem", fontWeight: 600, padding: "1px 5px", borderRadius: 4,
+                        background: "var(--accent-bg)", color: "var(--accent)", minWidth: 20, textAlign: "center",
+                      }}>P{route.priority}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontWeight: 500 }}>{route.ai_models.name}</p>
+                        <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>
+                          {route.ai_models.ai_providers.name} · {(route.ai_models.context_window / 1000).toFixed(0)}K ctx · ${route.ai_models.input_price}/${route.ai_models.output_price}
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      <span style={{
+                        fontSize: "0.5625rem", padding: "1px 5px", borderRadius: 4,
+                        background: route.policy === "preferred" ? "var(--success-bg)" : "var(--bg-card)",
+                        color: route.policy === "preferred" ? "var(--success)" : "var(--text-tertiary)",
+                      }}>{route.policy}</span>
+                      <button
+                        onClick={() => toggleRoute(route.id, !route.enabled)}
+                        style={{
+                          padding: "2px 8px", fontSize: "0.6875rem", fontWeight: 500,
+                          background: route.enabled ? "var(--success-bg)" : "var(--bg-card)",
+                          color: route.enabled ? "var(--success)" : "var(--text-tertiary)",
+                          border: `1px solid ${route.enabled ? "var(--success)" : "var(--border)"}`,
+                          borderRadius: 9999, cursor: "pointer",
+                        }}
+                      >
+                        {route.enabled ? "On" : "Off"}
+                      </button>
+                      <button
+                        onClick={() => deleteRoute(route.id)}
+                        style={{
+                          padding: "2px 6px", fontSize: "0.6875rem",
+                          background: "none", color: "var(--text-tertiary)",
+                          border: "none", cursor: "pointer",
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Recent Runs */}
           <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20 }}>
             <h2 style={{ marginBottom: 12 }}>Recent Runs</h2>
@@ -639,6 +890,109 @@ export default function AgentDetailPage({
                   {testResult.error as string}
                 </p>
               )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Workspace Sections */}
+      <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Memory */}
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20 }}>
+          <h2 style={{ marginBottom: 12 }}>Memory</h2>
+          {memory.length === 0 ? (
+            <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>No memory entries yet</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {memory.map((m) => (
+                <div key={m.id} style={{
+                  padding: "8px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)",
+                  fontSize: "0.75rem", display: "flex", justifyContent: "space-between",
+                }}>
+                  <span style={{ fontWeight: 500 }}>{m.key}</span>
+                  <span style={{ color: "var(--text-tertiary)" }}>{m.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Handoffs */}
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20 }}>
+          <h2 style={{ marginBottom: 12 }}>Handoff History</h2>
+          {handoffs.length === 0 ? (
+            <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>No handoffs yet</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {handoffs.map((h) => (
+                <div key={h.id} style={{
+                  padding: "8px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)",
+                  fontSize: "0.75rem", display: "flex", justifyContent: "space-between",
+                }}>
+                  <span style={{ fontWeight: 500 }}>{h.from_agent_id} → {h.to_agent_id}</span>
+                  <span style={{
+                    fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
+                    background: h.status === "completed" ? "var(--success-bg)" : "var(--bg-sunken)",
+                    color: h.status === "completed" ? "var(--success)" : "var(--text-tertiary)",
+                  }}>{h.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Pending Approvals */}
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20 }}>
+          <h2 style={{ marginBottom: 12 }}>Approvals</h2>
+          {approvals.length === 0 ? (
+            <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>No approvals yet</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {approvals.map((a) => (
+                <div key={a.id} style={{
+                  padding: "8px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)",
+                  fontSize: "0.75rem", display: "flex", justifyContent: "space-between",
+                }}>
+                  <span style={{ fontWeight: 500 }}>Task: {a.task_id.slice(0, 8)}...</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{
+                      fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
+                      background: a.risk_level === "critical" ? "var(--error-bg)" : "var(--warning-bg, #fef3c7)",
+                      color: a.risk_level === "critical" ? "var(--error)" : "var(--warning, #d97706)",
+                    }}>{a.risk_level}</span>
+                    <span style={{
+                      fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
+                      background: a.status === "approved" ? "var(--success-bg)" : "var(--bg-sunken)",
+                      color: a.status === "approved" ? "var(--success)" : "var(--text-tertiary)",
+                    }}>{a.status}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Task History / Audit Trail */}
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20 }}>
+          <h2 style={{ marginBottom: 12 }}>Task History</h2>
+          {events.length === 0 ? (
+            <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>No events yet</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {events.map((e) => (
+                <div key={e.id} style={{
+                  padding: "8px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)",
+                  fontSize: "0.75rem",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontWeight: 500 }}>{e.event_type}</span>
+                    <span style={{ color: "var(--text-tertiary)", fontSize: "0.6875rem" }}>
+                      {new Date(e.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: "0.6875rem", color: "var(--text-secondary)" }}>{e.description}</p>
+                </div>
+              ))}
             </div>
           )}
         </div>

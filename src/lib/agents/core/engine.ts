@@ -7,12 +7,19 @@
 //   agentId → Supabase config → Provider/Model resolution → Router → LLM
 //
 // FASE 3: Builds system prompt from AgentDefinition via AgentPromptBuilder.
+// FASE 18: Injects shared company context into system prompts.
+// FASE 27: CEO continuity — includes recent task results for reference resolution.
+// FASE 40: Auto-logs agent execution events to app_events.
+// FASE 19: Injects agent memory into prompts and auto-stores decisions.
 
 import { supabase } from "../../database/supabase";
 import { getToolRegistry } from "../../tools/bootstrap";
 import { getPermissionChecker } from "../../permissions/checker";
 import { getAgentRegistry } from "../../ai/bootstrap";
 import { getPromptBuilder } from "./prompt-builder";
+import { getWorkspaceService } from "../../workspaces/service";
+import { getAgentMemoryService } from "../../ai/agent-memory";
+import { logEvent } from "../../logging/event-logger";
 import type { AgentContext, AgentResult, AgentConfiguration } from "./types";
 import type { AIProviderSlug } from "../../ai/types";
 import { randomUUID } from "crypto";
@@ -93,7 +100,7 @@ export class AgentEngine {
       throw new Error(errorMsg);
     }
 
-    // 6. Build context with system prompt from definition
+    // 6. Build context with system prompt from definition + company context + task history
     const promptBuilder = getPromptBuilder();
     const definition = registry.getDefinition(agentId);
     let systemPrompt: string | undefined;
@@ -107,6 +114,65 @@ export class AgentEngine {
       });
       systemPrompt = promptOutput.systemPrompt;
     }
+
+    // FASE 18: Inject shared company context into system prompt
+    const contextParts: string[] = [];
+    if (systemPrompt) contextParts.push(systemPrompt);
+
+    try {
+      const workspaceService = getWorkspaceService();
+      const companyContext = await workspaceService.buildCompanyContext();
+      const companyContextSection = workspaceService.formatContextForPrompt(companyContext);
+      if (companyContextSection) contextParts.push(companyContextSection);
+    } catch {
+      // Workspace may not exist — continue without context
+    }
+
+    // FASE 27: CEO continuity — include recent task results for reference resolution
+    if (agentId === "ceo" || agentId === "store-builder" || agentId === "marketing") {
+      try {
+        const { data: recentTasks } = await supabase
+          .from("agent_tasks")
+          .select("id, task_type, input, output, status")
+          .eq("agent_id", agentId)
+          .eq("status", "completed")
+          .not("output", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        if (recentTasks && recentTasks.length > 0) {
+          const lines = [`## Recent Task Results (for reference resolution)`];
+          for (const task of recentTasks) {
+            const taskInput = task.input as Record<string, unknown>;
+            const taskOutput = task.output as Record<string, unknown> | null;
+            const inputSummary = taskInput?.productName || taskInput?.goal || taskInput?.name || JSON.stringify(taskInput).slice(0, 100);
+            const outputSummary = taskOutput ? JSON.stringify(taskOutput).slice(0, 200) : "No output";
+            lines.push(`- Task ${String(task.id).slice(0, 8)} (${task.task_type}): ${inputSummary} → ${outputSummary}`);
+          }
+          contextParts.push(lines.join("\n"));
+        }
+      } catch {
+        // Continue without task history
+      }
+    }
+
+    // FASE 19: Inject agent memory — facts, preferences, patterns from past executions
+    try {
+      const memoryService = getAgentMemoryService();
+      const memories = await memoryService.getRecent(agentId, 10);
+      if (memories.length > 0) {
+        const memoryLines = [`## Agent Memory (learned from past executions)`];
+        for (const mem of memories) {
+          const confidence = Math.round(mem.confidence * 100);
+          memoryLines.push(`- [${mem.memory_type}] (${confidence}% confidence): ${mem.content}`);
+        }
+        contextParts.push(memoryLines.join("\n"));
+      }
+    } catch {
+      // Continue without memory
+    }
+
+    systemPrompt = contextParts.length > 0 ? contextParts.join("\n\n") : undefined;
 
     const context: AgentContext = {
       taskId,
@@ -161,6 +227,65 @@ export class AgentEngine {
 
       if (updateError) {
         console.error(`[AgentEngine] Failed to update task: ${updateError.message}`);
+      }
+
+      // FASE 40: Auto-log agent execution event
+      try {
+        await logEvent({
+          eventType: "agent_execution",
+          agentId: agentId,
+          severity: result.success ? "info" : "error",
+          message: `Agent ${agentId} ${result.success ? "completed" : "failed"} task ${taskType}`,
+          metadata: {
+            taskId,
+            provider: result.metadata.providerUsed,
+            model: result.metadata.modelUsed,
+            inputTokens: result.metadata.inputTokens,
+            outputTokens: result.metadata.outputTokens,
+            durationMs: result.metadata.durationMs,
+            cost,
+          },
+        });
+      } catch {
+        // Non-critical — don't fail execution if logging fails
+      }
+
+      // FASE 19: Auto-store important decisions/facts from agent output
+      if (result.success && result.structuredData) {
+        try {
+          const memoryService = getAgentMemoryService();
+          const output = result.structuredData as Record<string, unknown>;
+
+          // Store decision if present
+          if (output.decision || output.recommendation) {
+            const decision = String(output.decision || output.recommendation);
+            const summary = output.summary || output.explanation || JSON.stringify(output).slice(0, 500);
+            await memoryService.store({
+              agent_id: agentId,
+              memory_type: "decision",
+              content: `Task ${taskType}: ${decision} — ${summary}`,
+              source: `task:${taskId}`,
+              confidence: 0.8,
+              metadata: { taskId, taskType, provider: result.metadata.providerUsed },
+            });
+          }
+
+          // Store fact if present
+          if (output.keyFindings && Array.isArray(output.keyFindings)) {
+            for (const finding of output.keyFindings.slice(0, 3)) {
+              await memoryService.store({
+                agent_id: agentId,
+                memory_type: "fact",
+                content: String(finding),
+                source: `task:${taskId}`,
+                confidence: 0.7,
+                metadata: { taskId, taskType },
+              });
+            }
+          }
+        } catch {
+          // Non-critical — don't fail execution if memory storage fails
+        }
       }
 
       return { taskId, result };

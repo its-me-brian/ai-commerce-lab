@@ -128,9 +128,32 @@ code {
 .config-grid { grid-template-columns: 1fr 1fr; }
 @media (max-width: 800px) { .config-grid { grid-template-columns: 1fr; } }
 
+/* 4-column stats grid */
+.stats-grid { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } }
+
+/* 3-column grid */
+.three-col-grid { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 800px) { .three-col-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .three-col-grid { grid-template-columns: 1fr; } }
+
 @media (max-width: 480px) {
   h1 { font-size: 1.125rem; }
   h2 { font-size: 0.9375rem; }
+}
+
+/* Prevent horizontal overflow on mobile */
+pre, .mono {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Touch-friendly tap targets on mobile */
+@media (max-width: 768px) {
+  button, a, select, input, textarea {
+    min-height: 36px;
+  }
 }
 
 /* --- Scrollbar --- */

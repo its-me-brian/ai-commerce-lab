@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Hoisted mocks
-const { mockGetAgent, mockGetDefinition, mockGenerateForAgent, mockCreate, mockGetById, mockAddMessage, mockGetLastMessages } = vi.hoisted(() => ({
+const { mockGetAgent, mockGetDefinition, mockGenerateForAgent, mockCreate, mockGetById, mockAddMessage, mockGetLastMessages, mockBuildCompanyContext, mockFormatContextForPrompt, mockListByAgent } = vi.hoisted(() => ({
   mockGetAgent: vi.fn(),
   mockGetDefinition: vi.fn(),
   mockGenerateForAgent: vi.fn(),
@@ -11,6 +11,9 @@ const { mockGetAgent, mockGetDefinition, mockGenerateForAgent, mockCreate, mockG
   mockGetById: vi.fn(),
   mockAddMessage: vi.fn(),
   mockGetLastMessages: vi.fn(),
+  mockBuildCompanyContext: vi.fn(),
+  mockFormatContextForPrompt: vi.fn().mockReturnValue(""),
+  mockListByAgent: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("./bootstrap", () => ({
@@ -36,6 +39,19 @@ vi.mock("./conversation-engine", () => ({
   }),
 }));
 
+vi.mock("../workspaces/service", () => ({
+  getWorkspaceService: vi.fn().mockReturnValue({
+    buildCompanyContext: mockBuildCompanyContext,
+    formatContextForPrompt: mockFormatContextForPrompt,
+  }),
+}));
+
+vi.mock("./task-engine", () => ({
+  getTaskEngine: vi.fn().mockReturnValue({
+    listByAgent: mockListByAgent,
+  }),
+}));
+
 import { chatWithAgent } from "./agent-chat";
 
 describe("AgentChat", () => {
@@ -46,8 +62,11 @@ describe("AgentChat", () => {
     mockGetDefinition.mockReturnValue({
       id: "product-hunter",
       name: "Product Hunter",
-      identity: { role: "Product Research Specialist" },
+      identity: { name: "Product Hunter", role: "Product Research Specialist", description: "Finds trending products" },
       mission: "Find trending products",
+      personality: { traits: ["analytical", "curious"], communicationStyle: ["data-driven"], decisionStyle: "data-driven" },
+      expertise: ["product_analysis"],
+      rules: ["Be accurate"],
     });
   });
 

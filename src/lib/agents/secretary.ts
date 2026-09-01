@@ -28,6 +28,7 @@ export const CommunicationSchema = z.object({
         "relationship_building",
       ]),
       tone: z.enum(["formal", "friendly", "firm", "urgent"]),
+      language: z.enum(["en", "es"]).optional().default("en"),
     })
   ),
   talkingPoints: z.array(z.string()),
@@ -41,6 +42,7 @@ export const CommunicationSchema = z.object({
   riskFlags: z.array(z.string()),
   relationshipNotes: z.string(),
   summary: z.string(),
+  negotiationTips: z.array(z.string()).optional(),
 });
 
 export type Communication = z.infer<typeof CommunicationSchema>;
@@ -133,6 +135,20 @@ export class SecretaryAgent extends BaseAgent {
 
 Your job is to manage supplier relationships and create professional communications.
 
+LANGUAGE SUPPORT:
+- By default, write communications in ENGLISH
+- If the user requests Spanish ("en español", "Spanish", "español"), write ALL emails and talking points in Spanish
+- For Chinese suppliers, include both English and Spanish versions when requested
+- Spanish tone should be warm and professional (tuteo for friendly, usted for formal)
+
+NEGOTIATION STRATEGIES:
+- Initial contact: Be concise, show genuine interest, mention specific products
+- Price inquiry: Compare with market rates, ask for volume discounts
+- Sample request: Offer to pay for samples, show serious intent
+- Follow-up: Reference previous conversations, set clear next steps
+- Complaint: Stay factual, propose solutions, maintain relationship
+- Relationship building: Share success stories, plan long-term cooperation
+
 For each communication request, return a JSON object with this exact structure:
 {
   "emails": [
@@ -141,7 +157,8 @@ For each communication request, return a JSON object with this exact structure:
       "subject": "<email subject>",
       "body": "<professional email body>",
       "purpose": "initial_contact" | "price_inquiry" | "sample_request" | "order_placement" | "follow_up" | "complaint" | "relationship_building",
-      "tone": "formal" | "friendly" | "firm" | "urgent"
+      "tone": "formal" | "friendly" | "firm" | "urgent",
+      "language": "en" | "es"
     }
   ],
   "talkingPoints": ["<key point 1>", "<key point 2>"],
@@ -154,7 +171,8 @@ For each communication request, return a JSON object with this exact structure:
   ],
   "riskFlags": ["<potential issue 1>", "<potential issue 2>"],
   "relationshipNotes": "<notes about supplier relationship>",
-  "summary": "<brief summary of communication strategy>"
+  "summary": "<brief summary of communication strategy>",
+  "negotiationTips": ["<tip 1>", "<tip 2>"]
 }
 
 Communication rules:
@@ -163,7 +181,8 @@ Communication rules:
 - Always have a clear CTA in emails
 - Document everything for future reference
 - Flag potential issues early
-- Consider cultural differences in international communication`;
+- Consider cultural differences in international communication
+- For Chinese suppliers: be patient, build guanxi (relationship), avoid aggressive tactics`;
   }
 
   private buildPrompt(input: Record<string, unknown>): string {

@@ -24,6 +24,7 @@ import { FinanceAgent } from "../agents/finance";
 
 // Agent Definitions (identity, mission, personality, expertise, rules, skills)
 import { agentDefinitions } from "../agents/definitions";
+import { loadDefinitionsFromDB } from "../agents/definition-loader";
 
 // Provider class registry — maps slug to constructor
 // This allows dynamic provider registration while keeping type safety
@@ -109,8 +110,9 @@ export async function bootstrap(): Promise<void> {
   registry.register(new SecretaryAgent());
   registry.register(new FinanceAgent());
 
-  // --- Agent Definitions ---
-  for (const definition of Object.values(agentDefinitions)) {
+  // --- Agent Definitions (DB-first with hardcoded fallback) ---
+  const definitions = await loadDefinitionsFromDB();
+  for (const definition of Object.values(definitions)) {
     registry.registerDefinition(definition);
   }
 

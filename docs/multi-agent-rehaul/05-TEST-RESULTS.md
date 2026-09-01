@@ -42,6 +42,8 @@
 | FASE 31 | 513 | +22 | ✅ 513/513 passing |
 | FASE 32 | 525 | +12 | ✅ 525/525 passing |
 | FASE 33 | 535 | +10 | ✅ 535/535 passing |
+| FASE 34-45 | 535 | +0 | ✅ 535/535 passing (UI/infra phases, no new tests) |
+| FASE 46 | 569 | +34 | ✅ 569/569 passing |
 
 ---
 
@@ -86,5 +88,7 @@
 | `src/lib/ai/store-builder-workflow.test.ts` | 12 | ✅ FASE 32 |
 | `src/lib/ai/finance-review.test.ts` | 10 | ✅ FASE 33 |
 | `src/lib/workspaces/workspace.test.ts` | 9 | ✅ FASE 1 |
+| `src/lib/api/integration.test.ts` | 22 | ✅ FASE 46 |
+| `src/lib/security/sanitize.test.ts` | 12 | ✅ FASE 46 |
 
 ---

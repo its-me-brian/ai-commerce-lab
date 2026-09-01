@@ -5,6 +5,9 @@
 import { ToolRegistry } from "./registry";
 import { CalculateMarginTool } from "./calculate-margin";
 import { SearchProductsTool } from "./search-products";
+import { SearchSuppliersTool } from "./search-suppliers";
+import { GenerateImageTool } from "./generate-image";
+import { AnalyzeSeoTool } from "./analyze-seo";
 
 let toolRegistry: ToolRegistry | null = null;
 
@@ -13,6 +16,9 @@ export function getToolRegistry(): ToolRegistry {
     toolRegistry = new ToolRegistry();
     toolRegistry.register(new CalculateMarginTool());
     toolRegistry.register(new SearchProductsTool());
+    toolRegistry.register(new SearchSuppliersTool());
+    toolRegistry.register(new GenerateImageTool());
+    toolRegistry.register(new AnalyzeSeoTool());
   }
   return toolRegistry;
 }

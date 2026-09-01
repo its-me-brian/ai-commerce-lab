@@ -155,7 +155,7 @@ export class CEOAgent extends BaseAgent {
     }
 
     // 3. Synthesize final recommendation
-    const { result: synthesisResult } = await router.generate(
+    const { result: synthesisResult, log: synthesisLog } = await router.generate(
       {
         agentId: configuration.agentId,
         primaryProvider: configuration.primaryProvider,
@@ -196,10 +196,10 @@ export class CEOAgent extends BaseAgent {
       reasoningSummary: plan.strategy,
       errors: results.filter((r) => !r.success).map((r) => r.error || "Failed"),
       metadata: {
-        providerUsed: planLog.provider,
-        modelUsed: planLog.model,
-        inputTokens: planLog.inputTokens,
-        outputTokens: planLog.outputTokens,
+        providerUsed: synthesisLog.provider,
+        modelUsed: synthesisLog.model,
+        inputTokens: synthesisLog.inputTokens,
+        outputTokens: synthesisLog.outputTokens,
         durationMs: 0,
         cached: false,
       },
@@ -246,13 +246,21 @@ export class CEOAgent extends BaseAgent {
         );
         break;
 
+      case "product-launch":
+        orchestrationResult = await this.runProductLaunchWorkflow(
+          orchestrator,
+          pricingEngine,
+          workflowInput
+        );
+        break;
+
       default:
         return {
           success: false,
           output: `Unknown workflow: ${workflow}`,
           structuredData: null,
           reasoningSummary: "",
-          errors: [`Unknown workflow: ${workflow}. Available: product-discovery, supplier-evaluation, full-pipeline`],
+          errors: [`Unknown workflow: ${workflow}. Available: product-discovery, supplier-evaluation, full-pipeline, product-launch`],
           metadata: {
             providerUsed: configuration.primaryProvider,
             modelUsed: configuration.primaryModel,
@@ -434,6 +442,105 @@ export class CEOAgent extends BaseAgent {
         },
       ],
     });
+  }
+
+  /**
+   * FASE 26+: Product Launch Workflow
+   * CEO orchestrates Store + Marketing + Finance for a coordinated product launch.
+   * 1. Store Builder creates product listing + SEO
+   * 2. Marketing creates campaign + ad copy (parallel with Store)
+   * 3. Finance validates margins + profitability
+   * 4. CEO synthesizes all results for approval
+   */
+  private async runProductLaunchWorkflow(
+    orchestrator: ReturnType<typeof getMultiAgentOrchestrator>,
+    _pricingEngine: ReturnType<typeof getPricingEngine>,
+    input: Record<string, unknown>
+  ) {
+    const productName = (input.productName as string) || "Unknown Product";
+    const price = (input.price as number) || 0;
+    const category = (input.category as string) || "general";
+    const targetMarket = (input.targetMarket as string) || "Europe";
+    const targetAudience = (input.targetAudience as string) || "online shoppers";
+    const supplierPrice = (input.supplierPrice as number) || 0;
+
+    // Phase 1: Store Builder + Marketing in parallel
+    const parallelResult = await orchestrator.execute({
+      parallel: [
+        {
+          agentId: "store-builder",
+          input: {
+            productName,
+            price,
+            category,
+            targetMarket,
+            supplierPrice,
+            features: input.features,
+            brand: input.brand,
+          },
+          taskType: "launch-store-content",
+        },
+        {
+          agentId: "marketing",
+          input: {
+            productName,
+            price,
+            targetAudience,
+            category,
+            platform: input.platform || "all",
+            campaignGoal: "sales",
+            productBenefits: input.features,
+            budget: input.budget,
+          },
+          taskType: "launch-marketing",
+        },
+      ],
+    });
+
+    // Phase 2: Finance validates margins
+    const financeResult = await orchestrator.execute({
+      sequential: [
+        {
+          agentId: "finance",
+          input: {
+            productName,
+            costPrice: supplierPrice,
+            sellingPrice: price,
+            shippingCost: input.shippingCost || 5,
+            platformFeePercent: input.platformFeePercent || 15,
+            monthlyVolume: input.monthlyVolume || 100,
+          },
+          taskType: "launch-finance-validation",
+        },
+      ],
+    });
+
+    // Combine all results
+    const allResults = [
+      ...parallelResult.results,
+      ...financeResult.results,
+    ];
+
+    const storeContent = orchestrator.getStructuredData(parallelResult, "store-builder");
+    const marketingContent = orchestrator.getStructuredData(parallelResult, "marketing");
+    const financeAnalysis = orchestrator.getStructuredData(financeResult, "finance");
+
+    return {
+      success: parallelResult.success && financeResult.success,
+      results: allResults,
+      errors: [...parallelResult.errors, ...financeResult.errors],
+      totalInputTokens: parallelResult.totalInputTokens + financeResult.totalInputTokens,
+      totalOutputTokens: parallelResult.totalOutputTokens + financeResult.totalOutputTokens,
+      totalDurationMs: parallelResult.totalDurationMs + financeResult.totalDurationMs,
+      structuredData: {
+        workflow: "product-launch",
+        productName,
+        storeContent,
+        marketingContent,
+        financeAnalysis,
+        approvalRequired: true,
+      },
+    };
   }
 
   /**

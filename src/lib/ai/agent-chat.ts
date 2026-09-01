@@ -1,10 +1,14 @@
 // Agent Chat Service
 // Orchestrates direct chat with an agent: create conversation, send message, get response.
 // FASE 13: POST /api/agents/chat
+// FASE 18: Injects shared company context into prompts.
+// FASE 27: CEO continuity — resolves references from conversation + task history.
 
 import { bootstrap, getAgentRegistry } from "./bootstrap";
 import { getRouter } from "./router";
 import { getConversationEngine, type Conversation, type ConversationMessage } from "./conversation-engine";
+import { getWorkspaceService } from "../workspaces/service";
+import { getTaskEngine } from "./task-engine";
 
 export interface ChatInput {
   agentId: string;
@@ -22,6 +26,7 @@ export interface ChatResult {
 /**
  * Send a message to an agent and get a response.
  * Creates a new conversation if none provided.
+ * Injects company context + task history for continuity.
  */
 export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   await bootstrap();
@@ -29,6 +34,8 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   const registry = getAgentRegistry();
   const router = getRouter();
   const conversationEngine = getConversationEngine();
+  const workspaceService = getWorkspaceService();
+  const taskEngine = getTaskEngine();
 
   // 1. Validate agent exists
   const agent = registry.get(input.agentId);
@@ -75,14 +82,111 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
     content: m.content,
   }));
 
-  // 5. Call AI via router
-  const startTime = Date.now();
-
-  // Build system prompt from agent definition
+  // 5. Build system prompt with company context + agent definition
   const agentDef = registry.getDefinition(input.agentId);
-  const systemPrompt = agentDef
-    ? `${agentDef.identity?.role ?? agentDef.identity?.name}: ${agentDef.mission}`
-    : `You are ${input.agentId}`;
+
+  // FASE 18: Inject shared company context
+  let companyContextSection = "";
+  try {
+    const companyContext = await workspaceService.buildCompanyContext(input.workspaceId || undefined);
+    companyContextSection = workspaceService.formatContextForPrompt(companyContext);
+  } catch {
+    // Workspace may not exist yet — continue without context
+  }
+
+  // FASE 27: Agent continuity — include recent task results for reference resolution
+  let taskHistorySection = "";
+  try {
+      const recentTasks = await taskEngine.listByAgent(input.agentId);
+      const completedTasks = recentTasks
+        .filter((t) => t.status === "completed" && t.output)
+        .slice(0, 5);
+
+      if (completedTasks.length > 0) {
+        const lines = [`## Recent Task Results (for reference resolution)`];
+        for (const task of completedTasks) {
+          const outputSummary = typeof task.output === "object" && task.output !== null
+            ? JSON.stringify(task.output).slice(0, 500)
+            : String(task.output || "No output");
+          lines.push(`- Task ${task.id.slice(0, 8)} (${task.task_type}): ${task.input.productName || task.input.goal || JSON.stringify(task.input).slice(0, 100)} → ${outputSummary.slice(0, 200)}`);
+        }
+        taskHistorySection = lines.join("\n");
+      }
+    } catch {
+      // Continue without task history
+    }
+
+  // Build full system prompt — conversational mode with personality
+  const systemPromptParts: string[] = [];
+
+  if (agentDef) {
+    // Identity
+    systemPromptParts.push(
+      `You are ${agentDef.identity.name}, ${agentDef.identity.role}.`,
+      agentDef.identity.description,
+      ``,
+      `## Your Mission`,
+      agentDef.mission,
+    );
+
+    // Personality
+    if (agentDef.personality?.traits?.length > 0) {
+      const traits = agentDef.personality.traits.map((t) =>
+        t.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+      ).join(", ");
+      systemPromptParts.push(``, `Your personality: ${traits}.`);
+    }
+
+    if (agentDef.personality?.communicationStyle?.length > 0) {
+      systemPromptParts.push(
+        `Communication style: ${agentDef.personality.communicationStyle.join(", ")}.`
+      );
+    }
+
+    // Expertise
+    if (agentDef.expertise.length > 0) {
+      systemPromptParts.push(
+        ``,
+        `## Your Expertise`,
+        agentDef.expertise.map((e) => `- ${e.charAt(0).toUpperCase() + e.slice(1)}`).join(``),
+      );
+    }
+
+    // Rules
+    if (agentDef.rules.length > 0) {
+      systemPromptParts.push(
+        ``,
+        `## Rules You Follow`,
+        agentDef.rules.map((r) => `- ${r}`).join(``),
+      );
+    }
+
+    // Conversational instruction
+    systemPromptParts.push(
+      ``,
+      `## Conversation Mode`,
+      `You are having a direct conversation with the user. Be helpful, concise, and stay in character.`,
+      `Answer questions about your domain of expertise. If asked to perform a task, explain what you would do and ask for confirmation.`,
+      `Use the company context below to provide informed answers.`,
+    );
+  } else {
+    systemPromptParts.push(`You are ${input.agentId}. Be helpful and stay in character.`);
+  }
+
+  // FASE 18: Inject shared company context
+  if (companyContextSection) {
+    systemPromptParts.push(``, companyContextSection);
+  }
+
+  // FASE 27: CEO continuity — include recent task results for reference resolution
+  if (taskHistorySection) {
+    systemPromptParts.push(``, taskHistorySection);
+  }
+
+  const systemPrompt = systemPromptParts.join("\n");
+
+  // 6. Call AI via router
+  const startTime = Date.now();
 
   try {
     const { result, log } = await router.generateForAgent(
@@ -94,7 +198,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
       }
     );
 
-    // 6. Add assistant message
+    // 7. Add assistant message
     const assistantMessage = await conversationEngine.addMessage({
       conversation_id: conversation.id,
       role: "assistant",
