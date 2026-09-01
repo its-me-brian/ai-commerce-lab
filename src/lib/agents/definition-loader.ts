@@ -3,7 +3,8 @@
 // FASE: Agent definitions from DB — allows updating agent identity/personality without code changes.
 
 import { supabase } from "../database/supabase";
-import { agentDefinitions, type AgentDefinition } from "../agents/definitions";
+import { agentDefinitions } from "../agents/definitions";
+import type { AgentDefinition } from "../agents/core/types-agent-definition";
 
 export interface AgentDefinitionRecord {
   id: string;

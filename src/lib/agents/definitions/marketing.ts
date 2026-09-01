@@ -6,7 +6,7 @@ export const marketingDefinition: AgentDefinition = {
   id: "marketing",
   slug: "marketing",
   version: "0.1.0",
-  status: "active",
+  status: "ready",
   enabled: true,
 
   identity: {

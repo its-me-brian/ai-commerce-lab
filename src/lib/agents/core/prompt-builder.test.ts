@@ -161,12 +161,12 @@ describe("Agent Definitions", () => {
     expect(ph?.status).toBe("ready");
   });
 
-  it("All agents should be active or ready", () => {
-    expect(storeBuilderDefinition.status).toBe("active");
-    expect(marketingDefinition.status).toBe("active");
-    expect(secretaryDefinition.status).toBe("active");
-    expect(financeDefinition.status).toBe("active");
-    expect(ceoDefinition.status).toBe("active");
+  it("All agents should be ready or active", () => {
+    expect(storeBuilderDefinition.status).toBe("ready");
+    expect(marketingDefinition.status).toBe("ready");
+    expect(secretaryDefinition.status).toBe("ready");
+    expect(financeDefinition.status).toBe("ready");
+    expect(ceoDefinition.status).toBe("ready");
   });
 
   it("All definitions should have valid structure", () => {
