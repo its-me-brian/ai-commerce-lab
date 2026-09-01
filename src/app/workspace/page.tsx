@@ -78,12 +78,9 @@ export default function WorkspacePage() {
   const sidebar = (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-4 py-4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+      <div className="px-4 py-4 border-b border-[var(--border-subtle)]">
         <div className="flex items-center gap-2">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: "var(--accent)" }}
-          >
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[var(--accent)]">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2L2 7l10 5 10-5-10-5z" />
               <path d="M2 17l10 5 10-5" />
@@ -91,10 +88,10 @@ export default function WorkspacePage() {
             </svg>
           </div>
           <div>
-            <h1 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            <h1 className="text-sm font-semibold text-[var(--text-primary)]">
               AI Commerce Lab
             </h1>
-            <p className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>Workspace</p>
+            <p className="text-[10px] text-[var(--text-tertiary)]">Workspace</p>
           </div>
         </div>
       </div>
@@ -108,12 +105,12 @@ export default function WorkspacePage() {
 
       {/* Divider */}
       <div className="px-4 py-2">
-        <div style={{ borderTop: "1px solid var(--border-subtle)" }} />
+        <div className="border-t border-[var(--border-subtle)]" />
       </div>
 
       {/* Agent list header */}
       <div className="px-4 py-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
           Agents
         </h2>
       </div>
@@ -121,41 +118,44 @@ export default function WorkspacePage() {
       {/* Agent list */}
       <div className="flex-1 overflow-y-auto px-2">
         {loading ? (
-          <div className="px-2 py-4 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
+          <div className="px-2 py-4 text-center text-xs text-[var(--text-tertiary)]">
             Loading...
           </div>
         ) : error ? (
-          <div className="px-2 py-4 text-center text-xs" style={{ color: "var(--error)" }}>
+          <div className="px-2 py-4 text-center text-xs text-[var(--error)]">
             {error}
           </div>
         ) : agents.length === 0 ? (
           <div className="px-2 py-8 text-center">
-            <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>No agents deployed</p>
+            <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-[var(--bg-sunken)] flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
+              </svg>
+            </div>
+            <p className="text-xs text-[var(--text-tertiary)] mb-2">No agents deployed</p>
+            <p className="text-[10px] text-[var(--text-tertiary)]">Create one from the dashboard</p>
           </div>
         ) : (
           agents.map((agent) => (
             <button
               key={agent.id}
               onClick={() => setSelectedAgent(agent)}
-              className="w-full text-left px-3 py-2.5 rounded-lg mb-0.5 transition-colors"
-              style={{
-                background: selectedAgent?.id === agent.id ? "var(--accent-light)" : "transparent",
-                color: selectedAgent?.id === agent.id ? "var(--accent)" : "var(--text-primary)",
-              }}
+              className={`w-full text-left px-3 py-2.5 rounded-lg mb-0.5 transition-colors ${
+                selectedAgent?.id === agent.id
+                  ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                  : "text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+              }`}
             >
               <div className="flex items-center gap-2">
                 <div
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{
-                    background: agent.enabled ? "var(--success)" : "var(--border-strong)",
-                  }}
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    agent.enabled ? "bg-[var(--success)]" : "bg-[var(--border-strong)]"
+                  }`}
                 />
                 <span className="text-sm font-medium truncate">{agent.name}</span>
               </div>
-              <p
-                className="text-[11px] mt-0.5 truncate pl-4"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+              <p className="text-[11px] mt-0.5 truncate pl-4 text-[var(--text-tertiary)]">
                 {agent.role}
               </p>
             </button>
@@ -164,8 +164,8 @@ export default function WorkspacePage() {
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-        <p className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+      <div className="px-4 py-3 border-t border-[var(--border-subtle)]">
+        <p className="text-[10px] text-[var(--text-tertiary)]">
           {agents.filter((a) => a.enabled).length} of {agents.length} agents active
         </p>
       </div>
@@ -175,20 +175,14 @@ export default function WorkspacePage() {
   // Header
   const header = selectedAgent ? (
     <div className="flex items-center gap-3">
-      <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
-        style={{
-          background: "var(--accent-light)",
-          color: "var(--accent)",
-        }}
-      >
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold bg-[var(--accent-light)] text-[var(--accent)]">
         {selectedAgent.name.charAt(0)}
       </div>
       <div>
-        <h1 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+        <h1 className="text-sm font-semibold text-[var(--text-primary)]">
           {selectedAgent.name}
         </h1>
-        <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+        <p className="text-xs text-[var(--text-tertiary)]">
           {selectedAgent.role} · {selectedAgent.department || "General"}
         </p>
       </div>
@@ -197,7 +191,7 @@ export default function WorkspacePage() {
       </Badge>
     </div>
   ) : (
-    <div className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+    <div className="text-sm text-[var(--text-tertiary)]">
       Select an agent to get started
     </div>
   );
@@ -284,14 +278,11 @@ export default function WorkspacePage() {
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div
-      className="px-4 py-3 rounded-lg"
-      style={{ background: "var(--bg-sunken)", border: "1px solid var(--border-subtle)" }}
-    >
-      <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--text-tertiary)" }}>
+    <div className="px-4 py-3 rounded-lg bg-[var(--bg-sunken)] border border-[var(--border-subtle)]">
+      <p className="text-[10px] font-semibold uppercase tracking-wider mb-1 text-[var(--text-tertiary)]">
         {label}
       </p>
-      <p className="text-sm font-medium capitalize" style={{ color: "var(--text-primary)" }}>
+      <p className="text-sm font-medium capitalize text-[var(--text-primary)]">
         {value}
       </p>
     </div>
@@ -328,11 +319,11 @@ function NavLink({ href, icon, label }: { href: string; icon: string; label: str
   return (
     <Link
       href={href}
-      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
-      style={{
-        background: isActive ? "var(--accent-light)" : "transparent",
-        color: isActive ? "var(--accent)" : "var(--text-secondary)",
-      }}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+        isActive
+          ? "bg-[var(--accent-light)] text-[var(--accent)]"
+          : "text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+      }`}
     >
       {icons[icon]}
       {label}

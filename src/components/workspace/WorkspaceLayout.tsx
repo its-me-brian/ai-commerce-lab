@@ -41,93 +41,40 @@ export function WorkspaceLayout({
   }, [mobileOpen]);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
+    <div className="flex min-h-screen bg-[var(--bg)]">
       {/* ===== MOBILE OVERLAY ===== */}
-      {/* Only renders DOM when mobileOpen=true; CSS hides on desktop anyway */}
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen(false)}
-          className="mobile-overlay"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            zIndex: 45,
-          }}
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
         />
       )}
 
       {/* ===== SIDEBAR — DESKTOP ===== */}
-      {/* CSS: .sidebar-desktop { display: flex; } / @media <768px { display: none !important; } */}
-      {/* NO inline display — CSS controls visibility */}
-      <aside
-        className="sidebar-desktop"
-        style={{
-          width: "var(--sidebar-w)",
-          background: "var(--bg-card)",
-          borderRight: "1px solid var(--border)",
-          flexDirection: "column",
-          overflowY: "auto",
-        }}
-      >
+      {/* CSS controls visibility: .sidebar-desktop { display: flex } / @media <768px { display: none !important } */}
+      <aside className="sidebar-desktop flex flex-col w-[var(--sidebar-w)] bg-[var(--bg-card)] border-r border-[var(--border-subtle)] overflow-y-auto">
         {sidebar}
       </aside>
 
       {/* ===== SIDEBAR — MOBILE DRAWER ===== */}
-      {/* CSS: .sidebar-mobile { display: none; } / @media <768px { display: flex !important; } */}
-      {/* NO inline display — CSS controls visibility */}
+      {/* CSS controls visibility: .sidebar-mobile { display: none } / @media <768px { display: flex !important } */}
       <aside
-        className="sidebar-mobile"
+        className="sidebar-mobile flex flex-col fixed inset-y-0 left-0 z-50 w-[var(--sidebar-w)] bg-[var(--bg-card)] overflow-y-auto transition-transform duration-300 ease-in-out"
         style={{
-          width: 240,
-          background: "var(--bg-card)",
-          position: "fixed",
-          top: 0,
-          bottom: 0,
-          left: mobileOpen ? 0 : -260,
-          flexDirection: "column",
-          overflowY: "auto",
-          zIndex: 50,
-          transition: "left 200ms ease",
+          transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
           boxShadow: mobileOpen ? "4px 0 24px rgba(0,0,0,0.1)" : "none",
         }}
       >
         {sidebar}
       </aside>
 
-      {/* ===== MAIN CONTENT AREA ===== */}
-      {/* CSS: .main-content { margin-left: var(--sidebar-w); } / @media <768px { margin-left: 0 !important; } */}
-      {/* NO inline display — CSS controls visibility */}
-      <div className="main-content" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      {/* ===== MAIN CONTENT ===== */}
+      <div className="main-content flex-1 flex flex-col min-w-0">
         {/* Mobile header — hidden on desktop by CSS */}
-        <div
-          className="mobile-header"
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 30,
-            height: 56,
-            background: "var(--bg-card)",
-            borderBottom: "1px solid var(--border)",
-            alignItems: "center",
-            padding: "0 16px",
-            gap: 12,
-          }}
-        >
+        <div className="mobile-header sticky top-0 z-30 h-14 bg-[var(--bg-card)] border-b border-[var(--border-subtle)] flex items-center px-4 gap-3">
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            style={{
-              width: 36,
-              height: 36,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "none",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--r-md)",
-              cursor: "pointer",
-              color: "var(--text-primary)",
-            }}
+            className="w-9 h-9 flex items-center justify-center bg-transparent border border-[var(--border-subtle)] rounded-[var(--r-md)] cursor-pointer text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
             aria-label="Toggle menu"
           >
             {mobileOpen ? (
@@ -140,46 +87,27 @@ export function WorkspaceLayout({
               </svg>
             )}
           </button>
-          <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)" }}>
+          <span className="text-sm font-semibold text-[var(--text-primary)]">
             AI Commerce Lab
           </span>
         </div>
 
         {/* Desktop header */}
         {header && (
-          <header
-            style={{
-              height: 56,
-              borderBottom: "1px solid var(--border)",
-              background: "var(--bg-card)",
-              display: "flex",
-              alignItems: "center",
-              padding: "0 24px",
-              flexShrink: 0,
-            }}
-          >
+          <header className="h-14 bg-[var(--bg-card)] border-b border-[var(--border-subtle)] flex items-center px-6 shrink-0">
             {header}
           </header>
         )}
 
         {/* Main content */}
-        <main style={{ flex: 1, overflowY: "auto" }}>
+        <main className="flex-1 overflow-y-auto">
           {children}
         </main>
       </div>
 
       {/* ===== RIGHT PANEL — CHAT ===== */}
       {rightPanel && (
-        <aside
-          className="right-panel"
-          style={{
-            width: 380,
-            borderLeft: "1px solid var(--border)",
-            background: "var(--bg-card)",
-            flexDirection: "column",
-            flexShrink: 0,
-          }}
-        >
+        <aside className="right-panel flex flex-col w-[380px] shrink-0 border-l border-[var(--border-subtle)] bg-[var(--bg-card)]">
           {rightPanel}
         </aside>
       )}
