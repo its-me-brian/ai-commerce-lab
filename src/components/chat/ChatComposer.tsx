@@ -14,6 +14,7 @@ export function ChatComposer({
   placeholder = "Type a message...",
 }: ChatComposerProps) {
   const [input, setInput] = useState("");
+  const [focused, setFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -45,10 +46,11 @@ export function ChatComposer({
       style={{ borderTop: "1px solid var(--border-subtle)" }}
     >
       <div
-        className="flex items-end gap-2 rounded-xl px-3 py-2"
+        className="flex items-end gap-2 rounded-xl px-3 py-2 transition-all duration-200"
         style={{
           background: "var(--bg-sunken)",
-          border: "1px solid var(--border)",
+          border: focused ? "1px solid var(--accent-muted)" : "1px solid var(--border)",
+          boxShadow: focused ? "0 0 0 3px rgba(37, 99, 235, 0.08)" : "none",
         }}
       >
         <textarea
@@ -56,6 +58,8 @@ export function ChatComposer({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           placeholder={placeholder}
           disabled={disabled}
           rows={1}

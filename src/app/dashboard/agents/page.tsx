@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/database/supabase";
+import { OrgChart } from "@/components/agents/OrgChart";
 
 export const dynamic = "force-dynamic";
 
@@ -81,25 +82,12 @@ export default async function AgentsPage() {
       )}
 
       {/* Org Chart View */}
-      <div style={{
-        background: "var(--bg-card)", border: "1px solid var(--border)",
-        borderRadius: "var(--r-lg)", padding: 24, marginBottom: 20,
-      }}>
-        <h2 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: 16 }}>Organization Chart</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-          {roots.map((agent) => (
-            <TreeNode
-              key={agent.id}
-              agent={agent}
-              childrenMap={childrenMap}
-              configMap={configMap}
-              modelMap={modelMap}
-              providerMap={providerMap}
-              depth={0}
-            />
-          ))}
-        </div>
-      </div>
+      <OrgChart
+        roots={roots}
+        childrenMap={childrenMap}
+        configMap={configMap}
+        modelMap={modelMap}
+      />
 
       {/* All Agents Grid */}
       <h2 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: 12 }}>All Agents</h2>
@@ -164,75 +152,6 @@ export default async function AgentsPage() {
       </div>
     </div>
   );
-}
-
-function TreeNode({ agent, childrenMap, configMap, modelMap, providerMap, depth }: {
-  agent: AgentRow;
-  childrenMap: Map<string, AgentRow[]>;
-  configMap: Map<string, { primary_model_id: string; primary_provider_id: string }>;
-  modelMap: Map<string, string>;
-  providerMap: Map<string, string>;
-  depth: number;
-}) {
-  const children = childrenMap.get(agent.id) || [];
-  const cfg = configMap.get(agent.id);
-  const modelName = cfg ? modelMap.get(cfg.primary_model_id) || "-" : "-";
-  const isLast = depth > 0;
-
-  return (
-    <div>
-      <div style={{
-        display: "flex", alignItems: "center", gap: 10,
-        padding: "8px 12px", marginLeft: depth * 24,
-        borderRadius: "var(--r-md)",
-        background: depth === 0 ? "var(--bg-sunken)" : "transparent",
-        borderLeft: depth > 0 ? "2px solid var(--border)" : "none",
-      }}>
-        {children.length > 0 ? (
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M3 4.5l3 3 3-3" />
-          </svg>
-        ) : (
-          <div style={{ width: 12 }} />
-        )}
-        <StatusDot status={agent.status} enabled={agent.enabled} />
-        <span style={{ fontWeight: depth === 0 ? 600 : 400, fontSize: "0.8125rem" }}>
-          {agent.name}
-        </span>
-        {agent.department && (
-          <span style={{
-            fontSize: "0.5625rem", fontWeight: 600, letterSpacing: "0.04em",
-            padding: "1px 5px", borderRadius: 4,
-            background: "var(--accent-light)", color: "var(--accent)",
-          }}>
-            {agent.department}
-          </span>
-        )}
-        <span style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginLeft: "auto" }}>
-          {modelName}
-        </span>
-      </div>
-      {children.map((child) => (
-        <TreeNode
-          key={child.id}
-          agent={child}
-          childrenMap={childrenMap}
-          configMap={configMap}
-          modelMap={modelMap}
-          providerMap={providerMap}
-          depth={depth + 1}
-        />
-      ))}
-    </div>
-  );
-}
-
-function StatusDot({ status, enabled }: { status: string; enabled: boolean }) {
-  const color = !enabled ? "var(--text-tertiary)"
-    : status === "ready" ? "var(--success)"
-    : status === "error" ? "var(--error)"
-    : "var(--warning)";
-  return <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />;
 }
 
 function StatusBadge({ status, enabled }: { status: string; enabled: boolean }) {

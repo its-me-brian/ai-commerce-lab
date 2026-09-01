@@ -41,6 +41,16 @@ export function ChatContainer({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const loadingRef = useRef(false);
 
+  // Sync internal state when prop changes (agent switched from sidebar)
+  useEffect(() => {
+    if (propAgentId && propAgentId !== selectedAgentId) {
+      setSelectedAgentId(propAgentId);
+      // Reset conversation when switching agents
+      setConversationId(null);
+      setMessages([]);
+    }
+  }, [propAgentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
 
   // ─── Load messages from Supabase when conversation changes ─────
@@ -95,6 +105,34 @@ export function ChatContainer({
       cancelled = true;
     };
   }, [conversationId, selectedAgent?.name, selectedAgentId]);
+
+  // ─── Load existing direct conversation on mount / agent change ──
+  useEffect(() => {
+    if (!selectedAgentId) return;
+    let cancelled = false;
+
+    async function loadExistingConversation() {
+      setLoadingHistory(true);
+      try {
+        // Find existing direct conversation for this agent
+        const res = await fetch(`/api/conversations/direct?agentId=${encodeURIComponent(selectedAgentId!)}`);
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (data.success && data.conversation) {
+          setConversationId(data.conversation.id);
+          // Messages will be loaded by the conversationId useEffect
+        }
+      } catch {
+        // No existing conversation — will be created on first message
+      } finally {
+        if (!cancelled) setLoadingHistory(false);
+      }
+    }
+
+    loadExistingConversation();
+    return () => { cancelled = true; };
+  }, [selectedAgentId]);
 
   // ─── Send message ─────────────────────────────────────────────
   const handleSend = useCallback(

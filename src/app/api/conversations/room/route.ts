@@ -1,6 +1,5 @@
+// GET /api/conversations/room — Load room conversation for a workspace
 // POST /api/conversations/room — Send a message in a Company Room
-// Routes to a specific agent (via @mention) or CEO by default.
-// All messages stored in the room conversation for full history.
 
 import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
@@ -11,6 +10,55 @@ interface RoomMessageRequest {
   message: string;
   /** @mention target — agent ID to route to. Defaults to "ceo". */
   targetAgentId?: string;
+}
+
+// GET: Load room conversation + messages (no side effects)
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const workspaceId = searchParams.get("workspaceId");
+
+    if (!workspaceId) {
+      return NextResponse.json(
+        { success: false, error: "workspaceId is required" },
+        { status: 400 }
+      );
+    }
+
+    const engine = getConversationEngine();
+
+    // Find existing room conversation
+    const conversations = await engine.listByWorkspace(workspaceId);
+    const room = conversations.find(
+      (c) => c.conversation_type === "room" && c.status === "active"
+    );
+
+    if (!room) {
+      // No room yet — return empty state (will be created on first message)
+      return NextResponse.json({
+        success: true,
+        conversation: null,
+        messages: [],
+      });
+    }
+
+    // Load messages
+    const messages = await engine.getMessages(room.id);
+
+    return NextResponse.json({
+      success: true,
+      conversation: room,
+      messages,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: NextRequest) {

@@ -38,9 +38,11 @@ interface RoomMessage {
 interface CompanyRoomProps {
   workspaceId: string;
   agents: AgentRecord[];
+  onTogglePanel?: () => void;
+  panelOpen?: boolean;
 }
 
-export function CompanyRoom({ workspaceId, agents }: CompanyRoomProps) {
+export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: CompanyRoomProps) {
   const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -48,6 +50,7 @@ export function CompanyRoom({ workspaceId, agents }: CompanyRoomProps) {
   const [showMentions, setShowMentions] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
   const [input, setInput] = useState("");
+  const [focused, setFocused] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const loadingRef = useRef(false);
@@ -65,26 +68,37 @@ export function CompanyRoom({ workspaceId, agents }: CompanyRoomProps) {
     async function loadRoom() {
       setLoadingHistory(true);
       try {
-        // Get or create room conversation
-        const res = await fetch("/api/conversations/room", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workspaceId,
-            message: "__init__", // Internal: just create/get the room
-            targetAgentId: "ceo",
-          }),
-        });
-        // Note: This would send a message. Instead, let's load via the messages endpoint.
-        // We need the conversation ID first. Let's use a different approach.
+        const res = await fetch(`/api/conversations/room?workspaceId=${encodeURIComponent(workspaceId)}`);
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (data.success && data.conversation) {
+          setConversationId(data.conversation.id);
+
+          // Load existing messages
+          if (data.messages && data.messages.length > 0) {
+            const mapped: RoomMessage[] = data.messages.map(
+              (m: { id: string; role: string; content: string; created_at: string; metadata?: Record<string, unknown> }) => ({
+                id: m.id,
+                role: m.role as "user" | "assistant" | "system",
+                content: m.content,
+                agentName: m.metadata?.agentName as string | undefined,
+                agentId: m.metadata?.agentId as string | undefined,
+                timestamp: m.created_at,
+              })
+            );
+            setMessages(mapped);
+          }
+        }
+        // If no room exists yet, we start empty — room created on first message
       } catch {
-        // Silently fail
+        // Silently fail — messages start empty
       } finally {
         if (!cancelled) setLoadingHistory(false);
       }
     }
 
-    // For now, start with empty messages — room will be created on first real message
+    loadRoom();
     return () => { cancelled = true; };
   }, [workspaceId]);
 
@@ -274,6 +288,19 @@ export function CompanyRoom({ workspaceId, agents }: CompanyRoomProps) {
               );
             })}
           </div>
+          {/* Panel toggle — desktop only */}
+          {onTogglePanel && (
+            <button
+              onClick={onTogglePanel}
+              className="hidden lg:flex w-7 h-7 items-center justify-center rounded-[var(--r-md)] hover:bg-[var(--bg-hover)] transition-colors ml-1"
+              style={{ color: panelOpen ? "var(--accent)" : "var(--text-tertiary)" }}
+              title={panelOpen ? "Hide info panel" : "Show info panel"}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M15 3v18" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -416,14 +443,20 @@ export function CompanyRoom({ workspaceId, agents }: CompanyRoomProps) {
         )}
 
         <div
-          className="flex items-end gap-2 rounded-xl px-3 py-2"
-          style={{ background: "var(--bg-sunken)", border: "1px solid var(--border)" }}
+          className="flex items-end gap-2 rounded-xl px-3 py-2 transition-all duration-200"
+          style={{
+            background: "var(--bg-sunken)",
+            border: focused ? "1px solid var(--accent-muted)" : "1px solid var(--border)",
+            boxShadow: focused ? "0 0 0 3px rgba(37, 99, 235, 0.08)" : "none",
+          }}
         >
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             placeholder="Message the room... Use @agent to target"
             rows={1}
             className="flex-1 resize-none bg-transparent text-sm py-1 focus:outline-none"
