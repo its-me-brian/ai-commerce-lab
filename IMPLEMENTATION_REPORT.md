@@ -42,6 +42,11 @@
 | Security | ✅ WORKING | Audit log |
 | Activity | ✅ WORKING | Timeline |
 | Settings | ✅ WORKING | Env status |
+| **Workspace** | ✅ WORKING | 3-column layout, agent list, Company Room |
+| **ChatContainer** | ✅ WORKING | Supabase persistence, real DB IDs, history loading |
+| **CompanyRoom** | ✅ WORKING | Multi-agent chat with @mention support |
+| **TaskList** | ✅ WORKING | Real-time polling, status badges |
+| **Interactive Cards** | ✅ WORKING | Product, Task, Operation, Generic renderers |
 
 ---
 
@@ -51,12 +56,14 @@
 - Backend: `ConversationEngine`, `chatWithAgent()`, `/api/agents/chat` all exist
 - Frontend: NO chat UI, NO conversations page, NO workspace page
 - **FIX**: Build workspace with chat
+- **STATUS**: ✅ RESOLVED — Workspace, ChatContainer, CompanyRoom, ConversationList all implemented
 
 ### GAP-2: No React component architecture
 - All components are inline in page files
 - No `src/components/` directory
 - No hooks, no contexts, no reusable components
 - **FIX**: Create component architecture
+- **STATUS**: ✅ RESOLVED — Full component library: chat/, agents/, ui/, tasks/, workspace/, hooks/
 
 ### GAP-3: Missing TypeScript types for 8 tables
 - `conversations`, `conversation_messages`, `agent_memory`, `task_events`, `app_events`, `approvals`, `agent_definitions`, `product_catalog`, `workflow_definitions`, `knowledge_documents`
@@ -129,8 +136,8 @@
 | workspaces | ✅ | 013 | ✅ | Working |
 | ai_provider_credentials | ✅ | 016 | ✅ | Working |
 | agent_model_routes | ✅ | 018 | ✅ | Working |
-| conversations | ❌ | 019 | ✅ | Types missing |
-| conversation_messages | ❌ | 019 | ✅ | Types missing |
+| conversations | ✅ | 019+031 | ✅ | Working — conversation_type, participants |
+| conversation_messages | ✅ | 019 | ✅ | Working |
 | agent_memory | ❌ | 021 | ✅ | Types missing |
 | task_events | ❌ | 022 | ✅ | Types missing |
 | approvals | ❌ | 023 | ✅ | Types missing |

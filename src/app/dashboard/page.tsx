@@ -1,14 +1,179 @@
 import { createClient } from "@supabase/supabase-js";
+import { Card, CardHeader, CardContent } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
+import { groupTasksByDay, groupTasksByAgent } from "@/types/dashboard";
+import type { AgentRun, AppEvent, AgentTask, AgentHealthData } from "@/types/dashboard";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 export const dynamic = "force-dynamic";
 
+// ─── Status dot (server-safe, no "use client") ────────────────────
+function StatusDot({ status }: { status: string }) {
+  const color =
+    status === "completed" ? "var(--success)"
+    : status === "failed" ? "var(--error)"
+    : status === "running" ? "var(--accent)"
+    : "var(--text-tertiary)";
+  return (
+    <span className="inline-block h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} />
+  );
+}
+
+// ─── Event type badge ──────────────────────────────────────────────
+const EVENT_COLORS: Record<string, string> = {
+  status_change: "var(--accent)",
+  error: "var(--error)",
+  progress_update: "var(--success)",
+  delegate: "var(--warning)",
+  retry: "var(--warning)",
+};
+
+const EVENT_LABELS: Record<string, string> = {
+  status_change: "STATUS",
+  error: "ERROR",
+  progress_update: "PROGRESS",
+  delegate: "DELEGATE",
+  retry: "RETRY",
+  created: "CREATE",
+};
+
+function EventTypeBadge({ type }: { type: string }) {
+  return (
+    <span
+      className="text-[0.5625rem] font-semibold tracking-wide whitespacenowrap"
+      style={{ color: EVENT_COLORS[type] || "var(--text-tertiary)" }}
+    >
+      {EVENT_LABELS[type] || type.toUpperCase()}
+    </span>
+  );
+}
+
+// ─── Health bar ────────────────────────────────────────────────────
+function HealthBar({
+  label,
+  count,
+  total,
+  color,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  color: string;
+}) {
+  const pct = total > 0 ? (count / total) * 100 : 0;
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-1">
+        <span style={{ color: "var(--text-secondary)" }}>{label}</span>
+        <span style={{ color: "var(--text-tertiary)" }}>{count}</span>
+      </div>
+      <div className="h-1 rounded-full" style={{ background: "var(--bg-sunken)" }}>
+        <div
+          className="h-full rounded-full transition-[width] duration-300"
+          style={{ width: `${pct}%`, background: color }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── KPI card ──────────────────────────────────────────────────────
+function KpiCard({
+  label,
+  value,
+  sub,
+  accent,
+  warn,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: boolean;
+  warn?: boolean;
+}) {
+  return (
+    <div
+      className="rounded-[var(--r-lg)] border px-4 py-3.5"
+      style={{
+        background: "var(--bg-card)",
+        borderColor: warn ? "var(--error)" : accent ? "var(--success)" : "var(--border)",
+      }}
+    >
+      <p
+        className="text-[0.6875rem] font-medium uppercase tracking-widest mb-1.5"
+        style={{ color: "var(--text-tertiary)" }}
+      >
+        {label}
+      </p>
+      <div className="flex items-baseline gap-2">
+        <span className="text-xl font-bold tracking-tight leading-none" style={{ color: "var(--text-primary)" }}>
+          {value}
+        </span>
+      </div>
+      {sub && (
+        <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Quick action link ─────────────────────────────────────────────
+function QuickAction({
+  href,
+  label,
+  description,
+}: {
+  href: string;
+  label: string;
+  description: string;
+}) {
+  return (
+    <a
+      href={href}
+      className="flex items-center gap-3 rounded-[var(--r-md)] border px-3 py-2.5 transition-colors hover:bg-[var(--bg-hover)]"
+      style={{ borderColor: "var(--border-subtle)", textDecoration: "none" }}
+    >
+      <div
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--r-md)]"
+        style={{ background: "var(--accent-light)" }}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M5 12h14M12 5l7 7-7 7" />
+        </svg>
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+          {label}
+        </p>
+        <p className="text-xs truncate" style={{ color: "var(--text-tertiary)" }}>
+          {description}
+        </p>
+      </div>
+    </a>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PAGE (Server Component)
+// ═══════════════════════════════════════════════════════════════════
 export default async function DashboardPage() {
-  // Fetch KPIs in parallel
+  // ── Fetch all data in parallel ───────────────────────────────────
   const [
     agentsResult,
     activeAgentsResult,
@@ -21,6 +186,7 @@ export default async function DashboardPage() {
     recentRunsResult,
     pendingApprovalsResult,
     recentEventsResult,
+    allTasksResult,
   ] = await Promise.all([
     supabase.from("agents").select("*", { count: "exact", head: true }),
     supabase.from("agents").select("*", { count: "exact", head: true }).eq("enabled", true).eq("status", "ready"),
@@ -30,11 +196,22 @@ export default async function DashboardPage() {
     supabase.from("agent_tasks").select("*", { count: "exact", head: true }).eq("status", "running"),
     supabase.from("agent_runs").select("cost").gt("cost", 0),
     supabase.from("agent_runs").select("total_tokens"),
-    supabase.from("agent_runs").select("id, agent_id, model, status, duration_ms, created_at").order("created_at", { ascending: false }).limit(8),
+    supabase
+      .from("agent_runs")
+      .select("id, agent_id, model, status, duration_ms, created_at")
+      .order("created_at", { ascending: false })
+      .limit(8),
     supabase.from("approvals").select("*", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("task_events").select("*").order("created_at", { ascending: false }).limit(10),
+    // All tasks for chart data (last 7 days)
+    supabase
+      .from("agent_tasks")
+      .select("id, agent_id, status, created_at")
+      .gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString())
+      .order("created_at", { ascending: false }),
   ]);
 
+  // ── Compute KPIs ─────────────────────────────────────────────────
   const totalAgents = agentsResult.count || 0;
   const activeAgents = activeAgentsResult.count || 0;
   const totalTasks = tasksResult.count || 0;
@@ -43,53 +220,53 @@ export default async function DashboardPage() {
   const runningTasks = runningTasksResult.count || 0;
   const pendingApprovals = pendingApprovalsResult.count || 0;
 
-  const successRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : null;
+  const successRate =
+    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : null;
 
   const totalCost = costResult.data
-    ? costResult.data.reduce((sum, run) => sum + (run.cost || 0), 0)
+    ? costResult.data.reduce((sum, r) => sum + ((r as { cost: number }).cost || 0), 0)
     : 0;
 
   const totalTokens = tokenResult.data
-    ? tokenResult.data.reduce((sum, run) => sum + (run.total_tokens || 0), 0)
+    ? tokenResult.data.reduce((sum, r) => sum + ((r as { total_tokens: number }).total_tokens || 0), 0)
     : 0;
 
-  const recentRuns = recentRunsResult.data || [];
-  const recentEvents = (recentEventsResult.data || []) as Array<{
-    id: string;
-    task_id: string;
-    event_type: string;
-    message: string | null;
-    created_at: string;
-  }>;
+  const recentRuns = (recentRunsResult.data || []) as unknown as AgentRun[];
+  const recentEvents = (recentEventsResult.data || []) as unknown as AppEvent[];
 
-  // Agent health breakdown
+  // ── Agent health breakdown ───────────────────────────────────────
   const { data: agentStatuses } = await supabase
     .from("agents")
     .select("status, enabled");
 
-  const agentHealth = {
-    ready: 0,
-    error: 0,
-    disabled: 0,
-    other: 0,
-  };
-
+  const agentHealth: AgentHealthData = { ready: 0, error: 0, disabled: 0, other: 0 };
   for (const a of agentStatuses || []) {
-    if (!a.enabled) agentHealth.disabled++;
-    else if (a.status === "ready") agentHealth.ready++;
-    else if (a.status === "error") agentHealth.error++;
+    if (!(a as { enabled: boolean }).enabled) agentHealth.disabled++;
+    else if ((a as { status: string }).status === "ready") agentHealth.ready++;
+    else if ((a as { status: string }).status === "error") agentHealth.error++;
     else agentHealth.other++;
   }
 
+  // ── Chart data ───────────────────────────────────────────────────
+  const allTasks = (allTasksResult.data || []) as unknown as AgentTask[];
+  const tasksByDay = groupTasksByDay(allTasks, 7);
+  const agentActivity = groupTasksByAgent(allTasks);
+
+  // ── Render ───────────────────────────────────────────────────────
   return (
-    <div className="page-padding" style={{ maxWidth: 1200 }}>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ marginBottom: 3 }}>Operations Center</h1>
-        <p>Your AI commerce agents at a glance</p>
+    <div className="page-padding max-w-[1200px]">
+      {/* Header */}
+      <div className="mb-7">
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+          Operations Center
+        </h1>
+        <p className="text-sm mt-1" style={{ color: "var(--text-tertiary)" }}>
+          Your AI commerce agents at a glance
+        </p>
       </div>
 
-      {/* Primary KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
+      {/* ── KPI Grid ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         <KpiCard
           label="Active Agents"
           value={`${activeAgents}`}
@@ -128,226 +305,127 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* Agent Health + Recent Activity */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
-        {/* Agent Health */}
-        <Card title="Agent Health">
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <HealthBar label="Ready" count={agentHealth.ready} total={totalAgents} color="var(--success)" />
-            <HealthBar label="Error" count={agentHealth.error} total={totalAgents} color="var(--error)" />
-            <HealthBar label="Disabled" count={agentHealth.disabled} total={totalAgents} color="var(--text-tertiary)" />
-            <HealthBar label="Other" count={agentHealth.other} total={totalAgents} color="var(--warning)" />
-          </div>
-          <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
-            <a href="/dashboard/agents" style={{ fontSize: "0.75rem", color: "var(--accent)", textDecoration: "none" }}>
-              View all agents →
-            </a>
-          </div>
-        </Card>
-
-        {/* Recent Activity */}
-        <Card title="Recent Activity" subtitle="Last 8 runs">
-          {recentRuns.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {recentRuns.map((run) => (
-                <a key={run.id} href={`/dashboard/runs/${run.id}`} style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "6px 10px", borderRadius: "var(--r-md)",
-                  fontSize: "0.75rem", textDecoration: "none", color: "inherit",
-                  background: "var(--bg-sunken)",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <StatusDot status={run.status} />
-                    <span style={{ fontWeight: 500 }}>{run.agent_id}</span>
-                    <span style={{ color: "var(--text-tertiary)" }}>· {run.model}</span>
-                  </div>
-                  <span style={{ color: "var(--text-tertiary)", fontSize: "0.6875rem" }}>
-                    {run.duration_ms ? `${(run.duration_ms / 1000).toFixed(1)}s` : "—"}
-                  </span>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>}
-              title="No activity yet"
-              description="Run your first agent task."
-            />
-          )}
-        </Card>
+      {/* ── Charts ───────────────────────────────────────────────── */}
+      <div className="mb-5">
+        <DashboardCharts tasksByDay={tasksByDay} agentActivity={agentActivity} />
       </div>
 
-      {/* Event Log + Quick Actions */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        {/* Event Log */}
-        <Card title="Event Log" subtitle="Latest task events">
-          {recentEvents.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 260, overflowY: "auto" }}>
-              {recentEvents.map((evt) => (
-                <div key={evt.id} style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "5px 10px", borderRadius: "var(--r-md)",
-                  fontSize: "0.6875rem", background: "var(--bg-sunken)",
-                }}>
-                  <EventTypeBadge type={evt.event_type} />
-                  <span style={{ flex: 1, color: "var(--text-secondary)" }}>
-                    {evt.message || evt.event_type}
-                  </span>
-                  <span style={{ color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
-                    {new Date(evt.created_at).toLocaleTimeString()}
-                  </span>
-                </div>
-              ))}
+      {/* ── Agent Health + Recent Activity ────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+        <Card>
+          <CardHeader title="Agent Health" />
+          <CardContent>
+            <div className="flex flex-col gap-2.5">
+              <HealthBar label="Ready" count={agentHealth.ready} total={totalAgents} color="var(--success)" />
+              <HealthBar label="Error" count={agentHealth.error} total={totalAgents} color="var(--error)" />
+              <HealthBar label="Disabled" count={agentHealth.disabled} total={totalAgents} color="var(--text-tertiary)" />
+              <HealthBar label="Other" count={agentHealth.other} total={totalAgents} color="var(--warning)" />
             </div>
-          ) : (
-            <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", padding: "12px 0" }}>
-              No events recorded yet.
-            </p>
-          )}
+            <div className="mt-4 pt-3 border-t" style={{ borderColor: "var(--border-subtle)" }}>
+              <a
+                href="/dashboard/agents"
+                className="text-xs font-medium no-underline"
+                style={{ color: "var(--accent)" }}
+              >
+                View all agents →
+              </a>
+            </div>
+          </CardContent>
         </Card>
 
-        {/* Quick Actions */}
-        <Card title="Quick Actions">
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <QuickAction href="/dashboard/agents" label="View Agents" description="See all agents and their status" />
-            <QuickAction href="/dashboard/runs" label="Run History" description="View all agent executions" />
-            <QuickAction href="/dashboard/models" label="Configure Models" description="Set up AI providers and models" />
-            <QuickAction href="/dashboard/settings" label="Settings" description="API keys and environment" />
-            {pendingApprovals > 0 && (
-              <div style={{
-                marginTop: 4, padding: "10px 12px", borderRadius: "var(--r-md)",
-                background: "var(--warning-light, #fff3cd)", border: "1px solid var(--warning, #ffc107)",
-                fontSize: "0.75rem",
-              }}>
-                <strong>{pendingApprovals} approval{pendingApprovals !== 1 ? "s" : ""}</strong> waiting for review
+        <Card>
+          <CardHeader title="Recent Activity" subtitle="Last 8 runs" />
+          <CardContent>
+            {recentRuns.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                {recentRuns.map((run) => (
+                  <a
+                    key={run.id}
+                    href={`/dashboard/runs/${run.id}`}
+                    className="flex items-center justify-between rounded-[var(--r-md)] px-2.5 py-1.5 text-xs no-underline transition-colors hover:bg-[var(--bg-hover)]"
+                    style={{ color: "inherit", textDecoration: "none" }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <StatusDot status={run.status} />
+                      <span className="font-medium" style={{ color: "var(--text-primary)" }}>
+                        {run.agent_id}
+                      </span>
+                      <span style={{ color: "var(--text-tertiary)" }}>· {run.model}</span>
+                    </div>
+                    <span className="text-[0.6875rem]" style={{ color: "var(--text-tertiary)" }}>
+                      {run.duration_ms ? `${(run.duration_ms / 1000).toFixed(1)}s` : "—"}
+                    </span>
+                  </a>
+                ))}
               </div>
+            ) : (
+              <EmptyState
+                icon="⏱️"
+                title="No activity yet"
+                description="Run your first agent task."
+              />
             )}
-          </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Event Log + Quick Actions ────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader title="Event Log" subtitle="Latest task events" />
+          <CardContent>
+            {recentEvents.length > 0 ? (
+              <div className="flex flex-col gap-1 max-h-[260px] overflow-y-auto">
+                {recentEvents.map((evt) => (
+                  <div
+                    key={evt.id}
+                    className="flex items-center gap-2 rounded-[var(--r-md)] px-2.5 py-1.5"
+                    style={{ background: "var(--bg-sunken)", fontSize: "0.6875rem" }}
+                  >
+                    <EventTypeBadge type={evt.event_type} />
+                    <span className="flex-1 truncate" style={{ color: "var(--text-secondary)" }}>
+                      {evt.message || evt.event_type}
+                    </span>
+                    <span className="whitespace-nowrap" style={{ color: "var(--text-tertiary)" }}>
+                      {new Date(evt.created_at).toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs py-3" style={{ color: "var(--text-tertiary)" }}>
+                No events recorded yet.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader title="Quick Actions" />
+          <CardContent>
+            <div className="flex flex-col gap-1.5">
+              <QuickAction href="/dashboard/agents" label="View Agents" description="See all agents and their status" />
+              <QuickAction href="/dashboard/runs" label="Run History" description="View all agent executions" />
+              <QuickAction href="/dashboard/models" label="Configure Models" description="Set up AI providers and models" />
+              <QuickAction href="/dashboard/settings" label="Settings" description="API keys and environment" />
+              {pendingApprovals > 0 && (
+                <div
+                  className="mt-1 rounded-[var(--r-md)] border px-3 py-2.5 text-xs"
+                  style={{
+                    background: "var(--warning-bg)",
+                    borderColor: "var(--warning)",
+                  }}
+                >
+                  <strong>
+                    {pendingApprovals} approval{pendingApprovals !== 1 ? "s" : ""}
+                  </strong>{" "}
+                  waiting for review
+                </div>
+              )}
+            </div>
+          </CardContent>
         </Card>
       </div>
     </div>
-  );
-}
-
-// --- Components ---
-
-function Card({ title, subtitle, children }: {
-  title: string; subtitle?: string; children: React.ReactNode;
-}) {
-  return (
-    <div style={{
-      background: "var(--bg-card)", border: "1px solid var(--border)",
-      borderRadius: "var(--r-lg)", padding: 20,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <div>
-          <h2 style={{ fontSize: "0.875rem", fontWeight: 600 }}>{title}</h2>
-          {subtitle && <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginTop: 2 }}>{subtitle}</p>}
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function KpiCard({ label, value, sub, accent, warn }: {
-  label: string; value: string; sub?: string; accent?: boolean; warn?: boolean;
-}) {
-  return (
-    <div style={{
-      background: "var(--bg-card)", border: "1px solid var(--border)",
-      borderRadius: "var(--r-lg)", padding: "14px 16px",
-      borderColor: warn ? "var(--error)" : accent ? "var(--success)" : undefined,
-    }}>
-      <p style={{ fontSize: "0.6875rem", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</p>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-        <span style={{ fontSize: "1.375rem", fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</span>
-      </div>
-      {sub && <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginTop: 4 }}>{sub}</p>}
-    </div>
-  );
-}
-
-function HealthBar({ label, count, total, color }: {
-  label: string; count: number; total: number; color: string;
-}) {
-  const pct = total > 0 ? (count / total) * 100 : 0;
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.6875rem", marginBottom: 4 }}>
-        <span style={{ color: "var(--text-secondary)" }}>{label}</span>
-        <span style={{ color: "var(--text-tertiary)" }}>{count}</span>
-      </div>
-      <div style={{ height: 4, borderRadius: 2, background: "var(--bg-sunken)", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 2, transition: "width 300ms" }} />
-      </div>
-    </div>
-  );
-}
-
-function StatusDot({ status }: { status: string }) {
-  const color = status === "completed" ? "var(--success)"
-    : status === "failed" ? "var(--error)"
-    : status === "running" ? "var(--accent)"
-    : "var(--text-tertiary)";
-  return <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />;
-}
-
-function EventTypeBadge({ type }: { type: string }) {
-  const colors: Record<string, string> = {
-    status_change: "var(--accent)",
-    error: "var(--error)",
-    progress_update: "var(--success)",
-    delegate: "var(--warning)",
-    retry: "var(--warning)",
-  };
-  const labels: Record<string, string> = {
-    status_change: "STATUS",
-    error: "ERROR",
-    progress_update: "PROGRESS",
-    delegate: "DELEGATE",
-    retry: "RETRY",
-    created: "CREATE",
-  };
-  return (
-    <span style={{
-      fontSize: "0.5625rem", fontWeight: 600, letterSpacing: "0.04em",
-      color: colors[type] || "var(--text-tertiary)",
-      whiteSpace: "nowrap",
-    }}>
-      {labels[type] || type.toUpperCase()}
-    </span>
-  );
-}
-
-function EmptyState({ icon, title, description }: {
-  icon: React.ReactNode; title: string; description: string;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 0", textAlign: "center" }}>
-      <div style={{ marginBottom: 10, opacity: 0.5 }}>{icon}</div>
-      <p style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--text-primary)", marginBottom: 4 }}>{title}</p>
-      <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", maxWidth: 240 }}>{description}</p>
-    </div>
-  );
-}
-
-function QuickAction({ href, label, description }: { href: string; label: string; description: string }) {
-  return (
-    <a href={href} style={{
-      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-      borderRadius: "var(--r-md)", border: "1px solid var(--border-subtle)", textDecoration: "none",
-      transition: "border-color 150ms",
-    }}>
-      <div style={{ width: 28, height: 28, borderRadius: "var(--r-md)", background: "var(--accent-light)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-      </div>
-      <div>
-        <p style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--text-primary)" }}>{label}</p>
-        <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>{description}</p>
-      </div>
-    </a>
   );
 }
