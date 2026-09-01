@@ -103,11 +103,9 @@ Ver `docs/AUDIT_V1.md` para el reporte detallado.
 - [ ] Persistir cost budgets en Supabase (pendiente)
 
 ### FASE L: Frontend cleanup
-- [ ] Eliminar 17 componentes muertos
-- [ ] Consolidar StatusDot (4 definiciones → 1)
-- [ ] Consolidar AgentRecord (3 definiciones → 1)
-- [ ] Consolidar AGENT_COLORS (2 formatos → 1)
-- [ ] Consolidar formatTime() (6 copias → 1)
+- [x] Eliminar 17 componentes muertos (52% del código de componentes era dead code)
+- [x] Extraer `formatTime()` a `src/lib/utils/format.ts` — eliminadas 8 copias
+- [x] Consolidar `AgentRecord` — workspace/page.tsx ahora importa desde AgentCard.tsx
 - [ ] Arreglar responsive en Runs table
 - [ ] Arreglar responsive en 2-col grids (Agent Detail, Test Center)
 

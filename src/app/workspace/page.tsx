@@ -3,23 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { CompanyRoom } from "@/components/chat/CompanyRoom";
 import { ChatContainer } from "@/components/chat/ChatContainer";
-
-interface AgentRecord {
-  id: string;
-  name: string;
-  description: string | null;
-  enabled: boolean;
-  role: string;
-  status: string;
-  model_preference?: string | null;
-  department?: string | null;
-  config?: {
-    description?: string;
-    role?: string;
-    skills?: string[];
-    tools?: string[];
-  } | null;
-}
+import type { AgentRecord } from "@/components/agents/AgentCard";
 
 // Agent colors for avatars
 const AGENT_COLORS: Record<string, string> = {

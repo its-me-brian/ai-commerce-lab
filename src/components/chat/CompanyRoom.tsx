@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import type { AgentRecord } from "../agents/AgentCard";
 import { Badge } from "../ui/Badge";
+import { formatTime } from "@/lib/utils/format";
 
 // Agent color mapping for visual differentiation
 const AGENT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -481,12 +482,4 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
       </div>
     </div>
   );
-}
-
-function formatTime(timestamp: string): string {
-  try {
-    return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return "";
-  }
 }
