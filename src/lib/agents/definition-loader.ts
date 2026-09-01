@@ -4,7 +4,13 @@
 
 import { supabase } from "../database/supabase";
 import { agentDefinitions } from "../agents/definitions";
-import type { AgentDefinition } from "../agents/core/types-agent-definition";
+import type {
+  AgentDefinition,
+  PersonalityTrait,
+  CommunicationStyle,
+  PersonalityTone,
+  DecisionStyle,
+} from "../agents/core/types-agent-definition";
 
 export interface AgentDefinitionRecord {
   id: string;
@@ -52,10 +58,10 @@ function recordToDefinition(record: AgentDefinitionRecord): AgentDefinition {
     },
     mission: record.mission,
     personality: {
-      traits: personality.traits || [],
-      communicationStyle: personality.communicationStyle || [],
-      decisionStyle: personality.decisionStyle as AgentDefinition["personality"]["decisionStyle"],
-      tone: personality.tone,
+      traits: (personality.traits || []) as PersonalityTrait[],
+      communicationStyle: (personality.communicationStyle || []) as CommunicationStyle[],
+      decisionStyle: (personality.decisionStyle || "data-driven") as DecisionStyle,
+      tone: personality.tone as PersonalityTone | undefined,
       values: personality.values,
       constraints: personality.constraints,
       customInstructions: personality.customInstructions,
@@ -63,7 +69,9 @@ function recordToDefinition(record: AgentDefinitionRecord): AgentDefinition {
     expertise: record.expertise,
     rules: record.rules,
     skills: record.skills,
-    outputInstructions: record.output_instructions as AgentDefinition["outputInstructions"],
+    outputInstructions: record.output_instructions
+      ? (record.output_instructions as unknown as AgentDefinition["outputInstructions"])
+      : undefined,
   };
 }
 
