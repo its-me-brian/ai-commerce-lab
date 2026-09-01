@@ -2,7 +2,29 @@
 // Evaluates quality of a response/output.
 // Deterministic: rule-based scoring. LLM: semantic evaluation.
 
+import { z } from "zod";
 import type { MiniAIDefinition } from "../types";
+
+// F10: Zod schemas for runtime validation
+export const CriticInputSchema = z.object({
+  response: z.string().min(1, "response is required"),
+  criteria: z.array(z.string()).min(1, "at least one criterion required"),
+  threshold: z.number().min(0).max(1).optional(),
+});
+
+export const CriticOutputSchema = z.object({
+  overallScore: z.number().min(0).max(1),
+  criteria: z.array(z.object({
+    name: z.string(),
+    score: z.number().min(0).max(1),
+    feedback: z.string(),
+  })),
+  strengths: z.array(z.string()),
+  weaknesses: z.array(z.string()),
+  suggestions: z.array(z.string()),
+  passThreshold: z.number().min(0).max(1),
+  passed: z.boolean(),
+});
 
 export const criticDefinition: MiniAIDefinition = {
   id: "critic",
@@ -27,16 +49,8 @@ Output format:
   "passThreshold": 0.0-1.0,
   "passed": boolean
 }`,
-  inputSchema: {
-    response: "string",
-    criteria: "string[]",
-    threshold: "number?",
-  },
-  outputSchema: {
-    overallScore: "number",
-    criteria: "array",
-    passed: "boolean",
-  },
+  inputSchema: CriticInputSchema,
+  outputSchema: CriticOutputSchema,
   modelRequirements: {
     complexity: "moderate",
     responseFormat: "json",

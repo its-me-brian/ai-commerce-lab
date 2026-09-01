@@ -17,6 +17,7 @@
 import { getMiniAIRegistry } from "./registry";
 import { selectModelByComplexity } from "../complexity-router";
 import { calculateModelCost } from "../model-pricing";
+import { z } from "zod";
 import type {
   MiniAIDefinition,
   MiniAIInput,
@@ -238,6 +239,29 @@ export class MiniAIEngine {
     });
     const durationMs = Date.now() - execStart;
 
+    // F10: Validate output against schema
+    const outputError = this.validateOutput(definition, output);
+    if (outputError) {
+      return {
+        success: false,
+        output,
+        errors: [outputError],
+        warnings: [],
+        metadata: {
+          miniAIId: definition.id,
+          modelUsed: "deterministic",
+          providerUsed: "none",
+          executionMode: "deterministic",
+          inputTokens: 0,
+          outputTokens: 0,
+          durationMs,
+          costDollars: 0,
+          usedFallback: false,
+          cached: false,
+        },
+      };
+    }
+
     return {
       success: true,
       output,
@@ -336,6 +360,34 @@ export class MiniAIEngine {
         : { content: aiResult.content };
     } catch {
       output = { content: aiResult.content };
+    }
+
+    // F10: Validate output against schema
+    const outputError = this.validateOutput(definition, output);
+    if (outputError) {
+      return {
+        success: false,
+        output,
+        errors: [outputError],
+        warnings: [],
+        metadata: {
+          miniAIId: definition.id,
+          modelUsed: aiResult.model,
+          providerUsed: aiResult.provider,
+          executionMode: "llm",
+          inputTokens: aiResult.inputTokens,
+          outputTokens: aiResult.outputTokens,
+          durationMs,
+          costDollars: this.calculateCost(
+            aiResult.inputTokens,
+            aiResult.outputTokens,
+            aiResult.provider,
+            aiResult.model
+          ),
+          usedFallback: false,
+          cached: aiResult.cached,
+        },
+      };
     }
 
     return {
@@ -455,7 +507,48 @@ export class MiniAIEngine {
       return "Input must not be empty";
     }
 
+    // F10: Zod schema validation if schema is a ZodType
+    const schema = definition.inputSchema;
+    if (schema && typeof schema === "object" && "parse" in schema) {
+      try {
+        (schema as z.ZodType).parse(input);
+        return null;
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          const issues = error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ");
+          return `Input validation failed: ${issues}`;
+        }
+        return `Input validation failed: ${error}`;
+      }
+    }
+
     return null;
+  }
+
+  /**
+   * Validate output against the mini-AI's output schema.
+   * Returns null if valid, error message if invalid.
+   */
+  private validateOutput(
+    definition: MiniAIDefinition,
+    output: Record<string, unknown>
+  ): string | null {
+    const schema = definition.outputSchema;
+    if (!schema || typeof schema !== "object" || !("parse" in schema)) {
+      // No Zod schema — skip validation (legacy plain object)
+      return null;
+    }
+
+    try {
+      (schema as z.ZodType).parse(output);
+      return null;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const issues = error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ");
+        return `Output validation failed: ${issues}`;
+      }
+      return `Output validation failed: ${error}`;
+    }
   }
 
   private mapInput(

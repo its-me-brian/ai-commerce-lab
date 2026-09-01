@@ -121,11 +121,11 @@ export interface MiniAIDefinition {
   /** Instructions/prompt for LLM-based mini-IAs */
   instructions?: string;
 
-  /** Input schema (Zod schema or plain object for validation) */
-  inputSchema: Record<string, unknown>;
+  /** Input schema — Zod schema for runtime validation, or plain object (legacy) */
+  inputSchema: z.ZodType | Record<string, unknown>;
 
-  /** Output schema (Zod schema or plain object for validation) */
-  outputSchema: Record<string, unknown>;
+  /** Output schema — Zod schema for runtime validation, or plain object (legacy) */
+  outputSchema: z.ZodType | Record<string, unknown>;
 
   /** Model requirements for the router */
   modelRequirements: MiniAIModelRequirements;

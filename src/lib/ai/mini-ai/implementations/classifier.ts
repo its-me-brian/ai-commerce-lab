@@ -2,7 +2,25 @@
 // Categorizes input into predefined categories.
 // Deterministic: rule-based matching. LLM: semantic classification.
 
+import { z } from "zod";
 import type { MiniAIDefinition } from "../types";
+
+// F10: Zod schemas for runtime validation
+export const ClassifierInputSchema = z.object({
+  text: z.string().min(1, "text is required"),
+  categories: z.array(z.string()).min(1, "at least one category required"),
+  context: z.string().optional(),
+});
+
+export const ClassifierOutputSchema = z.object({
+  bestCategory: z.string(),
+  confidence: z.number().min(0).max(1),
+  allCategories: z.array(z.object({
+    category: z.string(),
+    score: z.number().min(0).max(1),
+  })),
+  reasoning: z.string().optional(),
+});
 
 export const classifierDefinition: MiniAIDefinition = {
   id: "classifier",
@@ -24,12 +42,8 @@ Output format:
   "allCategories": [{ "category": "string", "score": 0.0-1.0 }],
   "reasoning": "string"
 }`,
-  inputSchema: { text: "string", categories: "string[]", context: "string?" },
-  outputSchema: {
-    bestCategory: "string",
-    confidence: "number",
-    allCategories: "array",
-  },
+  inputSchema: ClassifierInputSchema,
+  outputSchema: ClassifierOutputSchema,
   modelRequirements: {
     complexity: "simple",
     responseFormat: "json",

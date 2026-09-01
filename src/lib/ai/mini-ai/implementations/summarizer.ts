@@ -2,7 +2,22 @@
 // Reduces large input to concise summary.
 // Deterministic: sentence scoring. LLM: semantic summarization.
 
+import { z } from "zod";
 import type { MiniAIDefinition } from "../types";
+
+// F10: Zod schemas for runtime validation
+export const SummarizerInputSchema = z.object({
+  text: z.string().min(1, "text is required"),
+  maxLength: z.number().positive().optional(),
+  focus: z.string().optional(),
+});
+
+export const SummarizerOutputSchema = z.object({
+  summary: z.string(),
+  keyPoints: z.array(z.string()),
+  compressionRatio: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1).optional(),
+});
 
 export const summarizerDefinition: MiniAIDefinition = {
   id: "summarizer",
@@ -24,12 +39,8 @@ Output format:
   "compressionRatio": 0.0-1.0,
   "confidence": 0.0-1.0
 }`,
-  inputSchema: { text: "string", maxLength: "number?", focus: "string?" },
-  outputSchema: {
-    summary: "string",
-    keyPoints: "array",
-    compressionRatio: "number",
-  },
+  inputSchema: SummarizerInputSchema,
+  outputSchema: SummarizerOutputSchema,
   modelRequirements: {
     complexity: "simple",
     responseFormat: "json",

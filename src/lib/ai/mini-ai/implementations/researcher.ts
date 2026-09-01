@@ -2,7 +2,26 @@
 // Investigates a topic and returns structured findings.
 // Can work deterministically (simple keyword extraction) or via LLM (deep research).
 
+import { z } from "zod";
 import type { MiniAIDefinition } from "../types";
+
+// F10: Zod schemas for runtime validation
+export const ResearcherInputSchema = z.object({
+  topic: z.string().min(1, "topic is required"),
+  context: z.string().optional(),
+});
+
+export const ResearcherOutputSchema = z.object({
+  topic: z.string(),
+  findings: z.array(z.object({
+    fact: z.string(),
+    confidence: z.number().min(0).max(1),
+    source: z.string(),
+  })),
+  sources: z.array(z.string()),
+  confidence: z.number().min(0).max(1),
+  summary: z.string(),
+});
 
 export const researcherDefinition: MiniAIDefinition = {
   id: "researcher",
@@ -25,13 +44,8 @@ Output format:
   "confidence": 0.0-1.0,
   "summary": "string"
 }`,
-  inputSchema: { topic: "string", context: "string?" },
-  outputSchema: {
-    topic: "string",
-    findings: "array",
-    confidence: "number",
-    summary: "string",
-  },
+  inputSchema: ResearcherInputSchema,
+  outputSchema: ResearcherOutputSchema,
   modelRequirements: {
     complexity: "moderate",
     responseFormat: "json",

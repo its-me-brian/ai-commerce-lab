@@ -2,7 +2,28 @@
 // Checks format, coherence, rules compliance.
 // Deterministic: schema validation. LLM: semantic validation.
 
+import { z } from "zod";
 import type { MiniAIDefinition } from "../types";
+
+// F10: Zod schemas for runtime validation
+export const ValidatorInputSchema = z.object({
+  data: z.record(z.unknown()),
+  rules: z.array(z.string()).min(1, "at least one rule required"),
+  strictMode: z.boolean().optional(),
+});
+
+export const ValidatorOutputSchema = z.object({
+  valid: z.boolean(),
+  violations: z.array(z.object({
+    rule: z.string(),
+    severity: z.string(),
+    message: z.string(),
+    field: z.string(),
+  })),
+  score: z.number().min(0).max(1),
+  checkedRules: z.number(),
+  passedRules: z.number(),
+});
 
 export const validatorDefinition: MiniAIDefinition = {
   id: "validator",
@@ -25,16 +46,8 @@ Output format:
   "checkedRules": number,
   "passedRules": number
 }`,
-  inputSchema: {
-    data: "object",
-    rules: "string[]",
-    strictMode: "boolean?",
-  },
-  outputSchema: {
-    valid: "boolean",
-    violations: "array",
-    score: "number",
-  },
+  inputSchema: ValidatorInputSchema,
+  outputSchema: ValidatorOutputSchema,
   modelRequirements: {
     complexity: "simple",
     responseFormat: "json",

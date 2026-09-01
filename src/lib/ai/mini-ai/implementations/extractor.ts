@@ -2,7 +2,21 @@
 // Extracts structured data from unstructured input.
 // Deterministic: regex + pattern matching. LLM: semantic extraction.
 
+import { z } from "zod";
 import type { MiniAIDefinition } from "../types";
+
+// F10: Zod schemas for runtime validation
+export const ExtractorInputSchema = z.object({
+  text: z.string().min(1, "text is required"),
+  fields: z.array(z.string()).min(1, "at least one field required"),
+});
+
+export const ExtractorOutputSchema = z.object({
+  extracted: z.record(z.unknown()),
+  confidence: z.number().min(0).max(1),
+  missingFields: z.array(z.string()),
+  reasoning: z.string().optional(),
+});
 
 export const extractorDefinition: MiniAIDefinition = {
   id: "extractor",
@@ -24,12 +38,8 @@ Output format:
   "missingFields": ["string"],
   "reasoning": "string"
 }`,
-  inputSchema: { text: "string", fields: "string[]" },
-  outputSchema: {
-    extracted: "object",
-    confidence: "number",
-    missingFields: "array",
-  },
+  inputSchema: ExtractorInputSchema,
+  outputSchema: ExtractorOutputSchema,
   modelRequirements: {
     complexity: "simple",
     responseFormat: "json",
