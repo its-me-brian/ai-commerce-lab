@@ -61,6 +61,8 @@ export interface AgentResult {
     outputTokens: number;
     durationMs: number;
     cached: boolean;
+    /** Tools invoked during this execution (F6) */
+    toolsUsed?: string[];
   };
 }
 

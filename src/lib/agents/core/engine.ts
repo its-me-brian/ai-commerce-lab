@@ -207,6 +207,7 @@ export class AgentEngine {
         duration_ms: result.metadata.durationMs,
         cost,
         status: result.success ? "completed" : "failed",
+        tools_used: result.metadata.toolsUsed || [],
       });
 
       if (runError) {
