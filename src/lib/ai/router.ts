@@ -10,6 +10,8 @@ import type {
 import type { AIProvider } from "./providers/base";
 import { getAgentModelRoutes, type AgentModelRoute } from "./agent-model-routes";
 import { getModelRegistry, type ModelRecord } from "./model-registry";
+import { calculateModelCost } from "./model-pricing";
+import { getMetricsCollector } from "./observability";
 
 export interface RouterConfig {
   agentId: string;
@@ -83,6 +85,15 @@ export class AIModelRouter {
       };
 
       this.executionLogs.push(log);
+
+      // Record telemetry metrics
+      const metrics = getMetricsCollector();
+      const cost = calculateModelCost(config.primaryModel, result.inputTokens, result.outputTokens);
+      metrics.record("router.execution.count", 1, { provider: config.primaryProvider, model: config.primaryModel, status: "success" });
+      metrics.record("router.execution.latency_ms", Date.now() - startTime, { provider: config.primaryProvider, model: config.primaryModel });
+      metrics.record("router.execution.cost_dollars", cost, { provider: config.primaryProvider, model: config.primaryModel });
+      metrics.record("router.execution.tokens", result.inputTokens + result.outputTokens, { provider: config.primaryProvider, model: config.primaryModel, direction: "total" });
+
       return { result, log };
     } catch (primaryError) {
       // If no fallback configured, throw
@@ -138,6 +149,14 @@ export class AIModelRouter {
       };
 
       this.executionLogs.push(log);
+
+      // Record telemetry metrics for fallback
+      const metrics = getMetricsCollector();
+      const cost = calculateModelCost(config.fallbackModel, result.inputTokens, result.outputTokens);
+      metrics.record("router.execution.count", 1, { provider: config.fallbackProvider, model: config.fallbackModel, status: "fallback" });
+      metrics.record("router.execution.latency_ms", Date.now() - startTime, { provider: config.fallbackProvider, model: config.fallbackModel });
+      metrics.record("router.execution.cost_dollars", cost, { provider: config.fallbackProvider, model: config.fallbackModel });
+
       return { result, log };
     }
   }
@@ -206,6 +225,14 @@ export class AIModelRouter {
         };
 
         this.executionLogs.push(log);
+
+        // Record telemetry metrics for agent routing
+        const metrics = getMetricsCollector();
+        const cost = calculateModelCost(model.model_id, result.inputTokens, result.outputTokens);
+        metrics.record("router.execution.count", 1, { provider: model.provider_id, model: model.model_id, agent: agentId, status: "success" });
+        metrics.record("router.execution.latency_ms", Date.now() - startTime, { provider: model.provider_id, model: model.model_id, agent: agentId });
+        metrics.record("router.execution.cost_dollars", cost, { provider: model.provider_id, model: model.model_id, agent: agentId });
+
         return { result, log };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
