@@ -130,8 +130,8 @@ export class OrchestratorV2 {
   async plan(request: string): Promise<ExecutionPlan> {
     const planId = `plan-${Date.now()}`;
 
-    // Simple intent classification (will be enhanced with LLM in future)
-    const intent = this.classifyIntent(request);
+    // LLM-based intent classification with keyword fallback
+    const intent = await this.classifyIntent(request);
 
     // Build execution plan based on intent
     const steps = this.buildPlanSteps(intent, request);
@@ -285,10 +285,75 @@ export class OrchestratorV2 {
   // INTENT CLASSIFICATION
   // ============================================
 
-  private classifyIntent(request: string): string {
+  /**
+   * Classify user intent using LLM.
+   * Falls back to keyword-based if LLM fails or is unavailable.
+   */
+  private async classifyIntent(request: string): Promise<string> {
+    // Try LLM-based classification first
+    try {
+      return await this.classifyIntentWithLLM(request);
+    } catch {
+      // Fallback to keyword-based
+      return this.classifyIntentKeywords(request);
+    }
+  }
+
+  /**
+   * LLM-based intent classification.
+   * Uses a free/cheap model to categorize the request.
+   */
+  private async classifyIntentWithLLM(request: string): Promise<string> {
+    const { getRouter } = await import("./router");
+    const router = getRouter();
+
+    const systemPrompt = `You are an intent classifier for an AI-powered ecommerce platform.
+Given a user request, classify it into exactly ONE of these categories:
+
+- product_research: Finding, researching, or evaluating products to sell
+- supplier_research: Finding or evaluating suppliers/vendors
+- pricing: Calculating prices, margins, costs, or profitability
+- marketing: Creating marketing content, campaigns, ad copy
+- seo: Search engine optimization, keyword research
+- analysis: Analyzing data, reviews, or market trends
+- general: Anything else
+
+Respond with ONLY the category name, nothing else.`;
+
+    const config = {
+      agentId: "orchestrator:intent-classifier",
+      primaryProvider: "gemini",
+      primaryModel: "gemini-3-flash",
+      temperature: 0,
+      maxTokens: 50,
+    };
+
+    const { result } = await router.generate(config, {
+      prompt: request,
+      systemPrompt,
+      temperature: 0,
+      maxOutputTokens: 50,
+      responseFormat: "text",
+    });
+
+    const intent = result.content.trim().toLowerCase();
+
+    // Validate against known intents
+    const validIntents = [
+      "product_research", "supplier_research", "pricing",
+      "marketing", "seo", "analysis", "general",
+    ];
+
+    return validIntents.includes(intent) ? intent : "general";
+  }
+
+  /**
+   * Keyword-based intent classification (fallback).
+   * Used when LLM is unavailable or fails.
+   */
+  private classifyIntentKeywords(request: string): string {
     const lower = request.toLowerCase();
 
-    // Order matters: check most specific intents first
     if (lower.includes("marketing") || lower.includes("campaign") || lower.includes("ad copy")) {
       return "marketing";
     }

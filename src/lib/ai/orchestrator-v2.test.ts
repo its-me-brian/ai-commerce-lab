@@ -89,16 +89,54 @@ vi.mock("./complexity-router", () => ({
   }),
 }));
 
+// Mock the router for LLM intent classification
+const mockRouterGenerate = vi.fn().mockResolvedValue({
+  result: {
+    content: "general",
+    provider: "gemini",
+    model: "gemini-3-flash",
+    inputTokens: 20,
+    outputTokens: 5,
+    durationMs: 100,
+    cached: false,
+  },
+  log: {},
+});
+
+vi.mock("./router", () => ({
+  getRouter: () => ({
+    generate: mockRouterGenerate,
+  }),
+}));
+
 describe("OrchestratorV2", () => {
   let orchestrator: OrchestratorV2;
 
   beforeEach(() => {
     resetOrchestratorV2();
     orchestrator = getOrchestratorV2();
+    mockRouterGenerate.mockClear();
+    mockRouterGenerate.mockResolvedValue({
+      result: {
+        content: "general",
+        provider: "gemini",
+        model: "gemini-3-flash",
+        inputTokens: 20,
+        outputTokens: 5,
+        durationMs: 100,
+        cached: false,
+      },
+      log: {},
+    });
   });
 
   describe("planning", () => {
     it("classifies product research intent", async () => {
+      mockRouterGenerate.mockResolvedValueOnce({
+        result: { content: "product_research", provider: "gemini", model: "gemini-3-flash", inputTokens: 20, outputTokens: 5, durationMs: 100, cached: false },
+        log: {},
+      });
+
       const plan = await orchestrator.plan("Find wireless earbuds to sell");
 
       expect(plan.intent).toBe("product_research");
@@ -106,28 +144,67 @@ describe("OrchestratorV2", () => {
       expect(plan.confidence).toBeGreaterThan(0);
     });
 
-    it("classifies marketing intent", async () => {
-      const plan = await orchestrator.plan("Create a marketing campaign");
+    it("classifies marketing intent via LLM", async () => {
+      mockRouterGenerate.mockResolvedValueOnce({
+        result: { content: "marketing", provider: "gemini", model: "gemini-3-flash", inputTokens: 20, outputTokens: 5, durationMs: 100, cached: false },
+        log: {},
+      });
 
+      const plan = await orchestrator.plan("Create a marketing campaign");
       expect(plan.intent).toBe("marketing");
     });
 
-    it("classifies pricing intent", async () => {
-      const plan = await orchestrator.plan("Calculate the price and margin");
+    it("classifies pricing intent via LLM", async () => {
+      mockRouterGenerate.mockResolvedValueOnce({
+        result: { content: "pricing", provider: "gemini", model: "gemini-3-flash", inputTokens: 20, outputTokens: 5, durationMs: 100, cached: false },
+        log: {},
+      });
 
+      const plan = await orchestrator.plan("Calculate the price and margin");
       expect(plan.intent).toBe("pricing");
     });
 
-    it("classifies supplier intent", async () => {
-      const plan = await orchestrator.plan("Find suppliers for electronics");
+    it("classifies supplier intent via LLM", async () => {
+      mockRouterGenerate.mockResolvedValueOnce({
+        result: { content: "supplier_research", provider: "gemini", model: "gemini-3-flash", inputTokens: 20, outputTokens: 5, durationMs: 100, cached: false },
+        log: {},
+      });
 
+      const plan = await orchestrator.plan("Find suppliers for electronics");
       expect(plan.intent).toBe("supplier_research");
     });
 
-    it("classifies general intent", async () => {
-      const plan = await orchestrator.plan("Hello, how are you?");
+    it("falls back to keyword classification when LLM fails", async () => {
+      mockRouterGenerate.mockRejectedValueOnce(new Error("LLM unavailable"));
 
+      const plan = await orchestrator.plan("Find wireless earbuds to sell");
+      // Should still classify via keyword fallback
+      expect(plan.intent).toBe("product_research");
+    });
+
+    it("falls back to keyword classification when LLM returns invalid intent", async () => {
+      mockRouterGenerate.mockResolvedValueOnce({
+        result: { content: "invalid_intent", provider: "gemini", model: "gemini-3-flash", inputTokens: 20, outputTokens: 5, durationMs: 100, cached: false },
+        log: {},
+      });
+
+      const plan = await orchestrator.plan("Hello, how are you?");
+      // "invalid_intent" not in valid list → falls to general via keyword
       expect(plan.intent).toBe("general");
+    });
+
+    it("uses LLM for classification (router called)", async () => {
+      mockRouterGenerate.mockResolvedValueOnce({
+        result: { content: "seo", provider: "gemini", model: "gemini-3-flash", inputTokens: 20, outputTokens: 5, durationMs: 100, cached: false },
+        log: {},
+      });
+
+      await orchestrator.plan("Optimize my product SEO keywords");
+
+      expect(mockRouterGenerate).toHaveBeenCalledWith(
+        expect.objectContaining({ agentId: "orchestrator:intent-classifier" }),
+        expect.objectContaining({ prompt: "Optimize my product SEO keywords" })
+      );
     });
 
     it("estimates cost and duration", async () => {
