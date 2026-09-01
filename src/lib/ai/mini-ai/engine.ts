@@ -15,12 +15,14 @@
 //   - hybrid: deterministic + LLM refinement
 
 import { getMiniAIRegistry } from "./registry";
+import { selectModelByComplexity } from "../complexity-router";
 import type {
   MiniAIDefinition,
   MiniAIInput,
   MiniAIResult,
   MiniAIExecutionOptions,
   MiniAIExecutionMode,
+  MiniAIComplexity,
 } from "./types";
 
 /**
@@ -283,11 +285,34 @@ export class MiniAIEngine {
 
     const execStart = Date.now();
 
-    // Use legacy generate for now — will be enhanced in FASE 4 with model routing
+    // Select model based on complexity tier (F2: ComplexityRouter integration)
+    const complexity: MiniAIComplexity = definition.modelRequirements.complexity || "simple";
+    let primaryProvider: string;
+    let primaryModel: string;
+
+    if (options.modelOverride) {
+      // Explicit override takes precedence — skip complexity routing
+      primaryModel = options.modelOverride;
+      primaryProvider = options.providerOverride || definition.modelRequirements.preferredProvider || "gemini";
+    } else {
+      try {
+        const modelSelection = await selectModelByComplexity(
+          complexity,
+          definition.modelRequirements
+        );
+        primaryModel = modelSelection.match.model.id;
+        primaryProvider = modelSelection.match.model.provider;
+      } catch {
+        // Fallback to defaults if complexity routing fails
+        primaryModel = "gemini-3-flash";
+        primaryProvider = definition.modelRequirements.preferredProvider || "gemini";
+      }
+    }
+
     const config = {
       agentId: `mini-ai:${definition.id}`,
-      primaryProvider: definition.modelRequirements.preferredProvider || "gemini",
-      primaryModel: options.modelOverride || "gemini-3-flash",
+      primaryProvider,
+      primaryModel,
       temperature: options.temperature ?? definition.defaultTemperature ?? 0.3,
       maxTokens: options.maxOutputTokens ?? definition.maxOutputTokens ?? 4096,
     };

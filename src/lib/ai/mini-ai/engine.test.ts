@@ -12,22 +12,51 @@ import {
 import { getMiniAIRegistry, resetMiniAIRegistry } from "./registry";
 import type { MiniAIDefinition } from "./types";
 
-// Mock the router to avoid actual LLM calls
+// Mock the router to avoid actual LLM calls — uses config values dynamically
 vi.mock("../router", () => ({
   getRouter: () => ({
-    generate: vi.fn().mockResolvedValue({
-      result: {
-        content: '{"result": "mocked"}',
-        provider: "gemini",
-        model: "gemini-3-flash",
-        inputTokens: 100,
-        outputTokens: 50,
-        durationMs: 200,
-        cached: false,
-      },
-      log: {},
+    generate: vi.fn().mockImplementation((_config: { primaryProvider: string; primaryModel: string }) => {
+      return Promise.resolve({
+        result: {
+          content: '{"result": "mocked"}',
+          provider: _config.primaryProvider,
+          model: _config.primaryModel,
+          inputTokens: 100,
+          outputTokens: 50,
+          durationMs: 200,
+          cached: false,
+        },
+        log: {},
+      });
     }),
   }),
+}));
+
+// Mock the complexity router to verify it's called with correct args
+const mockSelectModelByComplexity = vi.fn().mockResolvedValue({
+  match: {
+    model: {
+      id: "gemini-3-flash",
+      name: "Gemini 3 Flash",
+      provider: "gemini",
+      input_price: 0,
+      output_price: 0,
+      context_window: 8000,
+    },
+    score: 90,
+    allCapabilitiesMatch: true,
+    contextWindowMatch: true,
+    costMatch: true,
+    capabilityScore: 1,
+  },
+  complexity: "simple",
+  estimatedCostDollars: 0,
+  reasoning: "Selected gemini-3-flash for simple task",
+  fallbacks: [],
+});
+
+vi.mock("../complexity-router", () => ({
+  selectModelByComplexity: (...args: unknown[]) => mockSelectModelByComplexity(...args),
 }));
 
 function createTestDefinition(overrides: Partial<MiniAIDefinition> = {}): MiniAIDefinition {
@@ -56,6 +85,29 @@ describe("MiniAIEngine", () => {
     resetMiniAIRegistry();
     clearDeterministicImpls();
     clearPromptBuilders();
+    mockSelectModelByComplexity.mockClear();
+    // Restore default mock return value
+    mockSelectModelByComplexity.mockResolvedValue({
+      match: {
+        model: {
+          id: "gemini-3-flash",
+          name: "Gemini 3 Flash",
+          provider: "gemini",
+          input_price: 0,
+          output_price: 0,
+          context_window: 8000,
+        },
+        score: 90,
+        allCapabilitiesMatch: true,
+        contextWindowMatch: true,
+        costMatch: true,
+        capabilityScore: 1,
+      },
+      complexity: "simple",
+      estimatedCostDollars: 0,
+      reasoning: "Selected gemini-3-flash for simple task",
+      fallbacks: [],
+    });
     engine = getMiniAIEngine();
     registry = getMiniAIRegistry();
   });
@@ -148,6 +200,111 @@ describe("MiniAIEngine", () => {
 
       expect(result.success).toBe(false);
       expect(result.errors[0]).toContain("Implementation crashed");
+    });
+  });
+
+  describe("LLM execution with complexity routing", () => {
+    it("calls selectModelByComplexity with definition's complexity", async () => {
+      const def = createTestDefinition({
+        executionMode: "llm",
+        modelRequirements: { complexity: "moderate", responseFormat: "json" },
+      });
+      registry.register(def);
+
+      await engine.execute("test-mini-ai", {
+        input: { text: "hello" },
+      });
+
+      expect(mockSelectModelByComplexity).toHaveBeenCalledWith("moderate", {
+        complexity: "moderate",
+        responseFormat: "json",
+      });
+    });
+
+    it("defaults to 'simple' complexity when not specified", async () => {
+      const def = createTestDefinition({
+        executionMode: "llm",
+        modelRequirements: {},
+      });
+      registry.register(def);
+
+      await engine.execute("test-mini-ai", {
+        input: { text: "hello" },
+      });
+
+      expect(mockSelectModelByComplexity).toHaveBeenCalledWith("simple", {});
+    });
+
+    it("uses modelOverride and skips complexity routing", async () => {
+      const def = createTestDefinition({
+        executionMode: "llm",
+        modelRequirements: { complexity: "complex" },
+      });
+      registry.register(def);
+
+      await engine.execute("test-mini-ai", {
+        input: { text: "hello" },
+        modelOverride: "claude-sonnet-4",
+        providerOverride: "anthropic",
+      });
+
+      expect(mockSelectModelByComplexity).not.toHaveBeenCalled();
+    });
+
+    it("falls back to defaults when complexity routing throws", async () => {
+      mockSelectModelByComplexity.mockRejectedValueOnce(new Error("No model available"));
+
+      const def = createTestDefinition({
+        executionMode: "llm",
+        modelRequirements: { complexity: "complex" },
+      });
+      registry.register(def);
+
+      const result = await engine.execute("test-mini-ai", {
+        input: { text: "hello" },
+      });
+
+      // Should still succeed using fallback defaults
+      expect(result.success).toBe(true);
+      expect(result.metadata.providerUsed).toBe("gemini");
+    });
+
+    it("returns provider and model from complexity routing result", async () => {
+      mockSelectModelByComplexity.mockResolvedValueOnce({
+        match: {
+          model: {
+            id: "claude-3-5-haiku",
+            name: "Claude 3.5 Haiku",
+            provider: "anthropic",
+            input_price: 0.8,
+            output_price: 4.0,
+            context_window: 8000,
+          },
+          score: 85,
+          allCapabilitiesMatch: true,
+          contextWindowMatch: true,
+          costMatch: true,
+          capabilityScore: 1,
+        },
+        complexity: "moderate",
+        estimatedCostDollars: 0.005,
+        reasoning: "Selected Claude 3.5 Haiku for moderate task",
+        fallbacks: [],
+      });
+
+      const def = createTestDefinition({
+        executionMode: "llm",
+        modelRequirements: { complexity: "moderate" },
+      });
+      registry.register(def);
+
+      const result = await engine.execute("test-mini-ai", {
+        input: { text: "hello" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.metadata.modelUsed).toBe("claude-3-5-haiku");
+      expect(result.metadata.providerUsed).toBe("anthropic");
     });
   });
 
