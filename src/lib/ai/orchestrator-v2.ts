@@ -18,6 +18,7 @@ import { getMiniAIEngine } from "./mini-ai/engine";
 import { getMiniAIRegistry } from "./mini-ai/registry";
 import { selectModelByComplexity } from "./complexity-router";
 import { getApprovalManager } from "./approval-manager";
+import { getPlanBuilder } from "./plan-builder";
 import { AgentEngine } from "../agents/core/engine";
 import type { MiniAIResult, MiniAIChainStep } from "./mini-ai/types";
 
@@ -134,8 +135,12 @@ export class OrchestratorV2 {
     // LLM-based intent classification with keyword fallback
     const intent = await this.classifyIntent(request);
 
-    // Build execution plan based on intent
-    const steps = this.buildPlanSteps(intent, request);
+    // F9: Dynamic plan building with LLM + static fallback
+    const planBuilder = getPlanBuilder();
+    const dynamicPlan = await planBuilder.buildPlan(request, intent);
+
+    // Build execution plan based on intent (with LLM-generated steps)
+    const steps = dynamicPlan.steps;
 
     // Estimate cost and duration
     const { estimatedCost, estimatedDurationMs } = await this.estimatePlan(steps);
@@ -147,7 +152,7 @@ export class OrchestratorV2 {
       steps,
       estimatedCost,
       estimatedDurationMs,
-      confidence: 0.7, // Will be improved with LLM-based planning
+      confidence: dynamicPlan.source === "llm" ? 0.85 : 0.7,
     };
   }
 
@@ -412,123 +417,6 @@ Respond with ONLY the category name, nothing else.`;
     }
 
     return "general";
-  }
-
-  // ============================================
-  // PLAN BUILDING
-  // ============================================
-
-  private buildPlanSteps(intent: string, _request: string): ExecutionPlanStep[] {
-    const steps: ExecutionPlanStep[] = [];
-
-    switch (intent) {
-      case "product_research":
-        steps.push(
-          {
-            id: "research",
-            type: "mini-ai",
-            miniAIId: "researcher",
-            complexity: "moderate",
-            description: "Research the product/topic",
-          },
-          {
-            id: "classify",
-            type: "mini-ai",
-            miniAIId: "classifier",
-            complexity: "simple",
-            inputMapping: { text: "research.output.summary", categories: "input.categories" },
-            description: "Classify the findings",
-          },
-          {
-            id: "validate",
-            type: "mini-ai",
-            miniAIId: "validator",
-            complexity: "simple",
-            inputMapping: { data: "classify.output", rules: "input.validationRules" },
-            description: "Validate the classification",
-          }
-        );
-        break;
-
-      case "marketing":
-        steps.push(
-          {
-            id: "marketing-agent",
-            type: "agent",
-            agentId: "marketing",
-            complexity: "complex",
-            description: "Generate marketing content",
-          },
-          {
-            id: "critic",
-            type: "mini-ai",
-            miniAIId: "critic",
-            complexity: "simple",
-            inputMapping: {
-              response: "marketing-agent.output",
-              criteria: "input.criteria",
-            },
-            description: "Evaluate marketing content quality",
-          }
-        );
-        break;
-
-      case "pricing":
-        steps.push(
-          {
-            id: "finance-agent",
-            type: "agent",
-            agentId: "finance",
-            complexity: "moderate",
-            description: "Calculate pricing and margins",
-          }
-        );
-        break;
-
-      case "supplier_research":
-        steps.push(
-          {
-            id: "supplier-agent",
-            type: "agent",
-            agentId: "supplier-research",
-            complexity: "moderate",
-            description: "Research suppliers",
-          }
-        );
-        break;
-
-      case "analysis":
-        steps.push(
-          {
-            id: "analyze",
-            type: "mini-ai",
-            miniAIId: "researcher",
-            complexity: "moderate",
-            description: "Analyze the input",
-          },
-          {
-            id: "summarize",
-            type: "mini-ai",
-            miniAIId: "summarizer",
-            complexity: "simple",
-            inputMapping: { text: "analyze.output.summary" },
-            description: "Summarize analysis",
-          }
-        );
-        break;
-
-      default:
-        // General: just use the CEO agent
-        steps.push({
-          id: "ceo-agent",
-          type: "agent",
-          agentId: "ceo",
-          complexity: "complex",
-          description: "Handle general request",
-        });
-    }
-
-    return steps;
   }
 
   // ============================================
