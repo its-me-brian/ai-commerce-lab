@@ -11,6 +11,7 @@ import { ClaudeProvider } from "./providers/claude";
 import { GrokProvider } from "./providers/grok";
 import { getProviderManager } from "./provider-manager";
 import { bootstrapMiniAIs } from "./mini-ai/bootstrap";
+import { bootstrapWorkflows } from "./workflow/bootstrap";
 
 import { AgentRegistry } from "../agents/core/registry";
 import { ProductHunterAgent } from "../agents/product-hunter";
@@ -119,6 +120,9 @@ export async function bootstrap(): Promise<void> {
 
   // --- Mini-IAs (built-in deterministic + LLM implementations) ---
   bootstrapMiniAIs();
+
+  // --- Workflows (built-in DAG definitions) ---
+  await bootstrapWorkflows();
 
   bootstrapped = true;
 }
