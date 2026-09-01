@@ -471,6 +471,423 @@ export interface Database {
           updated_at?: string;
         };
       };
+      // --- F1-F12: Missing table types ---
+      conversations: {
+        Row: {
+          id: string;
+          agent_id: string;
+          workspace_id: string | null;
+          title: string | null;
+          status: string;
+          message_count: number;
+          last_message_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          agent_id: string;
+          workspace_id?: string | null;
+          title?: string | null;
+          status?: string;
+          message_count?: number;
+          last_message_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string | null;
+          status?: string;
+          message_count?: number;
+          last_message_at?: string | null;
+          updated_at?: string;
+        };
+      };
+      conversation_messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          role: string;
+          content: string;
+          provider: string | null;
+          model: string | null;
+          input_tokens: number;
+          output_tokens: number;
+          duration_ms: number;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          role: string;
+          content: string;
+          provider?: string | null;
+          model?: string | null;
+          input_tokens?: number;
+          output_tokens?: number;
+          duration_ms?: number;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: {
+          role?: string;
+          content?: string;
+          provider?: string | null;
+          model?: string | null;
+          input_tokens?: number;
+          output_tokens?: number;
+          duration_ms?: number;
+          metadata?: Record<string, unknown>;
+        };
+      };
+      agent_memory: {
+        Row: {
+          id: string;
+          agent_id: string;
+          workspace_id: string | null;
+          memory_type: string;
+          content: string;
+          source: string | null;
+          confidence: number;
+          metadata: Record<string, unknown>;
+          expires_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          agent_id: string;
+          workspace_id?: string | null;
+          memory_type: string;
+          content: string;
+          source?: string | null;
+          confidence?: number;
+          metadata?: Record<string, unknown>;
+          expires_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          memory_type?: string;
+          content?: string;
+          source?: string | null;
+          confidence?: number;
+          metadata?: Record<string, unknown>;
+          expires_at?: string | null;
+          updated_at?: string;
+        };
+      };
+      task_events: {
+        Row: {
+          id: string;
+          task_id: string;
+          event_type: string;
+          from_status: string | null;
+          to_status: string | null;
+          message: string | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          event_type: string;
+          from_status?: string | null;
+          to_status?: string | null;
+          message?: string | null;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: {
+          event_type?: string;
+          from_status?: string | null;
+          to_status?: string | null;
+          message?: string | null;
+          metadata?: Record<string, unknown>;
+        };
+      };
+      approvals: {
+        Row: {
+          id: string;
+          agent_id: string;
+          task_id: string | null;
+          action_type: string;
+          action_summary: string;
+          action_details: Record<string, unknown>;
+          risk_level: string;
+          status: string;
+          reviewer_notes: string | null;
+          reviewed_at: string | null;
+          expires_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          agent_id: string;
+          task_id?: string | null;
+          action_type: string;
+          action_summary: string;
+          action_details?: Record<string, unknown>;
+          risk_level?: string;
+          status?: string;
+          reviewer_notes?: string | null;
+          reviewed_at?: string | null;
+          expires_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          action_type?: string;
+          action_summary?: string;
+          action_details?: Record<string, unknown>;
+          risk_level?: string;
+          status?: string;
+          reviewer_notes?: string | null;
+          reviewed_at?: string | null;
+          expires_at?: string | null;
+        };
+      };
+      app_events: {
+        Row: {
+          id: string;
+          event_type: string;
+          severity: string;
+          source: string | null;
+          agent_id: string | null;
+          message: string;
+          metadata: Record<string, unknown>;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_type: string;
+          severity?: string;
+          source?: string | null;
+          agent_id?: string | null;
+          message: string;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+        };
+        Update: {
+          event_type?: string;
+          severity?: string;
+          source?: string | null;
+          agent_id?: string | null;
+          message?: string;
+          metadata?: Record<string, unknown>;
+        };
+      };
+      agent_definitions: {
+        Row: {
+          id: string;
+          slug: string;
+          version: string;
+          status: string;
+          enabled: boolean;
+          identity_name: string;
+          identity_role: string;
+          identity_description: string;
+          mission: string;
+          personality: Record<string, unknown>;
+          expertise: string[];
+          rules: string[];
+          skills: string[];
+          output_instructions: Record<string, unknown> | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          version?: string;
+          status?: string;
+          enabled?: boolean;
+          identity_name: string;
+          identity_role: string;
+          identity_description: string;
+          mission: string;
+          personality?: Record<string, unknown>;
+          expertise?: string[];
+          rules?: string[];
+          skills?: string[];
+          output_instructions?: Record<string, unknown> | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          slug?: string;
+          version?: string;
+          status?: string;
+          enabled?: boolean;
+          identity_name?: string;
+          identity_role?: string;
+          identity_description?: string;
+          mission?: string;
+          personality?: Record<string, unknown>;
+          expertise?: string[];
+          rules?: string[];
+          skills?: string[];
+          output_instructions?: Record<string, unknown> | null;
+          updated_at?: string;
+        };
+      };
+      product_catalog: {
+        Row: {
+          id: string;
+          workspace_id: string | null;
+          name: string;
+          description: string | null;
+          category: string | null;
+          supplier_price: number | null;
+          selling_price: number | null;
+          currency: string;
+          image_url: string | null;
+          source: string | null;
+          source_id: string | null;
+          source_url: string | null;
+          overall_score: number | null;
+          decision: string | null;
+          risk_level: string | null;
+          status: string;
+          store_content: Record<string, unknown> | null;
+          seo: Record<string, unknown> | null;
+          marketing_content: Record<string, unknown> | null;
+          finance_analysis: Record<string, unknown> | null;
+          tags: string[];
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id?: string | null;
+          name: string;
+          description?: string | null;
+          category?: string | null;
+          supplier_price?: number | null;
+          selling_price?: number | null;
+          currency?: string;
+          image_url?: string | null;
+          source?: string | null;
+          source_id?: string | null;
+          source_url?: string | null;
+          overall_score?: number | null;
+          decision?: string | null;
+          risk_level?: string | null;
+          status?: string;
+          store_content?: Record<string, unknown> | null;
+          seo?: Record<string, unknown> | null;
+          marketing_content?: Record<string, unknown> | null;
+          finance_analysis?: Record<string, unknown> | null;
+          tags?: string[];
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          category?: string | null;
+          supplier_price?: number | null;
+          selling_price?: number | null;
+          currency?: string;
+          image_url?: string | null;
+          source?: string | null;
+          source_id?: string | null;
+          source_url?: string | null;
+          overall_score?: number | null;
+          decision?: string | null;
+          risk_level?: string | null;
+          status?: string;
+          store_content?: Record<string, unknown> | null;
+          seo?: Record<string, unknown> | null;
+          marketing_content?: Record<string, unknown> | null;
+          finance_analysis?: Record<string, unknown> | null;
+          tags?: string[];
+          notes?: string | null;
+          updated_at?: string;
+        };
+      };
+      workflow_definitions: {
+        Row: {
+          id: string;
+          name: string;
+          description: string;
+          version: string;
+          enabled: boolean;
+          nodes: Record<string, unknown>[];
+          entry_nodes: string[] | null;
+          config: Record<string, unknown>;
+          tags: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string;
+          version?: string;
+          enabled?: boolean;
+          nodes?: Record<string, unknown>[];
+          entry_nodes?: string[] | null;
+          config?: Record<string, unknown>;
+          tags?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          description?: string;
+          version?: string;
+          enabled?: boolean;
+          nodes?: Record<string, unknown>[];
+          entry_nodes?: string[] | null;
+          config?: Record<string, unknown>;
+          tags?: string[];
+          updated_at?: string;
+        };
+      };
+      knowledge_documents: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          title: string;
+          content: string;
+          source_type: string;
+          source_url: string | null;
+          category: string;
+          tags: string[];
+          embedding: number[] | null;
+          metadata: Record<string, unknown>;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          title: string;
+          content: string;
+          source_type?: string;
+          source_url?: string | null;
+          category?: string;
+          tags?: string[];
+          embedding?: number[] | null;
+          metadata?: Record<string, unknown>;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          content?: string;
+          source_type?: string;
+          source_url?: string | null;
+          category?: string;
+          tags?: string[];
+          embedding?: number[] | null;
+          metadata?: Record<string, unknown>;
+          updated_at?: string;
+        };
+      };
     };
   };
 }
