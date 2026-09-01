@@ -91,8 +91,8 @@ Ver `docs/AUDIT_V1.md` para el reporte detallado.
 - [x] Lazy loading + fallback: sistema sigue funcionando si browser-ml no está disponible
 
 ### FASE J: Test Center
-- [ ] Reemplazar datos hardcodeados con API real
-- [ ] Conectar con agentes reales de la BD
+- [x] Reemplazar lista hardcodeada de agentes con `/api/agents/list` (consulta Supabase real)
+- [x] Agentes se cargan dinámicamente desde la BD
 
 ### FASE K: Observability
 - [ ] Persistir observability en Supabase (no solo memoria)

@@ -63,16 +63,18 @@ export default function TestCenterPage() {
 
   async function fetchAgents() {
     try {
-      const res = await fetch("/api/agents/config?agentId=product-hunter");
-      // Use a simple approach: fetch all agents from the DB
-      const data = await fetch("/api/ai/providers").then(r => r.json());
-      // We don't have a dedicated agents list endpoint, so let's use a known list
-      setAgents([
-        { id: "product-hunter", name: "Product Hunter", description: "Finds and analyzes product opportunities", enabled: true },
-        { id: "pricing-agent", name: "Pricing Agent", description: "Calculates optimal pricing", enabled: true },
-        { id: "seo-agent", name: "SEO Agent", description: "Optimizes product listings", enabled: true },
-        { id: "marketing-agent", name: "Marketing Agent", description: "Creates marketing content", enabled: true },
-      ]);
+      const res = await fetch("/api/agents/list");
+      const data = await res.json();
+      if (data.success && data.agents) {
+        setAgents(
+          data.agents.map((a: { id: string; name: string; description: string; enabled: boolean }) => ({
+            id: a.id,
+            name: a.name,
+            description: a.description,
+            enabled: a.enabled,
+          }))
+        );
+      }
     } catch (err) {
       console.error("Failed to load agents:", err);
     } finally {
