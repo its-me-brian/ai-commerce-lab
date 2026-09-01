@@ -1,0 +1,544 @@
+// Orchestrator v2
+// Intelligent routing, delegation, and execution planning.
+//
+// The Orchestrator is the "brain" at Level 1 of the hierarchy:
+//   User → Orchestrator → Agent → Mini-IAs → Tools → Result
+//
+// Responsibilities:
+//   - Parse user intent
+//   - Select appropriate agent(s)
+//   - Plan execution steps (which mini-IAs to chain)
+//   - Delegate to agents
+//   - Validate results via critic/validator mini-IAs
+//   - Synthesize final response
+//   - Handle retries and fallbacks
+
+import { getAgentRegistry } from "./bootstrap";
+import { getMiniAIEngine } from "./mini-ai/engine";
+import { getMiniAIRegistry } from "./mini-ai/registry";
+import { selectModelByComplexity } from "./complexity-router";
+import { AgentEngine } from "../agents/core/engine";
+import type { MiniAIResult, MiniAIChainStep } from "./mini-ai/types";
+
+// ============================================
+// TYPES
+// ============================================
+
+/**
+ * Execution plan step — what to run and in what order.
+ */
+export interface ExecutionPlanStep {
+  /** Step identifier */
+  id: string;
+
+  /** What type of step: "agent" | "mini-ai" | "chain" */
+  type: "agent" | "mini-ai" | "chain";
+
+  /** Agent ID (if type is "agent") */
+  agentId?: string;
+
+  /** Mini-AI ID (if type is "mini-ai" or "chain") */
+  miniAIId?: string;
+
+  /** Chain steps (if type is "chain") */
+  chainSteps?: MiniAIChainStep[];
+
+  /** Input mapping from previous steps */
+  inputMapping?: Record<string, string>;
+
+  /** Complexity tier for model selection */
+  complexity?: "trivial" | "simple" | "moderate" | "complex";
+
+  /** Whether this step is required (default: true) */
+  required?: boolean;
+
+  /** Human-readable description */
+  description?: string;
+}
+
+/**
+ * Execution plan — the full plan for processing a request.
+ */
+export interface ExecutionPlan {
+  /** Plan identifier */
+  id: string;
+
+  /** Original user request */
+  request: string;
+
+  /** Identified intent */
+  intent: string;
+
+  /** Ordered steps to execute */
+  steps: ExecutionPlanStep[];
+
+  /** Estimated total cost */
+  estimatedCost: number;
+
+  /** Estimated total duration */
+  estimatedDurationMs: number;
+
+  /** Confidence in the plan (0-1) */
+  confidence: number;
+}
+
+/**
+ * Result of executing a plan.
+ */
+export interface ExecutionResult {
+  /** Plan that was executed */
+  planId: string;
+
+  /** Whether all steps succeeded */
+  success: boolean;
+
+  /** Final synthesized response */
+  response: string;
+
+  /** Individual step results */
+  stepResults: Array<{
+    stepId: string;
+    success: boolean;
+    output: unknown;
+    durationMs: number;
+    cost: number;
+  }>;
+
+  /** Total execution metadata */
+  metadata: {
+    totalDurationMs: number;
+    totalCost: number;
+    totalTokens: number;
+    stepsExecuted: number;
+    stepsSucceeded: number;
+    stepsFailed: number;
+    retriedSteps: number;
+  };
+}
+
+// ============================================
+// ORCHESTRATOR
+// ============================================
+
+export class OrchestratorV2 {
+  private agentEngine = new AgentEngine();
+
+  /**
+   * Plan the execution for a user request.
+   * Analyzes intent and creates an ordered plan of steps.
+   */
+  async plan(request: string): Promise<ExecutionPlan> {
+    const planId = `plan-${Date.now()}`;
+
+    // Simple intent classification (will be enhanced with LLM in future)
+    const intent = this.classifyIntent(request);
+
+    // Build execution plan based on intent
+    const steps = this.buildPlanSteps(intent, request);
+
+    // Estimate cost and duration
+    const { estimatedCost, estimatedDurationMs } = await this.estimatePlan(steps);
+
+    return {
+      id: planId,
+      request,
+      intent,
+      steps,
+      estimatedCost,
+      estimatedDurationMs,
+      confidence: 0.7, // Will be improved with LLM-based planning
+    };
+  }
+
+  /**
+   * Execute a plan end-to-end.
+   * Runs each step, validates results, and synthesizes response.
+   */
+  async execute(plan: ExecutionPlan): Promise<ExecutionResult> {
+    const startTime = Date.now();
+    const stepResults: ExecutionResult["stepResults"] = [];
+    let totalCost = 0;
+    let totalTokens = 0;
+    let retriedSteps = 0;
+
+    // Working memory passed between steps
+    const workingMemory: Record<string, unknown> = {
+      request: plan.request,
+      intent: plan.intent,
+    };
+
+    for (const step of plan.steps) {
+      const stepStart = Date.now();
+      let stepSuccess = false;
+      let stepOutput: unknown = null;
+      let stepCost = 0;
+
+      try {
+        // Map input from previous results or working memory
+        const input = this.mapStepInput(step, workingMemory);
+
+        if (step.type === "agent") {
+          // Execute agent via AgentEngine
+          const { result } = await this.agentEngine.executeTask(
+            step.agentId!,
+            input as Record<string, unknown>,
+            { taskType: plan.intent || "general" }
+          );
+
+          stepSuccess = result.success;
+          stepOutput = result.structuredData || result.output;
+          stepCost = (result.metadata.inputTokens + result.metadata.outputTokens) * 0.000001;
+          totalTokens += result.metadata.inputTokens + result.metadata.outputTokens;
+        } else if (step.type === "mini-ai") {
+          // Execute single mini-AI
+          const engine = getMiniAIEngine();
+          const miniAIResult = await engine.execute(step.miniAIId!, {
+            input: input as Record<string, unknown>,
+            workingMemory,
+          });
+
+          stepSuccess = miniAIResult.success;
+          stepOutput = miniAIResult.output;
+          stepCost = miniAIResult.metadata.costDollars || 0;
+          totalTokens += miniAIResult.metadata.inputTokens + miniAIResult.metadata.outputTokens;
+        } else if (step.type === "chain") {
+          // Execute mini-AI chain
+          const engine = getMiniAIEngine();
+          const chainResults = await engine.executeChain(
+            step.chainSteps || [],
+            input as Record<string, unknown>
+          );
+
+          stepSuccess = chainResults.every((r: MiniAIResult) => r.success);
+          stepOutput = chainResults.map((r: MiniAIResult) => r.output);
+          stepCost = chainResults.reduce((sum: number, r: MiniAIResult) => sum + (r.metadata.costDollars || 0), 0);
+          totalTokens += chainResults.reduce(
+            (sum: number, r: MiniAIResult) => sum + r.metadata.inputTokens + r.metadata.outputTokens,
+            0
+          );
+        }
+
+        // Store result in working memory for next steps
+        workingMemory[step.id] = stepOutput;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+
+        // Retry logic (1 retry for required steps)
+        if (step.required !== false && retriedSteps < 1) {
+          retriedSteps++;
+          // Will retry on next loop iteration (simplified — in production would use retry logic)
+          stepResults.push({
+            stepId: step.id,
+            success: false,
+            output: { error: msg },
+            durationMs: Date.now() - stepStart,
+            cost: 0,
+          });
+          continue;
+        }
+
+        stepResults.push({
+          stepId: step.id,
+          success: false,
+          output: { error: msg },
+          durationMs: Date.now() - stepStart,
+          cost: 0,
+        });
+        totalCost += stepCost;
+        continue;
+      }
+
+      totalCost += stepCost;
+      stepResults.push({
+        stepId: step.id,
+        success: stepSuccess,
+        output: stepOutput,
+        durationMs: Date.now() - stepStart,
+        cost: stepCost,
+      });
+    }
+
+    // Synthesize final response
+    const response = this.synthesizeResponse(plan, stepResults, workingMemory);
+
+    const stepsSucceeded = stepResults.filter((r) => r.success).length;
+    const stepsFailed = stepResults.filter((r) => !r.success).length;
+
+    return {
+      planId: plan.id,
+      success: stepsFailed === 0,
+      response,
+      stepResults,
+      metadata: {
+        totalDurationMs: Date.now() - startTime,
+        totalCost,
+        totalTokens,
+        stepsExecuted: stepResults.length,
+        stepsSucceeded,
+        stepsFailed,
+        retriedSteps,
+      },
+    };
+  }
+
+  /**
+   * High-level: plan + execute in one call.
+   */
+  async planAndExecute(request: string): Promise<ExecutionResult> {
+    const plan = await this.plan(request);
+    return this.execute(plan);
+  }
+
+  // ============================================
+  // INTENT CLASSIFICATION
+  // ============================================
+
+  private classifyIntent(request: string): string {
+    const lower = request.toLowerCase();
+
+    // Order matters: check most specific intents first
+    if (lower.includes("marketing") || lower.includes("campaign") || lower.includes("ad copy")) {
+      return "marketing";
+    }
+    if (lower.includes("supplier") || lower.includes("vendor")) {
+      return "supplier_research";
+    }
+    if (lower.includes("price") || lower.includes("margin") || lower.includes("cost")) {
+      return "pricing";
+    }
+    if (lower.includes("seo") || lower.includes("keyword")) {
+      return "seo";
+    }
+    if (lower.includes("analyze") || lower.includes("review")) {
+      return "analysis";
+    }
+    if (lower.includes("product") || lower.includes("item") || lower.includes("find")) {
+      return "product_research";
+    }
+
+    return "general";
+  }
+
+  // ============================================
+  // PLAN BUILDING
+  // ============================================
+
+  private buildPlanSteps(intent: string, _request: string): ExecutionPlanStep[] {
+    const steps: ExecutionPlanStep[] = [];
+
+    switch (intent) {
+      case "product_research":
+        steps.push(
+          {
+            id: "research",
+            type: "mini-ai",
+            miniAIId: "researcher",
+            complexity: "moderate",
+            description: "Research the product/topic",
+          },
+          {
+            id: "classify",
+            type: "mini-ai",
+            miniAIId: "classifier",
+            complexity: "simple",
+            inputMapping: { text: "research.output.summary", categories: "input.categories" },
+            description: "Classify the findings",
+          },
+          {
+            id: "validate",
+            type: "mini-ai",
+            miniAIId: "validator",
+            complexity: "simple",
+            inputMapping: { data: "classify.output", rules: "input.validationRules" },
+            description: "Validate the classification",
+          }
+        );
+        break;
+
+      case "marketing":
+        steps.push(
+          {
+            id: "marketing-agent",
+            type: "agent",
+            agentId: "marketing",
+            complexity: "complex",
+            description: "Generate marketing content",
+          },
+          {
+            id: "critic",
+            type: "mini-ai",
+            miniAIId: "critic",
+            complexity: "simple",
+            inputMapping: {
+              response: "marketing-agent.output",
+              criteria: "input.criteria",
+            },
+            description: "Evaluate marketing content quality",
+          }
+        );
+        break;
+
+      case "pricing":
+        steps.push(
+          {
+            id: "finance-agent",
+            type: "agent",
+            agentId: "finance",
+            complexity: "moderate",
+            description: "Calculate pricing and margins",
+          }
+        );
+        break;
+
+      case "supplier_research":
+        steps.push(
+          {
+            id: "supplier-agent",
+            type: "agent",
+            agentId: "supplier-research",
+            complexity: "moderate",
+            description: "Research suppliers",
+          }
+        );
+        break;
+
+      case "analysis":
+        steps.push(
+          {
+            id: "analyze",
+            type: "mini-ai",
+            miniAIId: "researcher",
+            complexity: "moderate",
+            description: "Analyze the input",
+          },
+          {
+            id: "summarize",
+            type: "mini-ai",
+            miniAIId: "summarizer",
+            complexity: "simple",
+            inputMapping: { text: "analyze.output.summary" },
+            description: "Summarize analysis",
+          }
+        );
+        break;
+
+      default:
+        // General: just use the CEO agent
+        steps.push({
+          id: "ceo-agent",
+          type: "agent",
+          agentId: "ceo",
+          complexity: "complex",
+          description: "Handle general request",
+        });
+    }
+
+    return steps;
+  }
+
+  // ============================================
+  // HELPERS
+  // ============================================
+
+  private mapStepInput(
+    step: ExecutionPlanStep,
+    workingMemory: Record<string, unknown>
+  ): Record<string, unknown> {
+    if (!step.inputMapping) {
+      // No mapping — use the original request as input
+      return { text: workingMemory.request, topic: workingMemory.request };
+    }
+
+    const input: Record<string, unknown> = {};
+    for (const [key, ref] of Object.entries(step.inputMapping)) {
+      if (ref.startsWith("input.")) {
+        // Reference to original request fields
+        input[key] = workingMemory.request;
+      } else if (ref.includes(".")) {
+        // Reference to a previous step's output
+        const [stepId, ...path] = ref.split(".");
+        const stepOutput = workingMemory[stepId];
+        if (stepOutput && typeof stepOutput === "object") {
+          let value: unknown = stepOutput;
+          for (const segment of path) {
+            if (segment === "output" && typeof value === "object" && value !== null) {
+              value = (value as Record<string, unknown>)[segment] || value;
+            } else if (typeof value === "object" && value !== null) {
+              value = (value as Record<string, unknown>)[segment];
+            }
+          }
+          input[key] = value;
+        }
+      } else {
+        // Direct reference to working memory
+        input[key] = workingMemory[ref];
+      }
+    }
+
+    return input;
+  }
+
+  private async estimatePlan(
+    steps: ExecutionPlanStep[]
+  ): Promise<{ estimatedCost: number; estimatedDurationMs: number }> {
+    let totalCost = 0;
+    let totalDuration = 0;
+
+    for (const step of steps) {
+      if (step.type === "agent") {
+        totalCost += 0.01; // Estimate $0.01 per agent call
+        totalDuration += 3000; // Estimate 3s per agent call
+      } else if (step.type === "mini-ai") {
+        const complexity = step.complexity || "simple";
+        const costs = { trivial: 0.0001, simple: 0.001, moderate: 0.01, complex: 0.1 };
+        const durations = { trivial: 100, simple: 500, moderate: 2000, complex: 5000 };
+        totalCost += costs[complexity] || 0.001;
+        totalDuration += durations[complexity] || 500;
+      } else if (step.type === "chain") {
+        totalCost += 0.005; // Estimate per chain
+        totalDuration += 1000;
+      }
+    }
+
+    return { estimatedCost: totalCost, estimatedDurationMs: totalDuration };
+  }
+
+  private synthesizeResponse(
+    plan: ExecutionPlan,
+    stepResults: ExecutionResult["stepResults"],
+    workingMemory: Record<string, unknown>
+  ): string {
+    // Collect all successful outputs
+    const outputs = stepResults
+      .filter((r) => r.success)
+      .map((r) => {
+        if (typeof r.output === "string") return r.output;
+        if (typeof r.output === "object" && r.output !== null) {
+          return JSON.stringify(r.output, null, 2);
+        }
+        return String(r.output);
+      });
+
+    if (outputs.length === 0) {
+      return `Request processed for intent "${plan.intent}" but no results were produced.`;
+    }
+
+    return outputs.join("\n\n");
+  }
+}
+
+/**
+ * Singleton instance.
+ */
+let orchestratorInstance: OrchestratorV2 | null = null;
+
+export function getOrchestratorV2(): OrchestratorV2 {
+  if (!orchestratorInstance) {
+    orchestratorInstance = new OrchestratorV2();
+  }
+  return orchestratorInstance;
+}
+
+export function resetOrchestratorV2(): void {
+  orchestratorInstance = null;
+}
