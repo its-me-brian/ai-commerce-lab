@@ -17,6 +17,7 @@ import { getAgentRegistry } from "./bootstrap";
 import { getMiniAIEngine } from "./mini-ai/engine";
 import { getMiniAIRegistry } from "./mini-ai/registry";
 import { selectModelByComplexity } from "./complexity-router";
+import { getApprovalManager } from "./approval-manager";
 import { AgentEngine } from "../agents/core/engine";
 import type { MiniAIResult, MiniAIChainStep } from "./mini-ai/types";
 
@@ -238,6 +239,43 @@ export class OrchestratorV2 {
       // Store result in working memory for next steps
       if (stepSuccess) {
         workingMemory[step.id] = stepOutput;
+
+        // F4: Check if step result requires human approval
+        const approvalNeeded = this.checkApprovalRequired(step, stepOutput);
+        if (approvalNeeded) {
+          try {
+            const approvalManager = getApprovalManager();
+            const approval = await approvalManager.createApproval({
+              agent_id: step.agentId || "orchestrator",
+              task_id: plan.id,
+              action_type: approvalNeeded.actionType,
+              action_summary: approvalNeeded.summary,
+              action_details: { stepId: step.id, output: stepOutput },
+              risk_level: approvalNeeded.riskLevel,
+              expires_in_ms: 300000, // 5 minutes
+            });
+
+            // Store approval in working memory for downstream steps
+            workingMemory[`${step.id}_approval`] = approval;
+
+            // Wait for human decision
+            const decision = await approvalManager.waitForApproval(approval.id, 300000);
+            if (!decision || decision.status !== "approved") {
+              stepSuccess = false;
+              lastError = `Approval ${decision?.status || "timeout"} for step ${step.id}`;
+            }
+          } catch (approvalError) {
+            // Approval creation/wait failed — log but don't block execution
+            const msg = approvalError instanceof Error ? approvalError.message : String(approvalError);
+            stepResults.push({
+              stepId: `${step.id}-approval`,
+              success: false,
+              output: { error: `Approval failed: ${msg}` },
+              durationMs: Date.now() - stepStart,
+              cost: 0,
+            });
+          }
+        }
       }
 
       totalCost += stepCost;
@@ -496,6 +534,33 @@ Respond with ONLY the category name, nothing else.`;
   // ============================================
   // HELPERS
   // ============================================
+
+  /**
+   * Check if a step's output requires human approval.
+   * Returns approval details if needed, null otherwise.
+   *
+   * Only triggers when the output EXPLICITLY requests approval.
+   * Does not auto-trigger based on complexity — that's a policy decision
+   * for the agent/mini-AI to make, not the orchestrator.
+   */
+  private checkApprovalRequired(
+    step: ExecutionPlanStep,
+    output: unknown
+  ): { actionType: import("./approval-manager").ApprovalActionType; summary: string; riskLevel: import("./approval-manager").ApprovalRiskLevel } | null {
+    const out = output as Record<string, unknown> | null;
+    if (!out || typeof out !== "object") return null;
+
+    // Only trigger when output explicitly requires approval
+    if (out.requiresApproval === true) {
+      return {
+        actionType: (out.approvalActionType as import("./approval-manager").ApprovalActionType) || "custom",
+        summary: (out.approvalSummary as string) || `Approval required for step: ${step.id}`,
+        riskLevel: (out.approvalRiskLevel as import("./approval-manager").ApprovalRiskLevel) || "medium",
+      };
+    }
+
+    return null;
+  }
 
   private mapStepInput(
     step: ExecutionPlanStep,

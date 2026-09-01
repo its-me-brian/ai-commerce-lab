@@ -7,31 +7,29 @@ import {
 } from "./orchestrator-v2";
 
 // Mock the AgentEngine to avoid Supabase calls
-vi.mock("../agents/core/engine", () => {
-  return {
-    AgentEngine: vi.fn().mockImplementation(function () {
-      return {
-        executeTask: vi.fn().mockResolvedValue({
-          taskId: "mock-task",
-          result: {
-            success: true,
-            output: "Mock agent output",
-            structuredData: { mock: true },
-            errors: [],
-            metadata: {
-              providerUsed: "gemini",
-              modelUsed: "gemini-3-flash",
-              inputTokens: 100,
-              outputTokens: 50,
-              durationMs: 1000,
-              cached: false,
-            },
-          },
-        }),
-      };
-    }),
-  };
+const mockExecuteTask = vi.fn().mockResolvedValue({
+  taskId: "mock-task",
+  result: {
+    success: true,
+    output: "Mock agent output",
+    structuredData: { mock: true },
+    errors: [],
+    metadata: {
+      providerUsed: "gemini",
+      modelUsed: "gemini-3-flash",
+      inputTokens: 100,
+      outputTokens: 50,
+      durationMs: 1000,
+      cached: false,
+    },
+  },
 });
+
+vi.mock("../agents/core/engine", () => ({
+  AgentEngine: vi.fn().mockImplementation(function () {
+    return { executeTask: mockExecuteTask };
+  }),
+}));
 
 // Mock the MiniAIEngine
 vi.mock("./mini-ai/engine", () => ({
@@ -109,6 +107,34 @@ vi.mock("./router", () => ({
   }),
 }));
 
+// Mock ApprovalManager
+const mockCreateApproval = vi.fn().mockResolvedValue({
+  id: "ap-test-1",
+  status: "pending",
+  agent_id: "orchestrator",
+  action_type: "custom",
+  action_summary: "Test approval",
+  risk_level: "medium",
+  created_at: new Date().toISOString(),
+});
+
+const mockWaitForApproval = vi.fn().mockResolvedValue({
+  id: "ap-test-1",
+  status: "approved",
+  agent_id: "orchestrator",
+  action_type: "custom",
+  action_summary: "Test approval",
+  risk_level: "medium",
+  created_at: new Date().toISOString(),
+});
+
+vi.mock("./approval-manager", () => ({
+  getApprovalManager: () => ({
+    createApproval: mockCreateApproval,
+    waitForApproval: mockWaitForApproval,
+  }),
+}));
+
 describe("OrchestratorV2", () => {
   let orchestrator: OrchestratorV2;
 
@@ -127,6 +153,45 @@ describe("OrchestratorV2", () => {
         cached: false,
       },
       log: {},
+    });
+    mockCreateApproval.mockClear();
+    mockCreateApproval.mockResolvedValue({
+      id: "ap-test-1",
+      status: "pending",
+      agent_id: "orchestrator",
+      action_type: "custom",
+      action_summary: "Test approval",
+      risk_level: "medium",
+      created_at: new Date().toISOString(),
+    });
+    mockWaitForApproval.mockClear();
+    mockWaitForApproval.mockResolvedValue({
+      id: "ap-test-1",
+      status: "approved",
+      agent_id: "orchestrator",
+      action_type: "custom",
+      action_summary: "Test approval",
+      risk_level: "medium",
+      created_at: new Date().toISOString(),
+    });
+    // Reset agent mock to default
+    mockExecuteTask.mockClear();
+    mockExecuteTask.mockResolvedValue({
+      taskId: "mock-task",
+      result: {
+        success: true,
+        output: "Mock agent output",
+        structuredData: { mock: true },
+        errors: [],
+        metadata: {
+          providerUsed: "gemini",
+          modelUsed: "gemini-3-flash",
+          inputTokens: 100,
+          outputTokens: 50,
+          durationMs: 1000,
+          cached: false,
+        },
+      },
     });
   });
 
@@ -249,6 +314,105 @@ describe("OrchestratorV2", () => {
       expect(result.success).toBe(true);
       expect(result.planId).toBeDefined();
       expect(result.response).toBeDefined();
+    });
+  });
+
+  describe("approval integration", () => {
+    it("does not create approval when output does not require it", async () => {
+      const plan = await orchestrator.plan("Analyze this product");
+      await orchestrator.execute(plan);
+
+      expect(mockCreateApproval).not.toHaveBeenCalled();
+    });
+
+    it("creates approval when step output has requiresApproval flag", async () => {
+      mockExecuteTask.mockResolvedValueOnce({
+        taskId: "mock-task",
+        result: {
+          success: true,
+          output: "Mock output",
+          structuredData: {
+            requiresApproval: true,
+            approvalActionType: "price_change",
+            approvalSummary: "Price change needs review",
+            approvalRiskLevel: "high",
+          },
+          errors: [],
+          metadata: {
+            providerUsed: "gemini",
+            modelUsed: "gemini-3-flash",
+            inputTokens: 100,
+            outputTokens: 50,
+            durationMs: 1000,
+            cached: false,
+          },
+        },
+      });
+
+      // Mock LLM to return pricing intent
+      mockRouterGenerate.mockResolvedValueOnce({
+        result: { content: "pricing", provider: "gemini", model: "gemini-3-flash", inputTokens: 20, outputTokens: 5, durationMs: 100, cached: false },
+        log: {},
+      });
+
+      const plan = await orchestrator.plan("Calculate pricing");
+      const result = await orchestrator.execute(plan);
+
+      expect(mockCreateApproval).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action_type: "price_change",
+          action_summary: "Price change needs review",
+          risk_level: "high",
+        })
+      );
+      expect(mockWaitForApproval).toHaveBeenCalled();
+    });
+
+    it("fails step when approval is rejected", async () => {
+      mockWaitForApproval.mockResolvedValueOnce({
+        id: "ap-test-1",
+        status: "rejected",
+        agent_id: "orchestrator",
+        action_type: "custom",
+        action_summary: "Test approval",
+        risk_level: "medium",
+        created_at: new Date().toISOString(),
+      });
+
+      mockExecuteTask.mockResolvedValueOnce({
+        taskId: "mock-task",
+        result: {
+          success: true,
+          output: "Mock output",
+          structuredData: {
+            requiresApproval: true,
+            approvalActionType: "custom",
+            approvalSummary: "Needs review",
+          },
+          errors: [],
+          metadata: {
+            providerUsed: "gemini",
+            modelUsed: "gemini-3-flash",
+            inputTokens: 100,
+            outputTokens: 50,
+            durationMs: 1000,
+            cached: false,
+          },
+        },
+      });
+
+      // Mock LLM to return pricing intent
+      mockRouterGenerate.mockResolvedValueOnce({
+        result: { content: "pricing", provider: "gemini", model: "gemini-3-flash", inputTokens: 20, outputTokens: 5, durationMs: 100, cached: false },
+        log: {},
+      });
+
+      const plan = await orchestrator.plan("Calculate pricing");
+      const result = await orchestrator.execute(plan);
+
+      // Step should be marked as failed due to rejected approval
+      const pricingStep = result.stepResults.find((r) => r.stepId === "finance-agent");
+      expect(pricingStep?.success).toBe(false);
     });
   });
 
