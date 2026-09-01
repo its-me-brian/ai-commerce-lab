@@ -28,30 +28,43 @@ The architecture is designed for **modularity**, **provider-agnostic AI**, and *
 │        /api/agents/config               │
 │        /api/agents/history              │
 │        /api/ai/test                     │
+│        /api/workspaces                  │
 └─────────────────┬───────────────────────┘
                   │
 ┌─────────────────▼───────────────────────┐
-│           AGENT ENGINE                  │
-│     Orchestrates execution flow         │
-│     Creates Tasks + Runs in Supabase    │
-│     Validates input                     │
-│     Checks permissions                  │
-│     Resolves config from DB             │
+│           ORCHESTRATOR V2               │
+│     LLM-based intent classification    │
+│     Dynamic plan building              │
+│     Approval integration               │
 └──────┬──────────────┬───────────────────┘
        │              │
 ┌──────▼──────┐ ┌─────▼──────────┐
-│  AI MODEL   │ │  TOOL          │
-│  ROUTER     │ │  REGISTRY      │
-│  (primary/  │ │  (register,    │
-│  fallback)  │ │  resolve,      │
-│             │ │  execute)      │
+│  AGENT      │ │  MINI-AI       │
+│  ENGINE     │ │  ENGINE        │
+│  (tasks,    │ │  (lightweight  │
+│   runs,     │ │   building     │
+│   costs)    │ │   blocks)      │
 └──────┬──────┘ └───────┬────────┘
        │                │
 ┌──────▼──────┐  ┌──────▼────────┐
-│  PROVIDER   │  │  PERMISSIONS  │
-│  ADAPTERS   │  │  (role-based  │
-│             │  │  + explicit)  │
-│  ┌────────┐ │  └──────────────┘
+│  WORKFLOW   │  │  TOOL          │
+│  EXECUTOR   │  │  REGISTRY      │
+│  (DAG,      │  │  (register,    │
+│   mixed     │  │  resolve,      │
+│   nodes)    │  │  execute)      │
+└──────┬──────┘  └───────┬────────┘
+       │                 │
+┌──────▼──────┐  ┌───────▼────────┐
+│  AI MODEL   │  │  PERMISSIONS   │
+│  ROUTER     │  │  (role-based   │
+│  (primary/  │  │  + explicit)   │
+│  fallback)  │  └────────────────┘
+└──────┬──────┘
+       │
+┌──────▼──────┐
+│  PROVIDER   │
+│  ADAPTERS   │
+│  ┌────────┐ │
 │  │Gemini  │ │
 │  │Claude  │ │
 │  │Grok    │ │
@@ -63,6 +76,10 @@ The architecture is designed for **modularity**, **provider-agnostic AI**, and *
 │  agents | agent_configs | agent_tasks   │
 │  agent_runs | ai_providers | ai_models  │
 │  agent_permissions | skills | agent_skills│
+│  workspaces | conversations | messages  │
+│  approvals | agent_events | agent_memory│
+│  agent_model_routes | task_events       │
+│  workflow_definitions | knowledge_docs  │
 └─────────────────────────────────────────┘
 ```
 
@@ -78,6 +95,26 @@ Orchestrates agent execution end-to-end:
 6. Executes agent
 7. Creates Run record with tokens/duration/status
 8. Updates Task status to completed/failed
+
+**F12: Mini-AI Delegation** — Agents can directly invoke mini-IAs:
+- `delegateToMiniAI(agentId, miniAIId, input)` — single mini-AI invocation
+- `delegateChainToMiniAI(agentId, steps)` — sequential chain execution
+
+### MiniAIEngine (`src/lib/ai/mini-ai/engine.ts`)
+Lightweight building blocks for AI operations:
+- 6 built-in mini-IAs: researcher, classifier, extractor, summarizer, critic, validator
+- 3 execution modes: deterministic (pure logic), LLM (AI-powered), hybrid
+- Chain composition: execute multiple mini-IAs in sequence
+- Zod schema validation for input/output (F10)
+- Dynamic model selection based on complexity (F2)
+
+### WorkflowExecutor (`src/lib/ai/workflow/executor.ts`)
+DAG-based workflow execution:
+- 5 node types: agent, mini-ai, chain, condition, aggregate
+- Mixed agent/mini-AI nodes in single workflow
+- Parallel execution of independent nodes
+- Conditional branching and aggregation
+- Built-in workflows: product-research, supplier-evaluation, content-generation, market-analysis (F11)
 
 ### AIModelRouter (`src/lib/ai/router.ts`)
 Central routing component:
@@ -117,6 +154,7 @@ Constructs prompts for agents:
 
 ## Data Flow
 
+### Agent Execution
 ```
 User clicks "Run" in Dashboard
     │
@@ -145,6 +183,9 @@ Agent.execute(context)
     ├── toolRegistry.execute("calculate_margin", {...})
     │       (backend validation of AI estimates)
     │
+    ├── delegateToMiniAI("classifier", { text })
+    │       (direct mini-AI invocation)
+    │
     ▼
 AgentEngine
     ├── Supabase: INSERT agent_runs
@@ -152,6 +193,25 @@ AgentEngine
     │
     ▼
 API Response → Dashboard shows result
+```
+
+### Mini-AI Execution
+```
+Agent/Workflow calls MiniAIEngine.execute(miniAIId, input)
+    │
+    ▼
+Check execution mode:
+    │
+    ├── Deterministic → Run pure logic (no LLM)
+    │
+    ├── LLM → Select model via ComplexityRouter
+    │         → Validate input via Zod schema
+    │         → Call AIModelRouter
+    │         → Validate output via Zod schema
+    │         → Return result
+    │
+    └── Hybrid → Try deterministic first
+               → Fall back to LLM if needed
 ```
 
 ## Directory Structure
@@ -169,6 +229,7 @@ src/
       agents/config/          # Agent config CRUD
       agents/history/         # Task history
       agents/product-hunter/run/  # Legacy endpoint
+      workspaces/             # Workspace CRUD
   lib/                        # Core logic
     ai/                       # AI provider system
       providers/              # Provider implementations
@@ -177,12 +238,34 @@ src/
         claude.ts             # Claude adapter
         grok.ts               # Grok adapter
       router.ts               # AIModelRouter
-      bootstrap.ts            # Provider + agent registration
+      bootstrap.ts            # Provider + agent + workflow registration
       types.ts                # AI types
+      orchestrator-v2.ts      # LLM-based intent classification (F3)
+      plan-builder.ts         # Dynamic plan building (F9)
+      model-pricing.ts        # Real model pricing (F8)
+      rag-service.ts          # RAG/Knowledge layer (F7)
+      mini-ai/                # Mini-AI system
+        types.ts              # MiniAI types
+        engine.ts             # MiniAIEngine with Zod validation (F10)
+        registry.ts           # MiniAI registry
+        bootstrap.ts          # Built-in mini-AI registration
+        implementations/      # 6 built-in mini-IAs
+          researcher.ts
+          classifier.ts
+          extractor.ts
+          summarizer.ts
+          critic.ts
+          validator.ts
+      workflow/               # Workflow system
+        types.ts              # Workflow types (DAG)
+        executor.ts           # WorkflowExecutor
+        registry.ts           # WorkflowRegistry (F5)
+        input-resolver.ts     # Input mapping
+        bootstrap.ts          # Built-in workflow registration (F11)
     agents/                   # Agent system
       core/                   # Core abstractions
         agent.ts              # BaseAgent abstract class
-        engine.ts             # AgentEngine
+        engine.ts             # AgentEngine + delegation (F12)
         registry.ts           # AgentRegistry
         types.ts              # AgentContext, AgentResult, etc.
         types-agent-definition.ts  # AgentDefinition, Skill
@@ -217,6 +300,7 @@ supabase/
     001_initial_schema.sql    # Core tables + RLS
     002-010_consolidated.sql  # Permissions + agent tables
     011_agent_identity_skills.sql  # Skills + identity
+    013-030 migrations        # FASE 1-46 tables
 ```
 
 ## Database Schema

@@ -44,6 +44,19 @@
 | FASE 33 | 535 | +10 | ✅ 535/535 passing |
 | FASE 34-45 | 535 | +0 | ✅ 535/535 passing (UI/infra phases, no new tests) |
 | FASE 46 | 569 | +34 | ✅ 569/569 passing |
+| Mini-IAs 0-16 | 861 | +292 | ✅ 861/861 passing |
+| F1 (Bug fixes) | 569 | +0 | ✅ 569/569 passing (bug fixes only) |
+| F2 (ComplexityRouter) | 594 | +25 | ✅ 594/594 passing |
+| F3 (LLM classification) | 610 | +16 | ✅ 610/610 passing |
+| F4 (Approval) | 625 | +15 | ✅ 625/625 passing |
+| F5 (Workflow persistence) | 643 | +18 | ✅ 643/643 passing |
+| F6 (Tool tracking) | 650 | +7 | ✅ 650/650 passing |
+| F7 (RAG + test fix) | 656 | +6 | ✅ 656/656 passing |
+| F8 (Model pricing) | 671 | +15 | ✅ 671/671 passing |
+| F9 (Plan builder) | 681 | +10 | ✅ 681/681 passing |
+| F10 (Zod schemas) | 692 | +11 | ✅ 692/692 passing |
+| F11 (Built-in workflows) | 705 | +13 | ✅ 705/705 passing |
+| F12 (Mini-AI delegation) | 710 | +5 | ✅ 710/710 passing |
 
 ---
 
@@ -90,5 +103,14 @@
 | `src/lib/workspaces/workspace.test.ts` | 9 | ✅ FASE 1 |
 | `src/lib/api/integration.test.ts` | 22 | ✅ FASE 46 |
 | `src/lib/security/sanitize.test.ts` | 12 | ✅ FASE 46 |
+| `src/lib/ai/mini-ai/engine.test.ts` | 25 | ✅ F2 |
+| `src/lib/ai/orchestrator-v2.test.ts` | 16 | ✅ F3+F4 |
+| `src/lib/ai/workflow/registry.test.ts` | 18 | ✅ F5 |
+| `src/lib/ai/rag-service.test.ts` | 6 | ✅ F7 |
+| `src/lib/ai/model-pricing.test.ts` | 15 | ✅ F8 |
+| `src/lib/ai/plan-builder.test.ts` | 10 | ✅ F9 |
+| `src/lib/ai/mini-ai/schema-validation.test.ts` | 11 | ✅ F10 |
+| `src/lib/ai/workflow/bootstrap.test.ts` | 13 | ✅ F11 |
+| `src/lib/agents/core/engine-delegation.test.ts` | 5 | ✅ F12 |
 
 ---

@@ -896,3 +896,311 @@ CEO (executive)
 
 ### Commit
 - `e789587`
+
+---
+
+## F1 — Bug Fixes (3 critical bugs)
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos modificados
+- `src/lib/ai/mini-ai/engine.ts` — Fix: validateInput was not checking for empty/missing fields
+- `src/lib/ai/workflow/registry.ts` — Fix: loadFromDB was clearing cache on reload
+- `src/lib/agents/core/engine.ts` — Fix: toolsUsed was not being persisted
+
+### Key changes
+- MiniAIEngine.validateInput now properly validates all required fields
+- WorkflowRegistry.loadFromDB merges with cache instead of clearing
+- AgentEngine now persists toolsUsed to agent_runs table
+
+### Tests
+- 569/569 passing (existing tests, bug fixes only)
+
+### Commit
+- `080f0d7`
+
+---
+
+## F2 — ComplexityRouter → MiniAIEngine
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/mini-ai/engine.test.ts` — 25 tests for complexity-based routing
+
+### Archivos modificados
+- `src/lib/ai/mini-ai/engine.ts` — Integrated ComplexityRouter for dynamic model selection
+
+### Key changes
+- MiniAIEngine now uses ComplexityRouter to select model based on task complexity
+- Complexity tiers: simple (gemini-flash), medium (gemini-pro), complex (claude-sonnet)
+- ModelRecord mocks updated to use provider_id instead of provider
+
+### Tests
+- 594/594 passing (+25 nuevos)
+
+### Commit
+- `7f0292e`
+
+---
+
+## F3 — LLM Intent Classification
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/orchestrator-v2.test.ts` — Tests for LLM-based classification
+
+### Archivos modificados
+- `src/lib/ai/orchestrator-v2.ts` — Replaced keyword-based classification with LLM
+
+### Key changes
+- Intent classification now uses gemini-3-flash via AIModelRouter
+- Temperature: 0 for deterministic classification
+- Fallback to keyword-based if LLM fails
+
+### Tests
+- 610/594 passing (+16 nuevos)
+
+### Commit
+- `0c8a0fc`
+
+---
+
+## F4 — Orchestrator ↔ Approval
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos modificados
+- `src/lib/ai/orchestrator-v2.ts` — Added approval workflow integration
+
+### Key changes
+- Orchestrator now triggers approval for actions requiring human review
+- Approval only triggers on explicit `requiresApproval` flag
+- Integration with ApprovalManager
+
+### Tests
+- 625/610 passing (+15 nuevos)
+
+### Commit
+- `6b06c97`
+
+---
+
+## F5 — Workflow DB Persistence
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/028_add_workflows.sql` — workflow_definitions table
+- `src/lib/ai/workflow/registry.test.ts` — 18 tests
+
+### Archivos modificados
+- `src/lib/ai/workflow/registry.ts` — Dual-layer persistence (cache + Supabase)
+
+### Key changes
+- Workflow definitions now persist to Supabase
+- Read path: check cache first, fall back to DB
+- Write path: write to DB, then update cache
+- On startup: load all from DB into cache
+
+### Tests
+- 643/625 passing (+18 nuevos)
+
+### Commit
+- `5ec421e`
+
+---
+
+## F6 — Tool Usage Tracking
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/029_add_tool_usage_tracking.sql` — tools_used column
+
+### Archivos modificados
+- `src/lib/agents/core/types.ts` — AgentResult.metadata.toolsUsed?: string[]
+- `src/lib/agents/core/engine.ts` — Persists tools_used to agent_runs
+
+### Key changes
+- Agent execution now tracks which tools were used
+- toolsUsed array persisted to agent_runs table
+- Observability: can analyze tool usage patterns
+
+### Tests
+- 650/643 passing (+7 nuevos)
+
+### Commit
+- `d62c55c`
+
+---
+
+## F7 — RAG/Knowledge Layer + Test Fix
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `supabase/migrations/030_add_knowledge_documents.sql` — knowledge_documents table
+- `src/lib/ai/rag-service.test.ts` — 6 tests
+
+### Archivos modificados
+- `src/lib/ai/rag-service.ts` — DI constructor for testability, lazy import, `??` fix
+
+### Key changes
+- RAGService accepts optional SupabaseClient via constructor (DI)
+- Lazy-imports default client when not injected (avoids bootstrap cascade)
+- Fixed `||` → `??` for minScore default (0 || 0.3 = 0.3 bug)
+- Embeddings are hash-based (384-dim) — crude but functional
+
+### Key learnings
+- Supabase mock thenable pattern is fundamentally broken in vitest
+- DI solves the problem cleanly without vi.mock complexity
+- Always use `??` for numeric defaults, never `||`
+
+### Tests
+- 656/650 passing (+6 nuevos)
+
+### Commit
+- `994801d`
+
+---
+
+## F8 — Real Model Pricing
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/model-pricing.ts` — MODEL_PRICING map, calculateModelCost(), getModelPricing()
+- `src/lib/ai/model-pricing.test.ts` — 15 tests
+
+### Key changes
+- Static pricing table replacing hardcoded costs
+- Gemini Flash: free, Claude 3.5 Haiku: $0.80/$4, Claude Sonnet 4: $3/$15, Claude Opus 4: $15/$75
+- Grok 3 Mini: $0.30/$0.50, Grok 3: $3/$15
+- Default fallback: $0.50/$2.00 per million tokens
+
+### Tests
+- 671/656 passing (+15 nuevos)
+
+### Commit
+- `34e7ca5`
+
+---
+
+## F9 — LLM-Based Dynamic Plan Building
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/plan-builder.ts` — PlanBuilder class with LLM + static fallback
+- `src/lib/ai/plan-builder.test.ts` — 10 tests
+
+### Archivos modificados
+- `src/lib/ai/orchestrator-v2.ts` — Integrated PlanBuilder
+
+### Key changes
+- Replaced static switch-based plan building with LLM-based generation
+- PlanBuilder validates LLM output against registered agents/mini-IAs
+- Falls back to static plans on LLM failure
+- Uses lazy `await import("./bootstrap")` to avoid Supabase env var cascade
+
+### Key learnings
+- Lazy imports essential when modules transitively import bootstrap.ts
+- PlanBuilder filters invalid agent/mini-AI references from LLM output
+
+### Tests
+- 681/671 passing (+10 nuevos)
+
+### Commit
+- `fca8e66`
+
+---
+
+## F10 — Zod Schema Enforcement
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/mini-ai/schema-validation.test.ts` — 11 tests
+
+### Archivos modificados
+- `src/lib/ai/mini-ai/types.ts` — inputSchema/outputSchema accept `z.ZodType | Record<string, unknown>`
+- `src/lib/ai/mini-ai/engine.ts` — Zod input/output validation in executeLLM()
+- All 6 mini-AI implementations — added real Zod schemas
+
+### Key changes
+- inputSchema/outputSchema type changed for backward compat
+- Engine checks for `.parse` method to detect Zod schemas
+- All 6 implementations now have exported *InputSchema and *OutputSchema
+- classifier, researcher, summarizer, extractor, validator, critic
+
+### Tests
+- 692/681 passing (+11 nuevos)
+
+### Commit
+- `49df5c0`
+
+---
+
+## F11 — Built-in Workflows
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/ai/workflow/bootstrap.ts` — 4 built-in workflow definitions
+- `src/lib/ai/workflow/bootstrap.test.ts` — 13 tests
+
+### Archivos modificados
+- `src/lib/ai/bootstrap.ts` — Integrated bootstrapWorkflows()
+
+### Key changes
+- 4 built-in workflows:
+  - product-research: researcher → classifier → extractor
+  - supplier-evaluation: researcher → validator → summarizer
+  - content-generation: summarizer → critic → summarizer
+  - market-analysis: researcher → classifier → extractor
+- Each workflow uses existing mini-IAs as building blocks
+- Registered at startup alongside providers, agents, and mini-IAs
+
+### Tests
+- 705/692 passing (+13 nuevos)
+
+### Commit
+- `e47618b`
+
+---
+
+## F12 — Agent ↔ Mini-AI Direct Delegation
+
+**Fecha**: 1 Sep 2026
+**Estado**: ✅ Completada
+
+### Archivos creados
+- `src/lib/agents/core/engine-delegation.test.ts` — 5 tests
+
+### Archivos modificados
+- `src/lib/agents/core/engine.ts` — Added delegateToMiniAI() and delegateChainToMiniAI()
+
+### Key changes
+- delegateToMiniAI(agentId, miniAIId, input) — single mini-AI invocation
+- delegateChainToMiniAI(agentId, steps) — sequential chain execution
+- Both methods log delegation events for observability
+- Non-critical: log failures don't affect delegation
+
+### Tests
+- 710/705 passing (+5 nuevos)
+
+### Commit
+- `6ad64c6`
