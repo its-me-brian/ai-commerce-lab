@@ -23,7 +23,7 @@ interface BudgetStatus {
 function utilizationColor(pct: number): string {
   if (pct >= 1) return "var(--error)";
   if (pct >= 0.8) return "var(--warning, #d97706)";
-  if (pct >= 0.5) return "#eab308";
+  if (pct >= 0.5) return "var(--warning)";
   return "var(--accent)";
 }
 

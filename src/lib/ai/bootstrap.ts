@@ -9,6 +9,8 @@ import { getRouter } from "./router";
 import { GeminiProvider } from "./providers/gemini";
 import { ClaudeProvider } from "./providers/claude";
 import { GrokProvider } from "./providers/grok";
+import { OllamaProvider } from "./providers/ollama";
+import { WorkersAIProvider } from "./providers/workers-ai";
 import { getProviderManager } from "./provider-manager";
 import { bootstrapMiniAIs } from "./mini-ai/bootstrap";
 import { bootstrapWorkflows } from "./workflow/bootstrap";
@@ -36,6 +38,8 @@ const providerClasses: Record<string, ProviderConstructor> = {
   gemini: GeminiProvider,
   anthropic: ClaudeProvider,
   xai: GrokProvider,
+  ollama: OllamaProvider,
+  "workers-ai": WorkersAIProvider,
 };
 
 let bootstrapped = false;
@@ -97,6 +101,23 @@ export async function bootstrap(): Promise<void> {
     const xaiKey = process.env.XAI_API_KEY;
     if (xaiKey) {
       router.registerProvider(new GrokProvider(xaiKey));
+    }
+
+    // Ollama — always try local instance (no API key needed)
+    const ollamaUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+    try {
+      router.registerProvider(new OllamaProvider("ollama", ollamaUrl));
+      console.log(`[Bootstrap] Registered Ollama provider (local)`);
+    } catch {
+      // Ollama not running — that's fine
+    }
+
+    // Workers AI — requires CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN
+    const cfAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const cfApiToken = process.env.CLOUDFLARE_API_TOKEN;
+    if (cfAccountId && cfApiToken) {
+      router.registerProvider(new WorkersAIProvider(`${cfAccountId}:${cfApiToken}`));
+      console.log(`[Bootstrap] Registered Workers AI provider`);
     }
   }
 

@@ -30,20 +30,20 @@ interface CatalogCounts {
   archived: number;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  discovered: "bg-blue-100 text-blue-800",
-  evaluating: "bg-yellow-100 text-yellow-800",
-  approved: "bg-green-100 text-green-800",
-  listed: "bg-purple-100 text-purple-800",
-  rejected: "bg-red-100 text-red-800",
-  archived: "bg-gray-100 text-gray-800",
+const STATUS_BADGE_STYLES: Record<string, { bg: string; color: string }> = {
+  discovered: { bg: "var(--info-bg)", color: "var(--info)" },
+  evaluating: { bg: "var(--warning-bg)", color: "var(--warning)" },
+  approved: { bg: "var(--success-bg)", color: "var(--success)" },
+  listed: { bg: "var(--accent-light)", color: "var(--accent)" },
+  rejected: { bg: "var(--error-bg)", color: "var(--error)" },
+  archived: { bg: "var(--bg-sunken)", color: "var(--text-tertiary)" },
 };
 
-const DECISION_COLORS: Record<string, string> = {
-  GO: "text-green-600 font-bold",
-  CONDITIONAL_GO: "text-yellow-600 font-bold",
-  NO_GO: "text-red-600 font-bold",
-  NEEDS_MORE_DATA: "text-blue-600 font-bold",
+const DECISION_STYLES: Record<string, { color: string; fontWeight: string }> = {
+  GO: { color: "var(--success)", fontWeight: "700" },
+  CONDITIONAL_GO: { color: "var(--warning)", fontWeight: "700" },
+  NO_GO: { color: "var(--error)", fontWeight: "700" },
+  NEEDS_MORE_DATA: { color: "var(--info)", fontWeight: "700" },
 };
 
 export default function CatalogPage() {
@@ -111,125 +111,158 @@ export default function CatalogPage() {
   const totalProducts = Object.values(counts).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="page-padding" style={{ maxWidth: 1200 }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Product Catalog</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1>Product Catalog</h1>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             {totalProducts} products tracked across pipeline stages
           </p>
         </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Search products..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+        <input
+          type="text"
+          placeholder="Search products..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="px-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+          style={{
+            border: "1px solid var(--border)",
+            background: "var(--bg-card)",
+            color: "var(--text-primary)",
+          }}
+        />
       </div>
 
       {/* Status Pipeline KPIs */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
         {(["discovered", "evaluating", "approved", "listed", "rejected", "archived"] as const).map(
-          (status) => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(statusFilter === status ? "" : status)}
-              className={`p-3 rounded-lg border text-center transition-all ${
-                statusFilter === status
-                  ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <div className="text-2xl font-bold">{counts[status]}</div>
-              <div className="text-xs text-gray-500 capitalize">{status}</div>
-            </button>
-          )
+          (status) => {
+            const isActive = statusFilter === status;
+            return (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(isActive ? "" : status)}
+                className="p-3 rounded-lg text-center transition-all"
+                style={{
+                  border: `1px solid ${isActive ? "var(--accent)" : "var(--border)"}`,
+                  background: isActive ? "var(--accent-light)" : "var(--bg-card)",
+                  boxShadow: isActive ? "0 0 0 2px var(--accent-muted)" : "none",
+                }}
+              >
+                <div className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+                  {counts[status]}
+                </div>
+                <div className="text-xs capitalize" style={{ color: "var(--text-tertiary)" }}>
+                  {status}
+                </div>
+              </button>
+            );
+          }
         )}
       </div>
 
       {/* Content */}
       <div className="flex gap-6">
         {/* Product List */}
-        <div className={`${selectedProduct ? "w-1/2" : "w-full"} transition-all`}>
+        <div className={selectedProduct ? "w-1/2" : "w-full"}>
           {loading ? (
-            <div className="text-center py-12 text-gray-400">Loading...</div>
+            <div className="text-center py-12" style={{ color: "var(--text-tertiary)" }}>
+              Loading...
+            </div>
           ) : products.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-              <p className="text-lg mb-2">No products in catalog</p>
+            <div className="text-center py-12" style={{ color: "var(--text-tertiary)" }}>
+              <p className="text-lg mb-2" style={{ color: "var(--text-secondary)" }}>
+                No products in catalog
+              </p>
               <p className="text-sm">Run Product Hunter to discover products, then add them here.</p>
             </div>
           ) : (
             <div className="grid gap-3">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  onClick={() => setSelectedProduct(product)}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                    selectedProduct?.id === product.id
-                      ? "border-blue-500 ring-2 ring-blue-200"
-                      : "border-gray-200"
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{product.name}</h3>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[product.status] || "bg-gray-100"}`}>
-                          {product.status}
-                        </span>
+              {products.map((product) => {
+                const isSelected = selectedProduct?.id === product.id;
+                const statusStyle = STATUS_BADGE_STYLES[product.status] || STATUS_BADGE_STYLES.archived;
+                return (
+                  <div
+                    key={product.id}
+                    onClick={() => setSelectedProduct(product)}
+                    className="p-4 rounded-lg cursor-pointer transition-all"
+                    style={{
+                      border: `1px solid ${isSelected ? "var(--accent)" : "var(--border)"}`,
+                      background: "var(--bg-card)",
+                      boxShadow: isSelected ? "0 0 0 2px var(--accent-muted)" : "var(--shadow-sm)",
+                    }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>
+                            {product.name}
+                          </h3>
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full"
+                            style={{ background: statusStyle.bg, color: statusStyle.color }}
+                          >
+                            {product.status}
+                          </span>
+                        </div>
+                        {product.category && (
+                          <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
+                            {product.category}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2 text-sm">
+                          {product.supplier_price != null && (
+                            <span style={{ color: "var(--text-secondary)" }}>
+                              Cost: {product.currency} {product.supplier_price.toFixed(2)}
+                            </span>
+                          )}
+                          {product.selling_price != null && (
+                            <span style={{ color: "var(--text-secondary)" }}>
+                              Price: {product.currency} {product.selling_price.toFixed(2)}
+                            </span>
+                          )}
+                          {product.overall_score != null && (
+                            <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
+                              Score: {product.overall_score}
+                            </span>
+                          )}
+                          {product.decision && DECISION_STYLES[product.decision] && (
+                            <span style={DECISION_STYLES[product.decision]}>
+                              {product.decision}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {product.category && (
-                        <p className="text-xs text-gray-500 mt-1">{product.category}</p>
+                      {product.image_url && (
+                        <img
+                          src={product.image_url}
+                          alt={product.name}
+                          className="w-12 h-12 object-cover rounded ml-3"
+                        />
                       )}
-                      <div className="flex items-center gap-4 mt-2 text-sm">
-                        {product.supplier_price != null && (
-                          <span className="text-gray-600">
-                            Cost: {product.currency} {product.supplier_price.toFixed(2)}
-                          </span>
-                        )}
-                        {product.selling_price != null && (
-                          <span className="text-gray-600">
-                            Price: {product.currency} {product.selling_price.toFixed(2)}
-                          </span>
-                        )}
-                        {product.overall_score != null && (
-                          <span className="font-medium">
-                            Score: {product.overall_score}
-                          </span>
-                        )}
-                        {product.decision && (
-                          <span className={DECISION_COLORS[product.decision] || ""}>
-                            {product.decision}
-                          </span>
-                        )}
-                      </div>
                     </div>
-                    {product.image_url && (
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        className="w-12 h-12 object-cover rounded ml-3"
-                      />
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Detail Panel */}
         {selectedProduct && (
-          <div className="w-1/2 border rounded-lg p-5 h-fit sticky top-6">
+          <div
+            className="w-1/2 rounded-lg p-5 h-fit sticky top-6"
+            style={{ border: "1px solid var(--border)", background: "var(--bg-card)" }}
+          >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold">{selectedProduct.name}</h2>
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                {selectedProduct.name}
+              </h2>
               <button
                 onClick={() => setSelectedProduct(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-lg"
+                style={{ color: "var(--text-tertiary)" }}
               >
                 ✕
               </button>
@@ -238,20 +271,25 @@ export default function CatalogPage() {
             {/* Status Actions */}
             <div className="flex gap-2 mb-4 flex-wrap">
               {(["discovered", "evaluating", "approved", "listed", "rejected"] as const).map(
-                (status) => (
-                  <button
-                    key={status}
-                    onClick={() => updateStatus(selectedProduct.id, status)}
-                    disabled={selectedProduct.status === status}
-                    className={`text-xs px-2 py-1 rounded border transition-colors ${
-                      selectedProduct.status === status
-                        ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                        : "hover:bg-gray-50 border-gray-300"
-                    }`}
-                  >
-                    → {status}
-                  </button>
-                )
+                (status) => {
+                  const isCurrent = selectedProduct.status === status;
+                  return (
+                    <button
+                      key={status}
+                      onClick={() => updateStatus(selectedProduct.id, status)}
+                      disabled={isCurrent}
+                      className="text-xs px-2 py-1 rounded transition-colors"
+                      style={{
+                        border: `1px solid ${isCurrent ? "var(--border-subtle)" : "var(--border)"}`,
+                        background: isCurrent ? "var(--bg-sunken)" : "transparent",
+                        color: isCurrent ? "var(--text-tertiary)" : "var(--text-secondary)",
+                        cursor: isCurrent ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      → {status}
+                    </button>
+                  );
+                }
               )}
             </div>
 
@@ -259,45 +297,47 @@ export default function CatalogPage() {
             <div className="space-y-3 text-sm">
               {selectedProduct.description && (
                 <div>
-                  <label className="font-medium text-gray-700">Description</label>
-                  <p className="text-gray-600 mt-1">{selectedProduct.description}</p>
+                  <label style={{ color: "var(--text-primary)", fontWeight: 500 }}>Description</label>
+                  <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
+                    {selectedProduct.description}
+                  </p>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 {selectedProduct.supplier_price != null && (
                   <div>
-                    <label className="font-medium text-gray-700">Supplier Price</label>
+                    <label style={{ color: "var(--text-primary)", fontWeight: 500 }}>Supplier Price</label>
                     <p>{selectedProduct.currency} {selectedProduct.supplier_price.toFixed(2)}</p>
                   </div>
                 )}
                 {selectedProduct.selling_price != null && (
                   <div>
-                    <label className="font-medium text-gray-700">Selling Price</label>
+                    <label style={{ color: "var(--text-primary)", fontWeight: 500 }}>Selling Price</label>
                     <p>{selectedProduct.currency} {selectedProduct.selling_price.toFixed(2)}</p>
                   </div>
                 )}
                 {selectedProduct.overall_score != null && (
                   <div>
-                    <label className="font-medium text-gray-700">Opportunity Score</label>
+                    <label style={{ color: "var(--text-primary)", fontWeight: 500 }}>Opportunity Score</label>
                     <p className="font-bold">{selectedProduct.overall_score}/100</p>
                   </div>
                 )}
                 {selectedProduct.risk_level && (
                   <div>
-                    <label className="font-medium text-gray-700">Risk Level</label>
+                    <label style={{ color: "var(--text-primary)", fontWeight: 500 }}>Risk Level</label>
                     <p className="capitalize">{selectedProduct.risk_level}</p>
                   </div>
                 )}
                 {selectedProduct.source && (
                   <div>
-                    <label className="font-medium text-gray-700">Source</label>
+                    <label style={{ color: "var(--text-primary)", fontWeight: 500 }}>Source</label>
                     <p>{selectedProduct.source}</p>
                   </div>
                 )}
                 {selectedProduct.category && (
                   <div>
-                    <label className="font-medium text-gray-700">Category</label>
+                    <label style={{ color: "var(--text-primary)", fontWeight: 500 }}>Category</label>
                     <p>{selectedProduct.category}</p>
                   </div>
                 )}
@@ -305,10 +345,14 @@ export default function CatalogPage() {
 
               {selectedProduct.tags.length > 0 && (
                 <div>
-                  <label className="font-medium text-gray-700">Tags</label>
+                  <label style={{ color: "var(--text-primary)", fontWeight: 500 }}>Tags</label>
                   <div className="flex gap-1 mt-1 flex-wrap">
                     {selectedProduct.tags.map((tag) => (
-                      <span key={tag} className="text-xs bg-gray-100 px-2 py-0.5 rounded">
+                      <span
+                        key={tag}
+                        className="text-xs px-2 py-0.5 rounded"
+                        style={{ background: "var(--bg-sunken)", color: "var(--text-secondary)" }}
+                      >
                         {tag}
                       </span>
                     ))}
@@ -318,17 +362,20 @@ export default function CatalogPage() {
 
               {selectedProduct.notes && (
                 <div>
-                  <label className="font-medium text-gray-700">Notes</label>
-                  <p className="text-gray-600 mt-1">{selectedProduct.notes}</p>
+                  <label style={{ color: "var(--text-primary)", fontWeight: 500 }}>Notes</label>
+                  <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
+                    {selectedProduct.notes}
+                  </p>
                 </div>
               )}
             </div>
 
             {/* Delete */}
-            <div className="mt-4 pt-4 border-t">
+            <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
               <button
                 onClick={() => deleteProduct(selectedProduct.id)}
-                className="text-sm text-red-600 hover:text-red-800"
+                className="text-sm"
+                style={{ color: "var(--error)" }}
               >
                 Remove from catalog
               </button>

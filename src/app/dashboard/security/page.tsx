@@ -15,7 +15,7 @@ interface SecurityEvent {
 
 const SEVERITY_COLORS: Record<string, { bg: string; text: string }> = {
   low: { bg: "var(--bg-sunken)", text: "var(--text-tertiary)" },
-  medium: { bg: "#fef3c7", text: "#d97706" },
+  medium: { bg: "var(--warning-bg)", text: "var(--warning)" },
   high: { bg: "var(--error-bg)", text: "var(--error)" },
   critical: { bg: "var(--error-bg)", text: "var(--error)" },
 };

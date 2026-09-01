@@ -103,12 +103,17 @@ code {
 .sidebar-mobile { display: none; }
 .mobile-header { display: none; }
 .main-content { margin-left: var(--sidebar-w); }
+.right-panel { display: flex; }
 
 @media (max-width: 768px) {
   .sidebar-desktop { display: none !important; }
   .sidebar-mobile { display: flex !important; }
   .mobile-header { display: flex !important; }
   .main-content { margin-left: 0 !important; }
+}
+
+@media (max-width: 1024px) {
+  .right-panel { display: none !important; }
 }
 
 /* KPI grid */
