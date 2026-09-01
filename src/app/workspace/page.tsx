@@ -102,7 +102,7 @@ export default function WorkspacePage() {
   const isRoom = view === "room";
 
   return (
-    <div className="flex h-[calc(100vh-var(--header-h))] relative">
+    <div className="flex flex-1 min-h-0 relative">
       {/* ===== LEFT: Agent sidebar ===== */}
       <div
         className={`
