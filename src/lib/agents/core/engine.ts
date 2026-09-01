@@ -20,8 +20,10 @@ import { getPromptBuilder } from "./prompt-builder";
 import { getWorkspaceService } from "../../workspaces/service";
 import { getAgentMemoryService } from "../../ai/agent-memory";
 import { logEvent } from "../../logging/event-logger";
+import { getMiniAIEngine } from "../../ai/mini-ai/engine";
 import type { AgentContext, AgentResult, AgentConfiguration } from "./types";
 import type { AIProviderSlug } from "../../ai/types";
+import type { MiniAIResult } from "../../ai/mini-ai/types";
 import { randomUUID } from "crypto";
 
 export class AgentEngine {
@@ -414,6 +416,90 @@ export class AgentEngine {
     if (updateError) {
       console.error(`[AgentEngine] Failed to mark task as failed: ${updateError.message}`);
     }
+  }
+
+  /**
+   * Delegate a sub-task directly to a mini-AI.
+   * Lightweight alternative to full workflow execution for quick operations.
+   *
+   * @param agentId - The agent requesting the delegation (for logging/cost tracking)
+   * @param miniAIId - The mini-AI to execute
+   * @param input - Input to pass to the mini-AI
+   * @returns Mini-AI result with metadata
+   */
+  async delegateToMiniAI(
+    agentId: string,
+    miniAIId: string,
+    input: Record<string, unknown>
+  ): Promise<MiniAIResult> {
+    const engine = getMiniAIEngine();
+    const result = await engine.execute(miniAIId, input);
+
+    // Log delegation event for observability
+    try {
+      await logEvent({
+        eventType: "agent_miniai_delegation",
+        agentId,
+        severity: "info",
+        message: `Agent ${agentId} delegated to mini-AI ${miniAIId}`,
+        metadata: {
+          miniAIId,
+          success: result.success,
+          executionMode: result.metadata?.executionMode,
+          durationMs: result.metadata?.durationMs,
+        },
+      });
+    } catch {
+      // Non-critical — don't fail delegation if logging fails
+    }
+
+    return result;
+  }
+
+  /**
+   * Execute a chain of mini-IAs in sequence.
+   * Each step's output is passed as input to the next step.
+   *
+   * @param agentId - The agent requesting the chain execution
+   * @param steps - Array of { miniAIId, input } steps
+   * @returns Array of mini-AI results
+   */
+  async delegateChainToMiniAI(
+    agentId: string,
+    steps: Array<{ miniAIId: string; input: Record<string, unknown> }>
+  ): Promise<MiniAIResult[]> {
+    const engine = getMiniAIEngine();
+    const results: MiniAIResult[] = [];
+
+    let currentInput = steps[0]?.input || {};
+
+    for (const step of steps) {
+      const result = await engine.execute(step.miniAIId, currentInput);
+      results.push(result);
+
+      // Chain: next step gets this step's output as input
+      if (result.success && result.output) {
+        currentInput = result.output as Record<string, unknown>;
+      }
+    }
+
+    // Log chain execution
+    try {
+      await logEvent({
+        eventType: "agent_miniai_chain",
+        agentId,
+        severity: "info",
+        message: `Agent ${agentId} executed mini-AI chain (${steps.length} steps)`,
+        metadata: {
+          steps: steps.map((s) => s.miniAIId),
+          allSucceeded: results.every((r) => r.success),
+        },
+      });
+    } catch {
+      // Non-critical
+    }
+
+    return results;
   }
 
   /**
