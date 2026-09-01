@@ -164,16 +164,19 @@ export class MiniAIEngine {
   /**
    * Execute a chain of mini-IAs in sequence.
    * Each step's output is mapped to the next step's input.
+   * Working memory accumulates across steps for cross-step context.
    */
   async executeChain(
     steps: Array<{ miniAIId: string; inputMapping: Record<string, string> }>,
     initialInput: MiniAIInput,
-    options?: { agentId?: string; taskId?: string }
+    options?: { agentId?: string; taskId?: string; workingMemory?: Record<string, unknown> }
   ): Promise<MiniAIResult[]> {
     const results: MiniAIResult[] = [];
-    let currentInput: MiniAIInput = initialInput;
+    const workingMemory: Record<string, unknown> = options?.workingMemory ?? {};
 
-    for (const step of steps) {
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+
       // Map input from previous results or initial input
       const mappedInput = this.mapInput(
         step.inputMapping,
@@ -181,15 +184,24 @@ export class MiniAIEngine {
         results
       );
 
+      // Inject working memory into input (if steps reference "memory.*")
+      const enrichedInput = this.injectWorkingMemory(mappedInput, workingMemory);
+
       const result = await this.execute(step.miniAIId, {
-        input: mappedInput,
+        input: enrichedInput,
         agentId: options?.agentId,
         taskId: options?.taskId,
       });
 
       results.push(result);
 
-      // Stop chain if step failed and is required
+      // Accumulate successful output into working memory
+      if (result.success && result.output) {
+        workingMemory[step.miniAIId] = result.output;
+        workingMemory[`step_${i}`] = result.output;
+      }
+
+      // Stop chain if step failed
       if (!result.success) {
         break;
       }
@@ -448,6 +460,31 @@ export class MiniAIEngine {
     }
 
     return mapped;
+  }
+
+  /**
+   * Inject working memory values into input fields that reference "memory.*".
+   * For example, input: { context: "memory.classifier.bestCategory" }
+   * will be resolved to the actual value from working memory.
+   */
+  private injectWorkingMemory(
+    input: MiniAIInput,
+    workingMemory: Record<string, unknown>
+  ): MiniAIInput {
+    if (!workingMemory || Object.keys(workingMemory).length === 0) {
+      return input;
+    }
+
+    const enriched: Record<string, unknown> = { ...input };
+
+    for (const [key, value] of Object.entries(enriched)) {
+      if (typeof value === "string" && value.startsWith("memory.")) {
+        const memKey = value.slice(7); // Remove "memory." prefix
+        enriched[key] = workingMemory[memKey];
+      }
+    }
+
+    return enriched;
   }
 
   private calculateCost(

@@ -260,6 +260,9 @@ export interface WorkflowState {
   /** State of each node */
   nodeStates: Map<string, WorkflowNodeState>;
 
+  /** Shared working memory across all nodes */
+  workingMemory: Record<string, unknown>;
+
   /** Original workflow input */
   input: Record<string, unknown>;
 

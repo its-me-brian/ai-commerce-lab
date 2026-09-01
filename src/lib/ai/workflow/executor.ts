@@ -83,6 +83,7 @@ export class WorkflowExecutor {
       workflowId: definition.id,
       status: "running",
       nodeStates,
+      workingMemory: {},
       input: options.input,
       totalCostDollars: 0,
       totalDurationMs: 0,
@@ -242,6 +243,10 @@ export class WorkflowExecutor {
       ns.output = output;
       ns.completedAtMs = Date.now() - state.startedAt.getTime();
       ns.durationMs = Date.now() - nodeStartMs;
+
+      // Accumulate output into working memory
+      state.workingMemory[node.id] = output;
+      state.workingMemory[`${node.id}.output`] = output;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
 
