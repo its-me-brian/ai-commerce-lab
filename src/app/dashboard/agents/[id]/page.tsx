@@ -141,6 +141,11 @@ export default function AgentDetailPage({
   const [temperature, setTemperature] = useState(0.2);
   const [maxTokens, setMaxTokens] = useState(4096);
 
+  // Profile edit state
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileDescription, setProfileDescription] = useState("");
+
   // Test form — generic JSON input
   const [testInput, setTestInput] = useState(
     DEFAULT_TEST_INPUTS[id] || '{\n  "name": "Test Product",\n  "supplierPrice": 10\n}'
@@ -163,6 +168,8 @@ export default function AgentDetailPage({
       const data = await res.json();
       if (data.success) {
         setConfig(data);
+        setProfileName(data.agent.identity?.name || data.agent.name || "");
+        setProfileDescription(data.agent.identity?.description || data.agent.description || "");
         if (data.config) {
           setSelectedProvider(data.config.primary_provider_id);
           setSelectedModel(data.config.primary_model_id);
@@ -306,6 +313,33 @@ export default function AgentDetailPage({
     }
   }
 
+  async function handleSaveProfile() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/agents/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: profileName,
+          description: profileDescription,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setToast({ type: "success", message: "Profile saved" });
+        setEditingProfile(false);
+        fetchConfig();
+      } else {
+        setToast({ type: "error", message: data.error || "Save failed" });
+      }
+    } catch {
+      setToast({ type: "error", message: "Network error" });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setToast(null), 3000);
+    }
+  }
+
   async function handleTest() {
     setTestInputError("");
 
@@ -381,10 +415,75 @@ export default function AgentDetailPage({
         <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginBottom: 4 }}>
           <a href="/dashboard/agents" style={{ color: "var(--accent)", textDecoration: "none" }}>Agents</a>
           {" / "}
-          {config.agent.identity?.name || config.agent.name}
+          {editingProfile ? profileName : (config.agent.identity?.name || config.agent.name)}
         </p>
-        <h1 style={{ marginBottom: 3 }}>{config.agent.identity?.name || config.agent.name}</h1>
-        <p>{config.agent.identity?.role || config.agent.description}</p>
+        {editingProfile ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 500 }}>
+            <input
+              value={profileName}
+              onChange={(e) => setProfileName(e.target.value)}
+              placeholder="Agent name"
+              style={{
+                padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+                fontSize: "1.25rem", fontWeight: 600, background: "var(--bg-card)",
+              }}
+            />
+            <textarea
+              value={profileDescription}
+              onChange={(e) => setProfileDescription(e.target.value)}
+              placeholder="Description"
+              rows={2}
+              style={{
+                padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+                fontSize: "0.875rem", background: "var(--bg-card)", resize: "vertical",
+              }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={handleSaveProfile}
+                disabled={saving}
+                style={{
+                  padding: "6px 14px", background: "var(--accent)", color: "white",
+                  border: "none", borderRadius: "var(--r-md)", fontSize: "0.8125rem",
+                  fontWeight: 500, cursor: saving ? "not-allowed" : "pointer",
+                }}
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+              <button
+                onClick={() => {
+                  setEditingProfile(false);
+                  setProfileName(config.agent.identity?.name || config.agent.name || "");
+                  setProfileDescription(config.agent.identity?.description || config.agent.description || "");
+                }}
+                style={{
+                  padding: "6px 14px", background: "var(--bg-sunken)", color: "var(--text-secondary)",
+                  border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.8125rem",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <h1 style={{ marginBottom: 3 }}>{config.agent.identity?.name || config.agent.name}</h1>
+              <button
+                onClick={() => setEditingProfile(true)}
+                style={{
+                  padding: "3px 10px", fontSize: "0.6875rem", fontWeight: 500,
+                  background: "var(--bg-sunken)", color: "var(--text-tertiary)",
+                  border: "1px solid var(--border)", borderRadius: 9999, cursor: "pointer",
+                }}
+              >
+                Edit
+              </button>
+            </div>
+            <p>{config.agent.identity?.role || config.agent.description}</p>
+          </>
+        )}
       </div>
 
       {/* Agent Definition (Identity, Mission, Personality, Expertise, Rules, Skills) */}

@@ -175,23 +175,10 @@ export class ConversationEngine {
 
     if (error || !data) return null;
 
-    // Update last_message_at and updated_at
-    await supabase
-      .from("conversations")
-      .update({
-        last_message_at: now,
-        updated_at: now,
-      })
-      .eq("id", input.conversation_id);
-
-    // Increment message_count atomically (read current → add 1 → write back)
-    const conv = await this.getById(input.conversation_id);
-    if (conv) {
-      await supabase
-        .from("conversations")
-        .update({ message_count: conv.message_count + 1 })
-        .eq("id", input.conversation_id);
-    }
+    // Update last_message_at atomically via RPC (single DB roundtrip)
+    await supabase.rpc("increment_message_count", {
+      conv_id: input.conversation_id,
+    });
 
     return data as ConversationMessage;
   }
