@@ -1,126 +1,123 @@
 # IMPLEMENTATION REPORT — AI Commerce Lab V1
 
-**Date**: 1 Sep 2026
-**Status**: STEP 1 — Audit Complete
+**Date**: 2 Sep 2026  
+**Status**: FASE A — Auditoría Completa
 
 ---
 
-## 1. WHAT WAS ALREADY WORKING
+## 1. AUDITORÍA V1 COMPLETADA
 
-### Backend (Solid)
-| Component | Status | Notes |
-|-----------|--------|-------|
-| AgentEngine | ✅ WORKING | Full execution flow with Supabase persistence |
-| 9 Agent Implementations | ✅ WORKING | CEO, ProductHunter, MarketResearch, SupplierResearch, OpportunityScoring, StoreBuilder, Marketing, Secretary, Finance |
-| AIModelRouter | ✅ WORKING | Provider selection, fallback, logging |
-| 3 Providers (Gemini, Claude, Grok) | ✅ WORKING | Real API integration |
-| ConversationEngine | ✅ WORKING | Multi-turn conversations with persistence |
-| TaskEngine | ✅ WORKING | Task CRUD with dependencies |
-| MiniAI Engine | ✅ WORKING | 6 implementations, deterministic/LLm/hybrid modes |
-| Workflow Executor | ✅ WORKING | DAG execution with mixed nodes |
-| OrchestratorV2 | ✅ WORKING | LLM intent classification + plan building |
-| ApprovalManager | ✅ WORKING | Human-in-the-loop |
-| AgentMemory | ✅ WORKING | Persistent agent memory |
-| PermissionChecker | ✅ WORKING | Role-based + explicit permissions |
-| 5 Tools | ✅ WORKING | calculate-margin, search-products, search-suppliers, analyze-seo, generate-image (stub) |
-| 22 Database Tables | ✅ EXISTING | With RLS and migrations 001-030 |
-| 25+ API Routes | ✅ EXISTING | Full CRUD for agents, models, providers, catalog, events |
+Ver `docs/AUDIT_V1.md` para el reporte detallado.
 
-### Frontend (Partial)
-| Page | Status | Notes |
-|------|--------|-------|
-| Dashboard Overview | ✅ WORKING | KPIs, health bar, activity |
-| Agent List + Org Chart | ✅ WORKING | Tree view + grid |
-| Agent Detail | ✅ WORKING | Config, test runner, memory, handoffs |
-| Product Catalog | ✅ WORKING | Pipeline status, filters |
-| Run History | ✅ WORKING | Table + detail view |
-| Model Config | ✅ WORKING | Enable/disable, test connection |
-| Test Center | ✅ WORKING | Agent test playground |
-| Observability | ✅ WORKING | Events, analytics |
-| Evaluation | ✅ WORKING | Quality scoring |
-| Budgets | ✅ WORKING | Cost tracking |
-| Security | ✅ WORKING | Audit log |
-| Activity | ✅ WORKING | Timeline |
-| Settings | ✅ WORKING | Env status |
-| **Workspace** | ✅ WORKING | 3-column layout, agent list, Company Room |
-| **ChatContainer** | ✅ WORKING | Supabase persistence, real DB IDs, history loading |
-| **CompanyRoom** | ✅ WORKING | Multi-agent chat with @mention support |
-| **TaskList** | ✅ WORKING | Real-time polling, status badges |
-| **Interactive Cards** | ✅ WORKING | Product, Task, Operation, Generic renderers |
+### Resumen de hallazgos
+
+| Categoría | Real | Parcial | Mock/Muerto | Falta |
+|-----------|------|---------|-------------|-------|
+| API Routes (31) | 27 | 4 (in-memory) | 0 | 0 |
+| AI Providers (5) | 5 | 0 | 0 | 0 |
+| Agent Engine | ✅ | - | - | - |
+| AI Model Router | ✅ | - | - | - |
+| Conversation Engine | ✅ | - | - | - |
+| Frontend Pages (18) | 16 | 1 (Test Center) | 0 | 1 (MiniAI) |
+| Componentes (33) | 15 | 0 | 18 | 0 |
+| DB Tables (25) | 15 | 0 | 0 | 10 (sin tipos TS) |
+
+### Problemas críticos encontrados
+
+1. **Tipos TypeScript muertos**: 893 líneas de interfaz `Database` nunca pasadas a `createClient<Database>()`
+2. **Test Center hardcodeado**: Fetch de APIs ignorado, usa datos hardcodeados
+3. **Esquema drift**: Tablas sin tipos TS, enum mismatch entre BD y código
+4. **17 componentes muertos**: Nunca importados
+5. **4 subsistencias en memoria**: Observability, Budgets, Evaluation, SecurityAudit
+
+### Lo que SÍ funciona (y es real)
+
+- 31 API routes — todas con lógica real, zero stubs
+- 5 AI providers — Gemini, Claude, Grok, Ollama, Workers AI
+- Agent Engine — pipeline completo con Supabase
+- AI Model Router — primary/fallback chain
+- Conversation Engine — persistencia real
+- 9 agentes — todos con execute() real
+- 32 migraciones — tablas funcionales
+- 5 tools — calculate-margin, search-products, search-suppliers, analyze-seo, generate-image
 
 ---
 
-## 2. CRITICAL GAPS (blocking V1)
+## 2. PLAN DE ACCIÓN (Actualizado)
 
-### GAP-1: No Workspace/Chat/Conversations frontend
-- Backend: `ConversationEngine`, `chatWithAgent()`, `/api/agents/chat` all exist
-- Frontend: NO chat UI, NO conversations page, NO workspace page
-- **FIX**: Build workspace with chat
-- **STATUS**: ✅ RESOLVED — Workspace, ChatContainer, CompanyRoom, ConversationList all implemented
+## 2. PLAN DE ACCIÓN (Actualizado)
 
-### GAP-2: No React component architecture
-- All components are inline in page files
-- No `src/components/` directory
-- No hooks, no contexts, no reusable components
-- **FIX**: Create component architecture
-- **STATUS**: ✅ RESOLVED — Full component library: chat/, agents/, ui/, tasks/, workspace/, hooks/
+### FASE B: Base de datos y persistencia
+- [ ] Corregir tipos TypeScript (pasar Database al cliente Supabase)
+- [ ] Agregar tipos faltantes (10 tablas: conversation_participants, agent_memory, task_events, approvals, app_events, agent_definitions, product_catalog, workflow_definitions, tool_usage_tracking, knowledge_documents)
+- [ ] Corregir enum mismatch (agent_definitions: draft/active/disabled/archived vs ready/coming_soon/development/disabled)
+- [ ] Corregir agent_runs.tools_used (referenciado en código pero no existe en migración)
 
-### GAP-3: Missing TypeScript types for 8 tables
-- `conversations`, `conversation_messages`, `agent_memory`, `task_events`, `app_events`, `approvals`, `agent_definitions`, `product_catalog`, `workflow_definitions`, `knowledge_documents`
-- **FIX**: Add types to supabase.ts
+### FASE C: Agent Engine
+- [ ] Verificar pipeline completo end-to-end
+- [ ] Corregir non-atomic message count en conversation-engine.ts
 
-### GAP-4: `delegation_rules` table referenced but never created
-- `src/lib/permissions/checker.ts` references it
-- No migration creates it
-- **FIX**: Create migration or remove reference
+### FASE D: AI Router
+- [ ] Verificar fallback chain con todos los providers
+- [ ] Consolidar endpoints de test duplicados (/api/ai/test y /api/ai/providers/test)
 
-### GAP-5: No BrowserMiniAI / ONNX / transformers.js
-- Mini-AI system is 100% server-side
-- No browser inference capability
-- **FIX**: Implement BrowserMiniAIProvider
+### FASE E: Conversation Engine
+- [ ] Verificar persistencia end-to-end
+- [ ] Corregir race condition en message count
 
-### GAP-6: No Ollama integration
-- No local LLM support
-- **FIX**: Add OllamaProvider (optional)
+### FASE F: Workspace
+- [ ] Verificar chat multiagente
+- [ ] Verificar persistencia de conversaciones al recargar
 
-### GAP-7: No Workers AI integration
-- No serverless AI provider
-- **FIX**: Add WorkersAIProvider (optional)
+### FASE G: Agent Profiles
+- [ ] Editar display_name desde frontend
+- [ ] Persistir cambios en Supabase
+
+### FASE H: Tasks/Runs
+- [ ] Verificar persistencia
+- [ ] Conectar frontend
+
+### FASE I: MiniAI/ONNX
+- [ ] Implementar BrowserMiniAIProvider con Transformers.js
+- [ ] Configurar ONNX Runtime Web
+- [ ] Seleccionar modelo: all-MiniLM-L6-v2 cuantizado (~23MB)
+- [ ] Implementar Web Worker
+- [ ] Lazy loading + cache
+- [ ] Fallback: si falla, sistema sigue funcionando
+
+### FASE J: Test Center
+- [ ] Reemplazar datos hardcodeados con API real
+- [ ] Conectar con agentes reales de la BD
+
+### FASE K: Observability
+- [ ] Persistir observability en Supabase (no solo memoria)
+- [ ] Persistir budgets en Supabase
+- [ ] Persistir evaluation en Supabase
+
+### FASE L: Frontend cleanup
+- [ ] Eliminar 17 componentes muertos
+- [ ] Consolidar StatusDot (4 definiciones → 1)
+- [ ] Consolidar AgentRecord (3 definiciones → 1)
+- [ ] Consolidar AGENT_COLORS (2 formatos → 1)
+- [ ] Consolidar formatTime() (6 copias → 1)
+- [ ] Arreglar responsive en Runs table
+- [ ] Arreglar responsive en 2-col grids (Agent Detail, Test Center)
+
+### FASE M: Testing
+- [ ] Typecheck limpio (sin `any` innecesarios)
+- [ ] Build limpio
+- [ ] Tests pasando
+- [ ] Eliminar dead imports
+
+### FASE N: Vercel deploy
+- [ ] Actualizar .env.example
+- [ ] Verificar build en producción
+- [ ] Smoke test
+- [ ] Verificar que Supabase funciona
 
 ---
 
-## 3. WHAT NEEDS TO BE ADDED (V1 scope)
-
-### Frontend (Priority Order)
-1. **Workspace page** — main screen with chat + context
-2. **Chat UI** — agent operations chat with rich cards
-3. **Agent Selector** — with status indicators
-4. **Conversations page** — list all conversations
-5. **Task Center** — running/waiting/approval/completed/failed
-6. **Approvals page** — approve/reject UI
-7. **Organization page** — visual hierarchy
-8. **Product Cards** — interactive with evidence status
-9. **Agent Profile redesign** — tabs for overview/chat/tasks/capabilities/memory
-10. **Mobile responsive** — all above work on mobile
-
-### Backend (Priority Order)
-1. Fix delegation_rules bug
-2. Add missing TypeScript types
-3. Ensure chat API works end-to-end
-4. Ensure conversation persistence works
-5. Ensure task persistence works
-
-### Mini-AI (Priority Order)
-1. BrowserMiniAIProvider with transformers.js
-2. Model cache in browser
-3. Capability detection (WebGPU/WASM)
-4. Fallback chain: browser → cloud → LLM
-5. OllamaProvider (optional, local dev)
-6. WorkersAIProvider (optional, serverless)
-
----
-
-## 4. DATABASE STATUS
+## 3. DATABASE STATUS (Actualizado)
 
 | Table | TS Types | Migration | RLS | Status |
 |-------|----------|-----------|-----|--------|
@@ -129,43 +126,48 @@
 | agents | ✅ | 001+005+011+014 | ✅ | Working |
 | agent_configs | ✅ | 001 | ✅ | Working |
 | agent_tasks | ✅ | 001+012+020 | ✅ | Working |
-| agent_runs | ✅ | 001+012+029 | ✅ | Working |
+| agent_runs | ✅ | 001+012+029 | ✅ | Working (tools_used missing) |
 | agent_permissions | ✅ | 005 | ✅ | Working |
 | skills | ✅ | 011 | ✅ | Working |
 | agent_skills | ✅ | 011 | ✅ | Working |
 | workspaces | ✅ | 013 | ✅ | Working |
 | ai_provider_credentials | ✅ | 016 | ✅ | Working |
 | agent_model_routes | ✅ | 018 | ✅ | Working |
-| conversations | ✅ | 019+031 | ✅ | Working — conversation_type, participants |
+| conversations | ✅ | 019+031 | ✅ | Working |
 | conversation_messages | ✅ | 019 | ✅ | Working |
+| conversation_participants | ❌ | 031 | ✅ | Types missing |
 | agent_memory | ❌ | 021 | ✅ | Types missing |
 | task_events | ❌ | 022 | ✅ | Types missing |
 | approvals | ❌ | 023 | ✅ | Types missing |
 | app_events | ❌ | 024 | ✅ | Types missing |
-| agent_definitions | ❌ | 026 | ✅ | Types missing |
+| agent_definitions | ❌ | 026 | ✅ | Types missing + enum mismatch |
 | product_catalog | ❌ | 027 | ✅ | Types missing |
 | workflow_definitions | ❌ | 028 | ✅ | Types missing |
+| tool_usage_tracking | ❌ | 029 | ✅ | Types missing |
 | knowledge_documents | ❌ | 030 | ✅ | Types missing |
 
 ---
 
-## 5. ENVIRONMENT VARIABLES
+## 4. ENVIRONMENT VARIABLES (Actualizado)
 
 | Variable | Required | Status |
 |----------|----------|--------|
 | SUPABASE_URL | Yes | ✅ Set |
 | SUPABASE_ANON_KEY | Yes | ✅ Set |
 | SUPABASE_SERVICE_ROLE_KEY | Yes | ✅ Set |
+| NEXT_PUBLIC_SUPABASE_URL | Yes | ⚠️ Check |
+| NEXT_PUBLIC_SUPABASE_ANON_KEY | Yes | ⚠️ Check |
 | GEMINI_API_KEY | Yes | ✅ Set |
 | ANTHROPIC_API_KEY | Optional | ✅ Set |
 | XAI_API_KEY | Optional | ✅ Set |
+| OLLAMA_BASE_URL | Optional | Defaults to localhost:11434 |
 | ENCRYPTION_KEY | For credentials | ⚠️ Check |
 | CLOUDFLARE_ACCOUNT_ID | Future | ❌ Not set |
 | CLOUDFLARE_API_TOKEN | Future | ❌ Not set |
 
 ---
 
-## 6. TEST STATUS
+## 5. TEST STATUS
 
 - **Total**: 879 tests passing
 - **Pre-existing failures**: 3 (Supabase env var in test mode)
@@ -173,49 +175,46 @@
 
 ---
 
-## 7. KNOWN LIMITATIONS
+## 6. COMPONENTES MUERTOS (17)
 
-1. No browser-side Mini-AI inference
-2. No Ollama integration
-3. No Workers AI integration
-4. No real-time updates (Supabase Realtime not wired)
-5. No streaming responses
-6. No auth system (workspace assumed default)
-7. RLS is service-role-only (no user-level policies)
-8. 8 database tables lack TypeScript types
-9. delegation_rules referenced but not created
-10. All frontend components are inline (no reusability)
+| # | Archivo | Razón |
+|---|---------|-------|
+| 1 | components/ui/MetricCard.tsx | Zero imports |
+| 2 | components/ui/Avatar.tsx | Zero imports |
+| 3 | components/ui/Modal.tsx | Zero imports |
+| 4 | components/ui/Tabs.tsx | Zero imports |
+| 5 | components/ui/Select.tsx | Zero imports |
+| 6 | components/ui/Input.tsx | Zero imports |
+| 7 | components/agents/AgentCard.tsx | Función nunca renderizada |
+| 8 | components/agents/AgentSelector.tsx | Zero imports |
+| 9 | components/chat/ConversationList.tsx | Zero imports |
+| 10 | components/workspace/CEOOrchestrationPanel.tsx | Zero imports |
+| 11 | components/workspace/WorkspaceLayout.tsx | Zero imports |
+| 12 | components/workspace/OperationCard.tsx | Zero imports |
+| 13 | components/products/ProductSearchPanel.tsx | Zero imports |
+| 14 | components/products/ProductCard.tsx | Zero imports |
+| 15 | components/tasks/TaskList.tsx | Zero imports |
+| 16 | components/tasks/TaskCard.tsx | Zero imports |
+| 17 | components/approvals/ApprovalCard.tsx | Zero imports |
+| 18 | components/activity/ActivityFeed.tsx | Zero imports |
 
 ---
 
-## 8. NEXT STEPS (Implementation Order)
+## 7. NEXT STEPS
 
-Per the master prompt, the mandatory order is:
+Per the master prompt execution order:
 
-- [x] STEP 1: Audit (this document)
-- [ ] STEP 2: Fix critical backend bugs
-- [ ] STEP 3: Fix Supabase/auth/RLS
-- [ ] STEP 4: Create/reorganize frontend components
-- [ ] STEP 5: Build Workspace
-- [ ] STEP 6: Connect chat
-- [ ] STEP 7: Connect conversations
-- [ ] STEP 8: Connect tasks
-- [ ] STEP 9: Connect activity/events
-- [ ] STEP 10: Build interactive cards
-- [ ] STEP 11: Build agent profiles
-- [ ] STEP 12: Build company/organization
-- [ ] STEP 13: Build CEO orchestration
-- [ ] STEP 14: Complete Product Hunter V1
-- [ ] STEP 15: Fix evidence/verification
-- [ ] STEP 16: Implement MiniAI abstraction
-- [ ] STEP 17: Implement deterministic runtime
-- [ ] STEP 18: Implement BrowserMiniAIProvider
-- [ ] STEP 19: Integrate first ONNX model
-- [ ] STEP 20: Implement browser fallback
-- [ ] STEP 21: Implement OllamaProvider
-- [ ] STEP 22: Implement WorkersAIProvider
-- [ ] STEP 23: Integrate AI Router with all providers
-- [ ] STEP 24: Cost/latency telemetry
-- [ ] STEP 25: Testing
-- [ ] STEP 26: Vercel deployment
-- [ ] STEP 27: Production smoke tests
+- [x] FASE A: Auditoría completa
+- [ ] FASE B: Base de datos y persistencia
+- [ ] FASE C: Agent Engine
+- [ ] FASE D: AI Router
+- [ ] FASE E: Conversation Engine
+- [ ] FASE F: Workspace
+- [ ] FASE G: Agent Profiles
+- [ ] FASE H: Tasks/Runs
+- [ ] FASE I: MiniAI/ONNX
+- [ ] FASE J: Test Center
+- [ ] FASE K: Observability
+- [ ] FASE L: Frontend cleanup
+- [ ] FASE M: Testing
+- [ ] FASE N: Vercel deploy

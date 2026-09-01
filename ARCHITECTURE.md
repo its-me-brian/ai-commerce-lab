@@ -129,7 +129,7 @@ Abstract class that all providers implement:
 - `testConnection(model)` — verify API key works
 - `getAvailableModels()` — list available models
 
-Implementations: `gemini.ts`, `claude.ts`, `grok.ts`
+Implementations: `gemini.ts`, `claude.ts`, `grok.ts`, `ollama.ts`, `workers-ai.ts`
 
 ### AgentRegistry (`src/lib/agents/core/registry.ts`)
 Central registry of all agent instances:
@@ -139,7 +139,7 @@ Central registry of all agent instances:
 ### ToolRegistry (`src/lib/tools/registry.ts`)
 Manages executable tools:
 - `register(tool)` / `get(toolId)` / `execute(toolId, input)`
-- Tools: `calculate-margin`, `search-products`
+- Tools: `calculate-margin`, `search-products`, `search-suppliers`, `analyze-seo`, `generate-image`
 
 ### PermissionChecker (`src/lib/permissions/checker.ts`)
 Validates agent permissions before execution:
@@ -345,3 +345,66 @@ The browser/client Supabase client cannot read or write any data.
 4. Create definition in `src/lib/agents/definitions/[name].ts`
 5. Register in `bootstrap.ts`
 6. Add to database via migration
+
+---
+
+## MiniAI Architecture (V1)
+
+### Concepto
+Las MiniIAs son **servicios locales/cliente de ML auxiliares**, NO agentes LLM independientes.
+El razonamiento de los agentes principales sigue pasando por el AI Model Router.
+
+```
+                  AI COMMERCE LAB
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+      AGENT ENGINE                  MINI AI
+          │                        (Browser)
+      AI ROUTER               Transformers.js
+          │                     ONNX Runtime
+   ┌──────┼──────┐                   │
+ Gemini Claude Grok             MiniLM
+```
+
+### Estrategia
+- **Browser**: Transformers.js + ONNX Runtime Web
+- **Modelo**: all-MiniLM-L6-v2 cuantizado (~23MB)
+- **Carga**: Lazy loading (bajo demanda, no al iniciar)
+- **Ejecución**: Web Worker (no bloquea UI)
+- **Fallback**: Si falla, sistema sigue funcionando
+
+### Pipeline
+```
+User message → MiniAI preprocessing
+  → intent, entities, relevant context
+  → Prompt Builder → LLM
+```
+
+### Usos
+- Clasificación local de mensajes
+- Detección de intención
+- Similitud semántica / embeddings
+- Selección de contexto relevante
+- Ranking de documentos
+- Preprocesamiento antes del LLM
+
+### NO usar para
+- Decisiones financieras críticas
+- Compras o publicación de productos
+- Sustitución del LLM principal
+
+---
+
+## Auditoría V1 (2 Sep 2026)
+
+Ver `docs/AUDIT_V1.md` para el reporte completo.
+
+### Resumen de hallazgos
+- **31 API routes**: Todas funcionales, zero stubs
+- **5 AI providers**: Todos con implementación real
+- **17 componentes muertos**: Nunca importados
+- **893 líneas de tipos TS**: Definidas pero nunca pasadas al cliente Supabase
+- **4 subsistencias en memoria**: Pierden datos al reiniciar
+- **Test Center hardcodeado**: Ignora resultados de APIs
+- **Esquema drift**: 3 tablas sin tipos TS, 1 enum mismatch
