@@ -108,7 +108,7 @@ export class StructuredLogger {
    */
   private async persistToSupabase(entry: StructuredLogEntry): Promise<void> {
     try {
-      const { supabase } = await import("../../database/supabase");
+      const { supabase } = await import("../database/supabase");
       await supabase.from("structured_logs").insert({
         id: entry.id,
         severity: entry.severity,
@@ -367,7 +367,7 @@ export class ExecutionTracer {
    */
   private async persistSpan(span: TraceSpan): Promise<void> {
     try {
-      const { supabase } = await import("../../database/supabase");
+      const { supabase } = await import("../database/supabase");
 
       // Persist the span
       await supabase.from("spans").insert({
@@ -578,7 +578,7 @@ export class MetricsCollector {
    */
   private async persistToSupabase(point: MetricPoint): Promise<void> {
     try {
-      const { supabase } = await import("../../database/supabase");
+      const { supabase } = await import("../database/supabase");
       await supabase.from("metrics").insert({
         name: point.name,
         value: point.value,
