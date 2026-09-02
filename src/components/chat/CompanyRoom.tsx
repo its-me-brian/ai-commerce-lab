@@ -172,10 +172,21 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
     const trimmed = input.trim();
     if (!trimmed || loadingRef.current) return;
 
-    // Parse @mention
-    const mentionMatch = trimmed.match(/^@(\S+)\s*(.*)/);
-    const targetAgentId = mentionMatch ? mentionMatch[1] : undefined;
-    const message = mentionMatch ? mentionMatch[2] : trimmed;
+    // Parse @mention — supports "@agent message" and "message @agent"
+    const leadingMention = trimmed.match(/^@(\S+)\s+(.*)/);
+    const trailingMention = trimmed.match(/(.*)\s+@(\S+)$/);
+    let targetAgentId: string | undefined;
+    let message: string;
+
+    if (leadingMention && agents.some((a) => a.id === leadingMention[1])) {
+      targetAgentId = leadingMention[1];
+      message = leadingMention[2].trim();
+    } else if (trailingMention && agents.some((a) => a.id === trailingMention[2])) {
+      message = trailingMention[1].trim();
+      targetAgentId = trailingMention[2];
+    } else {
+      message = trimmed;
+    }
 
     if (!message) return;
 

@@ -132,9 +132,9 @@ describe("AgentPromptBuilder", () => {
 });
 
 describe("Agent Definitions", () => {
-  it("should have all 6 definitions", () => {
+  it("should have all 9 definitions", () => {
     const definitions = listAgentDefinitions();
-    expect(definitions).toHaveLength(6);
+    expect(definitions).toHaveLength(9);
   });
 
   it("should retrieve definition by slug", () => {
