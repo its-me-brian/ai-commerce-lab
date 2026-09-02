@@ -42,28 +42,32 @@ function getClientIp(request: NextRequest): string {
 
 /**
  * Refresh Supabase session from cookies.
- * This ensures the auth token is always up-to-date.
+ * Returns null if env vars are missing (graceful degradation for local dev).
  */
 async function refreshSession(request: NextRequest, response: NextResponse) {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    // Graceful degradation: Supabase not configured, skip auth
+    return null;
+  }
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
       },
-    }
-  );
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value)
+        );
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options)
+        );
+      },
+    },
+  });
 
   // This refreshes the auth cookie and extends the session
   await supabase.auth.getUser();
@@ -103,15 +107,20 @@ export async function middleware(request: NextRequest) {
   // === Auth check for protected routes ===
   if (!isPublicRoute && !isApiRoute && !isStaticAsset) {
     const supabase = await refreshSession(request, response);
-    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) {
-      // Redirect to login, preserving the original URL
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/login";
-      loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl);
+    // If Supabase is configured, enforce auth
+    if (supabase) {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        // Redirect to login, preserving the original URL
+        const loginUrl = request.nextUrl.clone();
+        loginUrl.pathname = "/login";
+        loginUrl.searchParams.set("redirect", pathname);
+        return NextResponse.redirect(loginUrl);
+      }
     }
+    // If supabase is null (not configured), allow access without auth
   }
 
   // === Rate Limiting for API routes ===
