@@ -7,7 +7,7 @@
 | Phase | Status | Quality Gate | Changes | Tests | Notes |
 |-------|--------|-------------|---------|-------|-------|
 | 0 — Audit | COMPLETE | PASS | 3 docs created | lint/tsc/test ran | Audit complete |
-| 1 — Security/Auth | IN PROGRESS | — | — | — | Starting |
+| 1 — Security/Auth | COMPLETE | PENDING APPROVAL | 48 files, +1496 lines | 55/61 pass, 17 integration fail (expected) | Auth + RLS + workspace scoping |
 | 2 — Workspace + Conversations | PENDING | — | — | — | |
 | 3 — Agents + Identity | PENDING | — | — | — | |
 | 4 — Frontend Consolidation | PENDING | — | — | — | |
