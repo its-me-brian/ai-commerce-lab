@@ -9,7 +9,9 @@ export interface ChatMessage {
   content: string;
   agentName?: string;
   agentId?: string;
+  agentRole?: string;
   timestamp: string;
+  isRoomMessage?: boolean;
   card?: {
     type: string;
     data: Record<string, unknown>;
@@ -173,6 +175,52 @@ function GenericCard({ type, data }: { type: string; data: Record<string, unknow
   );
 }
 
+const ROLE_BADGES: Record<string, { label: string; bg: string; color: string }> = {
+  ceo: { label: "CEO", bg: "#fef3c7", color: "#92400e" },
+  marketing: { label: "Marketing", bg: "#fee2e2", color: "#991b1b" },
+  finance: { label: "Finance", bg: "#ecfdf5", color: "#065f46" },
+  secretary: { label: "Secretary", bg: "#f3f4f6", color: "#374151" },
+  producthunter: { label: "Product Hunter", bg: "#dbeafe", color: "#1e40af" },
+  "product-hunter": { label: "Product Hunter", bg: "#dbeafe", color: "#1e40af" },
+  marketresearch: { label: "Market Research", bg: "#fce7f3", color: "#9d174d" },
+  "market-research": { label: "Market Research", bg: "#fce7f3", color: "#9d174d" },
+  supplierresearch: { label: "Supplier Research", bg: "#d1fae5", color: "#065f46" },
+  "supplier-research": { label: "Supplier Research", bg: "#d1fae5", color: "#065f46" },
+  opportunitiescoring: { label: "Opportunity", bg: "#ede9fe", color: "#5b21b6" },
+  "opportunity-scoring": { label: "Opportunity", bg: "#ede9fe", color: "#5b21b6" },
+  storebuilder: { label: "Store Builder", bg: "#ccfbf1", color: "#0f766e" },
+  "store-builder": { label: "Store Builder", bg: "#ccfbf1", color: "#0f766e" },
+};
+
+function RoleBadge({ agentId, agentRole }: { agentId?: string; agentRole?: string }) {
+  const badge = agentId ? ROLE_BADGES[agentId.toLowerCase()] : null;
+  const label = badge?.label || agentRole || null;
+  if (!label) return null;
+
+  return (
+    <span
+      className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+      style={{
+        background: badge?.bg || "var(--bg-sunken)",
+        color: badge?.color || "var(--text-tertiary)",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function RoomBadge() {
+  return (
+    <span
+      className="text-[9px] font-medium px-1.5 py-0.5 rounded-full"
+      style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+    >
+      # General
+    </span>
+  );
+}
+
 export function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
@@ -180,11 +228,15 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
       <div className={`max-w-[85%] ${isUser ? "order-2" : "order-1"}`}>
-        {/* Agent name */}
+        {/* Agent name + badges */}
         {!isUser && !isSystem && message.agentName && (
-          <p className="text-[11px] font-medium mb-1 px-1" style={{ color: "var(--text-tertiary)" }}>
-            {message.agentName}
-          </p>
+          <div className="flex items-center gap-1.5 mb-1 px-1 flex-wrap">
+            <p className="text-[11px] font-medium" style={{ color: "var(--text-tertiary)" }}>
+              {message.agentName}
+            </p>
+            <RoleBadge agentId={message.agentId} agentRole={message.agentRole} />
+            {message.isRoomMessage && <RoomBadge />}
+          </div>
         )}
 
         {/* Message bubble */}

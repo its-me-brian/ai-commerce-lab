@@ -1,14 +1,15 @@
 // GET /api/conversations/room — Load room conversation for a workspace
 // POST /api/conversations/room — Send a message in a Company Room
+// §8, §14: Multi-agent fan-out — CEO coordinates, delegates to relevant agents
 
 import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
-import { chatWithAgent } from "@/lib/ai/agent-chat";
+import { multiAgentChat } from "@/lib/ai/multi-agent-chat";
 
 interface RoomMessageRequest {
   workspaceId: string;
   message: string;
-  /** @mention target — agent ID to route to. Defaults to "ceo". */
+  /** @mention target — agent ID to route to. null = fan-out mode (CEO coordinates). */
   targetAgentId?: string;
 }
 
@@ -84,38 +85,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Determine target agent (CEO by default)
-    const agentId = targetAgentId || "ceo";
-
-    // 3. Send message via agent-chat (handles history, context, LLM call)
-    const result = await chatWithAgent({
-      agentId,
+    // 2. Send message via multi-agent chat (fan-out or @mention)
+    const result = await multiAgentChat({
       message,
       conversationId: conversation.id,
       workspaceId,
+      targetAgentId: targetAgentId || undefined,
     });
 
-    // 4. Add agent as participant in the room
-    await engine.addParticipant(conversation.id, agentId, "participant");
+    // 3. Add all participating agents as participants in the room
+    for (const response of result.agentResponses) {
+      await engine.addParticipant(conversation.id, response.agentId, "participant");
+    }
 
     return NextResponse.json({
       success: true,
       conversationId: conversation.id,
-      targetAgentId: agentId,
       userMessage: {
         id: result.userMessage.id,
         content: result.userMessage.content,
         role: result.userMessage.role,
         createdAt: result.userMessage.created_at,
       },
-      assistantMessage: {
-        id: result.assistantMessage.id,
-        content: result.assistantMessage.content,
-        role: result.assistantMessage.role,
-        provider: result.assistantMessage.provider,
-        model: result.assistantMessage.model,
-        createdAt: result.assistantMessage.created_at,
-      },
+      agentResponses: result.agentResponses.map((r) => ({
+        agentId: r.agentId,
+        id: r.message.id,
+        content: r.message.content,
+        role: r.message.role,
+        provider: r.message.provider,
+        model: r.message.model,
+        createdAt: r.message.created_at,
+      })),
     });
   } catch (error) {
     return NextResponse.json(

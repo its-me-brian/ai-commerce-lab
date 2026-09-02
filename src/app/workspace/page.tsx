@@ -331,6 +331,37 @@ export default function WorkspacePage() {
 
             <div className="border-t" style={{ borderColor: "var(--border-subtle)" }} />
 
+            {/* §33: Participants panel */}
+            <div>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-tertiary)" }}>
+                Participants ({enabledAgents.length})
+              </h3>
+              <div className="space-y-1">
+                {enabledAgents.map((agent) => (
+                  <div
+                    key={agent.id}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-[var(--r-md)]"
+                  >
+                    <div
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0"
+                      style={{ background: getAgentColor(agent.id) }}
+                    >
+                      {agent.name.charAt(0)}
+                    </div>
+                    <span className="text-[12px] truncate" style={{ color: "var(--text-secondary)" }}>
+                      {agent.name}
+                    </span>
+                    <div
+                      className="w-1.5 h-1.5 rounded-full shrink-0 ml-auto"
+                      style={{ background: agent.enabled ? "var(--success)" : "var(--border-strong)" }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t" style={{ borderColor: "var(--border-subtle)" }} />
+
             {/* System status */}
             <div>
               <h3 className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-tertiary)" }}>

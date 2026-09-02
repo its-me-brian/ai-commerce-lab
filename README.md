@@ -1,36 +1,159 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Commerce Lab
+
+Multi-agent AI platform for e-commerce automation. Built with Next.js 15, Supabase, and 5 AI providers.
+
+## Architecture
+
+```
+User → Workspace → General Room → @mention routing
+                ↓
+        MiniAI Preprocessing (intent/entities)
+                ↓
+        Prompt Builder → AI Router → LLM Provider
+                ↓
+        Agent Response → Supabase → Persist → Reload
+```
+
+**9 AI Agents**: CEO, Product Hunter, Market Research, Supplier Research, Opportunity Scoring, Store Builder, Marketing, Finance, Secretary
+
+**5 AI Providers**: Google Gemini, Anthropic Claude, xAI Grok, Ollama (local), Workers AI (Cloudflare)
+
+## Tech Stack
+
+- **Frontend**: Next.js 15 (App Router), React 19, Tailwind CSS
+- **Database**: Supabase (PostgreSQL + RLS)
+- **AI**: Multi-provider router with fallback chain
+- **ML**: Transformers.js + ONNX Runtime Web (browser-side, optional)
+- **Testing**: Vitest
 
 ## Getting Started
 
-First, run the development server:
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Set up environment variables
+
+Copy `.env.local.example` to `.env.local` and fill in your keys:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Required variables:
+- `SUPABASE_URL` — Your Supabase project URL
+- `SUPABASE_ANON_KEY` — Supabase anonymous key
+- `GEMINI_API_KEY` — Google Gemini API key (or any other provider)
+
+### 3. Set up database
+
+Run the Supabase migrations in order:
+
+```bash
+supabase db push
+```
+
+Migrations create: agents, agent_configs, conversations, conversation_messages, agent_runs, agent_tasks, ai_providers, ai_models, model_routes, and more.
+
+### 4. Run development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/
+│   ├── api/                    # 31 API routes
+│   │   ├── agents/             # Agent CRUD, chat, config
+│   │   ├── conversations/      # Message persistence
+│   │   ├── ai/                 # Router, providers, budgets
+│   │   └── mini-ai/            # Browser ML endpoints
+│   ├── dashboard/              # Admin dashboard (11 pages)
+│   └── workspace/              # User workspace (chat + agents)
+├── lib/
+│   ├── ai/
+│   │   ├── router.ts           # AI Router (primary + fallback)
+│   │   ├── bootstrap.ts        # Provider + agent initialization
+│   │   ├── agent-chat.ts       # Direct chat flow
+│   │   ├── multi-agent-chat.ts # §8 Multi-agent fan-out
+│   │   ├── prompt-pipeline.ts  # §28 MiniAI → prompt enrichment
+│   │   ├── conversation-engine.ts # Message persistence
+│   │   └── mini-ai/            # MiniAI engine + browser ML
+│   ├── agents/
+│   │   └── core/               # AgentEngine, registry, types
+│   └── database/               # Supabase clients
+├── components/
+│   ├── chat/                   # ChatContainer, CompanyRoom, MessageBubble
+│   ├── agents/                 # AgentCard, OrgChart
+│   └── ui/                     # Shared UI components
+└── hooks/
+    └── useAgentStatus.ts       # §35 Real-time agent status
+```
 
-## Learn More
+## Key Features
 
-To learn more about Next.js, take a look at the following resources:
+### Multi-Agent Chat (§8, §14)
+- **@mention routing**: `@marketing create a campaign` → only Marketing responds
+- **Fan-out mode**: No @mention → CEO coordinates, delegates to relevant agents
+- Each agent's response saved as separate message with role badge
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### MiniAI Prompt Pipeline (§28, §29)
+- Intent classification before LLM call
+- Entity extraction (products, URLs, numbers, dates)
+- Enriched system prompts with detected context
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Real-Time Agent Status (§35)
+- Status derived from actual activity (last run, errors)
+- States: working, online, idle, warning, error, disabled
+- Auto-refreshes every 30 seconds
 
-## Deploy on Vercel
+### Observability (§22)
+- Structured logs, metrics, traces persisted to Supabase
+- 6 dedicated tables with RLS policies
+- Dashboard with event log, runs, and cost tracking
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## API Routes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/agents/list` | GET | List all agents from Supabase |
+| `/api/agents/[id]` | GET/PATCH | Agent profile + updates |
+| `/api/agents/chat` | POST | Direct chat with agent |
+| `/api/conversations/room` | GET/POST | Room chat (multi-agent) |
+| `/api/ai/providers/test` | POST | Test provider connectivity |
+| `/api/ai/budgets` | GET/POST | Cost budget management |
+| `/api/events` | GET | Observability events |
+| `/api/catalog` | GET | Product catalog |
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SUPABASE_URL` | Yes | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
+| `GEMINI_API_KEY` | No* | Google Gemini API key |
+| `ANTHROPIC_API_KEY` | No* | Anthropic Claude API key |
+| `XAI_API_KEY` | No* | xAI Grok API key |
+| `EBAY_CLIENT_ID` | No | eBay Browse API (product source) |
+| `EBAY_CLIENT_SECRET` | No | eBay Browse API secret |
+
+*At least one AI provider key is required.
+
+## Deploy
+
+Push to GitHub → Vercel auto-deploys. Ensure environment variables are set in Vercel dashboard.
+
+```bash
+git push origin main
+```
+
+## License
+
+Private — AI Commerce Lab

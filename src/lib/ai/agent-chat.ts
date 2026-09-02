@@ -9,6 +9,7 @@ import { getRouter } from "./router";
 import { getConversationEngine, type Conversation, type ConversationMessage } from "./conversation-engine";
 import { getWorkspaceService } from "../workspaces/service";
 import { getTaskEngine } from "./task-engine";
+import { preprocessMessage, buildEnrichedPrompt } from "./prompt-pipeline";
 
 export interface ChatInput {
   agentId: string;
@@ -197,9 +198,23 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
     );
   }
 
-  const systemPrompt = systemPromptParts.join("\n");
+  const baseSystemPrompt = systemPromptParts.join("\n");
 
-  // 6. Call AI via router
+  // 6. §28, §29: MiniAI preprocessing — intent classification + entity extraction
+  let enrichedSystemPrompt = baseSystemPrompt;
+  try {
+    const pipelineResult = await preprocessMessage({
+      message: input.message,
+      agentId: input.agentId,
+      workspaceId: input.workspaceId,
+      conversationHistory: messages,
+    });
+    enrichedSystemPrompt = buildEnrichedPrompt(baseSystemPrompt, pipelineResult);
+  } catch {
+    // Continue with base prompt if preprocessing fails
+  }
+
+  // 7. Call AI via router
   const startTime = Date.now();
 
   try {
@@ -207,7 +222,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
       input.agentId,
       {
         prompt: input.message,
-        systemPrompt,
+        systemPrompt: enrichedSystemPrompt,
         responseFormat: "text",
       }
     );

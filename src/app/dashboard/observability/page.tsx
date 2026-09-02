@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ErrorMessage } from "@/components/ui/ErrorMessage";
 
 interface AppEvent {
   id: string;
@@ -37,6 +38,7 @@ export default function ObservabilityPage() {
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState("");
   const [filterSeverity, setFilterSeverity] = useState("");
   const [page, setPage] = useState(0);
@@ -49,6 +51,7 @@ export default function ObservabilityPage() {
 
   async function fetchEvents() {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       if (filterType) params.set("type", filterType);
@@ -61,9 +64,11 @@ export default function ObservabilityPage() {
       if (data.success) {
         setEvents(data.events);
         setTotal(data.total || 0);
+      } else {
+        setError(data.error || "Failed to load events");
       }
     } catch (err) {
-      console.error("Failed to load events:", err);
+      setError("Failed to connect to the server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -79,6 +84,14 @@ export default function ObservabilityPage() {
         <h1 style={{ marginBottom: 3 }}>Observability</h1>
         <p>Event log across all agents and system components</p>
       </div>
+
+      {error && (
+        <ErrorMessage
+          message={error}
+          onRetry={fetchEvents}
+          className="mb-6"
+        />
+      )}
 
       {/* Summary cards */}
       <div className="stats-grid" style={{ display: "grid", gap: 10, marginBottom: 20 }}>

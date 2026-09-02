@@ -83,8 +83,8 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
                 id: m.id,
                 role: m.role as "user" | "assistant" | "system",
                 content: m.content,
-                agentName: m.metadata?.agentName as string | undefined,
-                agentId: m.metadata?.agentId as string | undefined,
+                agentName: (m.metadata?.agentName || m.metadata?.agent_id) as string | undefined,
+                agentId: (m.metadata?.agentId || m.metadata?.agent_id) as string | undefined,
                 timestamp: m.created_at,
               })
             );
@@ -118,8 +118,8 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
               id: m.id,
               role: m.role as "user" | "assistant" | "system",
               content: m.content,
-              agentName: m.metadata?.agentName as string | undefined,
-              agentId: m.metadata?.agentId as string | undefined,
+              agentName: (m.metadata?.agentName || m.metadata?.agent_id) as string | undefined,
+              agentId: (m.metadata?.agentId || m.metadata?.agent_id) as string | undefined,
               timestamp: m.created_at,
             })
           );
@@ -174,7 +174,7 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
 
     // Parse @mention
     const mentionMatch = trimmed.match(/^@(\S+)\s*(.*)/);
-    const targetAgentId = mentionMatch ? mentionMatch[1] : "ceo";
+    const targetAgentId = mentionMatch ? mentionMatch[1] : undefined;
     const message = mentionMatch ? mentionMatch[2] : trimmed;
 
     if (!message) return;
@@ -220,17 +220,21 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
         )
       );
 
-      // Add agent response
-      const agent = agents.find((a) => a.id === targetAgentId);
-      const assistantMsg: RoomMessage = {
-        id: data.assistantMessage?.id || `asst-${Date.now()}`,
-        role: "assistant",
-        content: data.assistantMessage?.content || "No response",
-        agentName: agent?.name || targetAgentId,
-        agentId: targetAgentId,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
+      // §8, §14: Add all agent responses (multi-agent fan-out)
+      if (data.agentResponses && Array.isArray(data.agentResponses)) {
+        for (const response of data.agentResponses) {
+          const agent = agents.find((a) => a.id === response.agentId);
+          const agentMsg: RoomMessage = {
+            id: response.id || `asst-${Date.now()}-${response.agentId}`,
+            role: "assistant",
+            content: response.content || "No response",
+            agentName: agent?.name || response.agentId,
+            agentId: response.agentId,
+            timestamp: response.createdAt || new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, agentMsg]);
+        }
+      }
     } catch {
       setMessages((prev) =>
         prev.map((m) =>

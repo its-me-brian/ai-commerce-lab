@@ -42,7 +42,8 @@ export async function PATCH(
     const body = await request.json();
 
     // Only allow updating specific profile fields
-    const allowedFields = ["name", "description", "status", "enabled", "role", "department"];
+    // §10: Added avatar_color for editable agent appearance
+    const allowedFields = ["name", "description", "status", "enabled", "role", "department", "avatar_color"];
     const updates: Record<string, unknown> = {};
 
     for (const field of allowedFields) {

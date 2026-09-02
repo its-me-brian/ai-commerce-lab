@@ -22,7 +22,9 @@ const LABELS: Record<Status, string> = {
   disabled: "Disabled",
 };
 
-export function StatusDot({ status, size = "sm" }: { status: Status; size?: "xs" | "sm" | "md" }) {
+export type StatusDotStatus = Status;
+
+export function StatusDot({ status, size = "sm" }: { status: StatusDotStatus; size?: "xs" | "sm" | "md" }) {
   const s = size === "xs" ? "h-1.5 w-1.5" : size === "sm" ? "h-2 w-2" : "h-3 w-3";
   const animation = status === "working" ? "animate-pulse" : "";
   return (

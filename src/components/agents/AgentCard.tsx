@@ -2,8 +2,9 @@
 
 import React from "react";
 import { Badge } from "../ui/Badge";
-import { StatusDot } from "../ui/StatusDot";
+import { StatusDot, type StatusDotStatus } from "../ui/StatusDot";
 import { Card } from "../ui/Card";
+import type { AgentStatus } from "@/hooks/useAgentStatus";
 
 export interface AgentRecord {
   id: string;
@@ -30,14 +31,14 @@ interface AgentCardProps {
   selected?: boolean;
   onSelect?: () => void;
   showConfig?: boolean;
+  /** Pre-fetched status map from parent (avoids duplicate fetches) */
+  statusMap?: Map<string, AgentStatus>;
 }
 
-function getAgentStatus(
+function getStaticStatus(
   enabled?: boolean,
-  devStatus?: string,
-): "online" | "working" | "idle" | "warning" | "error" | "disabled" {
+): "online" | "idle" | "disabled" {
   if (!enabled) return "disabled";
-  if (devStatus === "development") return "idle";
   return "online";
 }
 
@@ -55,8 +56,11 @@ const ROLE_COLORS: Record<string, "info" | "success" | "warning" | "default"> = 
   coordinator: "default",
 };
 
-export function AgentCard({ agent, selected, onSelect, showConfig }: AgentCardProps) {
-  const status = getAgentStatus(agent.enabled, agent.status);
+export function AgentCard({ agent, selected, onSelect, showConfig, statusMap }: AgentCardProps) {
+  // §35: Use derived status from activity if available, fallback to static
+  const derivedStatus = statusMap?.get(agent.id);
+  const staticStatus = getStaticStatus(agent.enabled);
+  const status: StatusDotStatus = derivedStatus || staticStatus;
   const roleKey = agent.config?.role ?? agent.role ?? "assistant";
 
   return (

@@ -17,6 +17,7 @@ interface AgentProfile {
   enabled: boolean;
   model_preference: string | null;
   department: string | null;
+  avatar_color: string | null;
   config: {
     skills?: string[];
     tools?: string[];
@@ -62,6 +63,8 @@ export default function AgentProfilePage() {
   const [modelRoutes, setModelRoutes] = useState<ModelRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "memory" | "handoffs" | "models">("overview");
+  const [editingColor, setEditingColor] = useState(false);
+  const [savingColor, setSavingColor] = useState(false);
 
   useEffect(() => {
     async function fetchAgentData() {
@@ -132,6 +135,32 @@ export default function AgentProfilePage() {
     );
   }
 
+  // §10: Avatar color options
+  const AVATAR_COLORS = [
+    "#fef3c7", "#dbeafe", "#fce7f3", "#d1fae5", "#ede9fe",
+    "#ccfbf1", "#fee2e2", "#f3f4f6", "#ecfdf5", "#fef2f2",
+  ];
+
+  async function handleColorChange(color: string) {
+    setSavingColor(true);
+    try {
+      const res = await fetch(`/api/agents/${agentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatar_color: color }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAgent((prev) => prev ? { ...prev, avatar_color: color } : null);
+      }
+    } catch {
+      // Ignore errors
+    } finally {
+      setSavingColor(false);
+      setEditingColor(false);
+    }
+  }
+
   const tabs = [
     { id: "overview" as const, label: "Overview" },
     { id: "memory" as const, label: `Memory (${memory.length})` },
@@ -152,12 +181,48 @@ export default function AgentProfilePage() {
             <polyline points="12 19 5 12 12 5" />
           </svg>
         </button>
-        <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold"
-          style={{ background: "var(--accent-light)", color: "var(--accent)" }}
-        >
-          {agent.name.charAt(0)}
+
+        {/* §10: Editable avatar with color picker */}
+        <div className="relative">
+          <button
+            onClick={() => setEditingColor(!editingColor)}
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold transition-transform hover:scale-105"
+            style={{
+              background: agent.avatar_color || "var(--accent-light)",
+              color: "var(--text-primary)",
+            }}
+            title="Click to change color"
+          >
+            {agent.name.charAt(0)}
+          </button>
+
+          {/* Color picker dropdown */}
+          {editingColor && (
+            <div
+              className="absolute top-full left-0 mt-2 p-3 rounded-lg border z-10"
+              style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+            >
+              <p className="text-[10px] font-medium mb-2" style={{ color: "var(--text-tertiary)" }}>
+                Avatar Color
+              </p>
+              <div className="flex flex-wrap gap-1.5" style={{ width: 140 }}>
+                {AVATAR_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => handleColorChange(color)}
+                    disabled={savingColor}
+                    className="w-6 h-6 rounded-md border-2 transition-transform hover:scale-110"
+                    style={{
+                      background: color,
+                      borderColor: agent.avatar_color === color ? "var(--accent)" : "transparent",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>

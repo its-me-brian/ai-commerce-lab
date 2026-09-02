@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { ErrorMessage } from "@/components/ui/ErrorMessage";
 
 interface CatalogProduct {
   id: string;
@@ -52,12 +53,14 @@ export default function CatalogPage() {
     discovered: 0, evaluating: 0, approved: 0, listed: 0, rejected: 0, archived: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
@@ -69,9 +72,11 @@ export default function CatalogPage() {
       if (data.success) {
         setProducts(data.products);
         setCounts(data.counts);
+      } else {
+        setError(data.error || "Failed to load catalog");
       }
     } catch (err) {
-      console.error("Failed to fetch catalog:", err);
+      setError("Failed to connect to the server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -112,6 +117,15 @@ export default function CatalogPage() {
 
   return (
     <div className="page-padding" style={{ maxWidth: 1200 }}>
+      {/* Error display */}
+      {error && (
+        <ErrorMessage
+          message={error}
+          onRetry={fetchProducts}
+          className="mb-6"
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

@@ -44,6 +44,23 @@ class BrowserMLProvider {
   private requestId = 0;
   private progressCallback: ProgressCallback | null = null;
 
+  // §45: Persist model info across page loads via localStorage
+  private static STORAGE_KEY = "browser-ml-loaded-model";
+
+  constructor() {
+    // Restore previously loaded model info from localStorage
+    try {
+      const saved = localStorage.getItem(BrowserMLProvider.STORAGE_KEY);
+      if (saved) {
+        const { model, task } = JSON.parse(saved);
+        this.loadedModel = model;
+        this.loadedTask = task;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
   /**
    * Check if browser ML is available (Web Worker support).
    */
@@ -105,6 +122,15 @@ class BrowserMLProvider {
             case "loaded":
               this.loadedModel = model;
               this.loadedTask = task;
+              // §45: Persist to localStorage for cross-page-load caching
+              try {
+                localStorage.setItem(
+                  BrowserMLProvider.STORAGE_KEY,
+                  JSON.stringify({ model, task })
+                );
+              } catch {
+                // Ignore storage errors (private browsing, etc.)
+              }
               resolve();
               break;
 
@@ -196,6 +222,13 @@ class BrowserMLProvider {
     }
     this.loadedModel = null;
     this.loadedTask = null;
+
+    // §45: Clear persisted model info
+    try {
+      localStorage.removeItem(BrowserMLProvider.STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
 
     // Reject all pending requests
     for (const [id, pending] of this.pendingRequests) {

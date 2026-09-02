@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ErrorMessage } from "@/components/ui/ErrorMessage";
 
 interface Budget {
   id: string;
@@ -31,6 +32,7 @@ export default function BudgetsPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [statuses, setStatuses] = useState<BudgetStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -38,23 +40,28 @@ export default function BudgetsPage() {
 
   async function fetchData() {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/ai/budgets?action=list");
       const data = await res.json();
-      if (data.success) setBudgets(data.budgets);
+      if (data.success) {
+        setBudgets(data.budgets);
 
-      const entities = [...new Set(data.budgets.map((b: Budget) => `${b.entityType}:${b.entityId}`))] as string[];
-      const statusResults = await Promise.all(
-        entities.map(async (key: string) => {
-          const [type, id] = key.split(":");
-          const r = await fetch(`/api/ai/budgets?action=status&entityId=${id}&entityType=${type}`);
-          const d = await r.json();
-          return d.success ? d.statuses : [];
-        })
-      );
-      setStatuses(statusResults.flat());
+        const entities = [...new Set(data.budgets.map((b: Budget) => `${b.entityType}:${b.entityId}`))] as string[];
+        const statusResults = await Promise.all(
+          entities.map(async (key: string) => {
+            const [type, id] = key.split(":");
+            const r = await fetch(`/api/ai/budgets?action=status&entityId=${id}&entityType=${type}`);
+            const d = await r.json();
+            return d.success ? d.statuses : [];
+          })
+        );
+        setStatuses(statusResults.flat());
+      } else {
+        setError(data.error || "Failed to load budgets");
+      }
     } catch (err) {
-      console.error("Failed to load budgets:", err);
+      setError("Failed to connect to the server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -66,6 +73,14 @@ export default function BudgetsPage() {
         <h1 style={{ marginBottom: 3 }}>Cost Budgets</h1>
         <p>Spending limits per agent, workflow, and globally</p>
       </div>
+
+      {error && (
+        <ErrorMessage
+          message={error}
+          onRetry={fetchData}
+          className="mb-6"
+        />
+      )}
 
       {loading ? (
         <p style={{ fontSize: "0.8125rem", color: "var(--text-tertiary)" }}>Loading budgets...</p>
