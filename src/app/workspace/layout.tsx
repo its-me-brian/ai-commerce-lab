@@ -51,7 +51,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main content */}
-      <div className="main-content flex-1 flex flex-col min-w-0">
+      <div className="main-content flex-1 flex flex-col min-w-0 min-h-screen">
         {/* Mobile header */}
         <div className="mobile-header sticky top-0 z-30 h-14 bg-[var(--bg-card)] border-b border-[var(--border-subtle)] flex items-center px-4 gap-3">
           <button

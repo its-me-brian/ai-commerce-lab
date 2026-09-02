@@ -32,8 +32,22 @@ export default function WorkspacePage() {
   const [selectedAgent, setSelectedAgent] = useState<AgentRecord | null>(null);
   const [view, setView] = useState<"room" | "agent">("room");
   const [loading, setLoading] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Mobile: panels are mutually exclusive
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => {
+      if (!prev) setRightPanelOpen(false); // close right panel when opening sidebar
+      return !prev;
+    });
+  };
+  const toggleRightPanel = () => {
+    setRightPanelOpen((prev) => {
+      if (!prev) setSidebarOpen(false); // close sidebar when opening right panel
+      return !prev;
+    });
+  };
 
   useEffect(() => {
     async function fetchAgents() {
@@ -86,7 +100,15 @@ export default function WorkspacePage() {
   const isRoom = view === "room";
 
   return (
-    <div className="flex flex-1 min-h-0 relative">
+    <div className="flex flex-1 min-h-0 relative overflow-hidden">
+      {/* Mobile overlay for agent sidebar */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-20 bg-black/40 backdrop-blur-sm lg:hidden"
+        />
+      )}
+
       {/* ===== LEFT: Agent sidebar ===== */}
       <div
         className={`
@@ -191,9 +213,9 @@ export default function WorkspacePage() {
         {/* Mobile toolbar: sidebar toggle + right panel toggle */}
         <div className="flex items-center gap-2 px-3 py-2 border-b lg:hidden shrink-0" style={{ borderColor: "var(--border-subtle)", background: "var(--bg-card)" }}>
           <button
-            onClick={() => setSidebarOpen(true)}
+            onClick={toggleSidebar}
             className="w-8 h-8 flex items-center justify-center rounded-[var(--r-md)] hover:bg-[var(--bg-hover)] transition-colors"
-            style={{ color: "var(--text-secondary)" }}
+            style={{ color: sidebarOpen ? "var(--accent)" : "var(--text-secondary)" }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M3 12h18M3 6h18M3 18h18" />
@@ -201,7 +223,7 @@ export default function WorkspacePage() {
           </button>
           <div className="flex-1" />
           <button
-            onClick={() => setRightPanelOpen(!rightPanelOpen)}
+            onClick={toggleRightPanel}
             className="w-8 h-8 flex items-center justify-center rounded-[var(--r-md)] hover:bg-[var(--bg-hover)] transition-colors"
             style={{ color: rightPanelOpen ? "var(--accent)" : "var(--text-secondary)" }}
           >
@@ -212,7 +234,7 @@ export default function WorkspacePage() {
         </div>
 
         {isRoom ? (
-          <CompanyRoom workspaceId="default" agents={agents} onTogglePanel={() => setRightPanelOpen(!rightPanelOpen)} panelOpen={rightPanelOpen} />
+          <CompanyRoom workspaceId="default" agents={agents} onTogglePanel={toggleRightPanel} panelOpen={rightPanelOpen} />
         ) : selectedAgent ? (
           <ChatContainer
             agents={agents}
@@ -231,7 +253,7 @@ export default function WorkspacePage() {
       {/* ===== Mobile right panel overlay ===== */}
       {rightPanelOpen && (
         <div
-          onClick={() => setRightPanelOpen(false)}
+          onClick={toggleRightPanel}
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
         />
       )}
@@ -240,7 +262,7 @@ export default function WorkspacePage() {
       <div
         className={`
           fixed inset-y-0 right-0 z-50 w-[300px] flex flex-col border-l overflow-y-auto transition-transform duration-200 ease-in-out
-          lg:relative lg:z-auto lg:shrink-0
+          lg:relative lg:z-auto lg:shrink-0 lg:h-full
           ${rightPanelOpen ? "translate-x-0" : "translate-x-full"}
           ${rightPanelOpen ? "" : "lg:hidden"}
         `}
@@ -249,7 +271,7 @@ export default function WorkspacePage() {
         {/* Mobile close button */}
         <div className="px-4 py-2 flex justify-end lg:hidden shrink-0">
           <button
-            onClick={() => setRightPanelOpen(false)}
+            onClick={toggleRightPanel}
             className="w-7 h-7 flex items-center justify-center rounded hover:bg-[var(--bg-hover)] transition-colors"
             style={{ color: "var(--text-tertiary)" }}
           >
