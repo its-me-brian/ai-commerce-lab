@@ -1,10 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/agents/list
 // List all agents with their configs for the workspace selector
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     // Get all agents
     const { data: agents, error: agentsError } = await supabase
       .from("agents")

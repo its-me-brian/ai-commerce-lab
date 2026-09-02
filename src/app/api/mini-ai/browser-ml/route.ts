@@ -1,7 +1,8 @@
 // GET /api/mini-ai/browser-ml — Returns available browser-ml models.
 // POST /api/mini-ai/browser-ml — Proxy for server-side browser-ml inference (fallback).
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 const AVAILABLE_MODELS = [
   {
@@ -30,7 +31,10 @@ const AVAILABLE_MODELS = [
   },
 ];
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   return NextResponse.json({
     success: true,
     models: AVAILABLE_MODELS,
@@ -38,7 +42,10 @@ export async function GET() {
   });
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   // Server-side fallback: if browser-ml is not available (e.g., SSR),
   // return a placeholder indicating the model should run client-side.
   try {

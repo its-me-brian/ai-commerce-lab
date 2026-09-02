@@ -1,9 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/agents/config?agentId=product-hunter
 // Get agent configuration
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   try {
     const { searchParams } = new URL(request.url);
     const agentId = searchParams.get("agentId");
@@ -107,7 +111,10 @@ export async function GET(request: Request) {
 
 // PUT /api/agents/config
 // Update agent configuration
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   try {
     const body = await request.json();
     const {

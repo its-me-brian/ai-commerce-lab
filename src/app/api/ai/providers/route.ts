@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProviderStatuses } from "@/lib/ai/provider-test";
 import { supabase } from "@/lib/database/supabase";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/ai/providers
 // Lists all registered providers with their configuration status.
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const providers = await getProviderStatuses();
     return NextResponse.json({ success: true, providers });
   } catch (error) {
@@ -23,6 +28,10 @@ export async function GET() {
 // Enable/disable a provider by slug
 export async function PATCH(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const body = await request.json();
     const { id, slug, enabled } = body as { id?: string; slug?: string; enabled?: boolean };
 

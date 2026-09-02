@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/agents/[id]/events
 // Get task events for tasks owned by this agent
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   const { id } = await params;
 
   // Get task IDs for this agent first

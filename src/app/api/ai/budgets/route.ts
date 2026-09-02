@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCostBudgetTracker } from "@/lib/ai/cost-budget";
+import { requireAuth } from "@/lib/auth/api-auth";
 import type { CostBudget, BudgetEntityType } from "@/lib/ai/cost-budget";
 
 // GET /api/ai/budgets
 // Get all budgets or status for an entity
 export async function GET(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action") || "list";
     const entityId = searchParams.get("entityId");
@@ -65,6 +70,10 @@ export async function GET(request: NextRequest) {
 // Create or update a budget
 export async function POST(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const body = await request.json();
     const { budget, action } = body as {
       budget?: CostBudget;

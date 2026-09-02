@@ -3,9 +3,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 export async function GET(req: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(req);
+    if ("error" in auth) return auth.error;
+
     const { searchParams } = new URL(req.url);
     const agentId = searchParams.get("agentId");
 

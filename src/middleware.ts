@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
 // In-memory rate limiter (lightweight, no external deps)
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
@@ -28,7 +29,6 @@ const cleanupInterval = setInterval(() => {
 
 // Prevent the interval from keeping the process alive
 if (typeof clearInterval === "function") {
-  // Node.js — unref the interval
   try { (cleanupInterval as ReturnType<typeof setInterval>); } catch { /* browser env */ }
 }
 
@@ -40,7 +40,37 @@ function getClientIp(request: NextRequest): string {
   );
 }
 
-export function middleware(request: NextRequest) {
+/**
+ * Refresh Supabase session from cookies.
+ * This ensures the auth token is always up-to-date.
+ */
+async function refreshSession(request: NextRequest, response: NextResponse) {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  // This refreshes the auth cookie and extends the session
+  await supabase.auth.getUser();
+  return supabase;
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // === Security Headers ===
@@ -56,6 +86,33 @@ export function middleware(request: NextRequest) {
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   // Permissions policy — disable camera, mic, geolocation
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+
+  // === Public routes (no auth required) ===
+  const publicRoutes = ["/login", "/signup", "/"];
+  const isPublicRoute = publicRoutes.some((route) => pathname === route);
+
+  // API routes: allow without auth for now (will add per-route auth later)
+  const isApiRoute = pathname.startsWith("/api/");
+
+  // Static assets: no auth needed
+  const isStaticAsset =
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    pathname.includes(".");
+
+  // === Auth check for protected routes ===
+  if (!isPublicRoute && !isApiRoute && !isStaticAsset) {
+    const supabase = await refreshSession(request, response);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      // Redirect to login, preserving the original URL
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
 
   // === Rate Limiting for API routes ===
   if (pathname.startsWith("/api/")) {

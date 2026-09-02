@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/conversations
 // List conversations with optional agent filter
 export async function GET(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const { searchParams } = new URL(request.url);
     const agentId = searchParams.get("agentId");
+    const workspaceId = searchParams.get("workspaceId");
     const limit = parseInt(searchParams.get("limit") || "20");
     const offset = parseInt(searchParams.get("offset") || "0");
 
@@ -17,6 +23,7 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (agentId) query = query.eq("agent_id", agentId);
+    if (workspaceId) query = query.eq("workspace_id", workspaceId);
 
     const { data, error } = await query;
 
@@ -30,6 +37,7 @@ export async function GET(request: NextRequest) {
       .select("*", { count: "exact", head: true });
 
     if (agentId) countQuery = countQuery.eq("agent_id", agentId);
+    if (workspaceId) countQuery = countQuery.eq("workspace_id", workspaceId);
 
     const { count } = await countQuery;
 

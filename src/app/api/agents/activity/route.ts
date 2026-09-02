@@ -3,9 +3,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 export async function GET(req: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(req);
+    if ("error" in auth) return auth.error;
+
     const { searchParams } = new URL(req.url);
     const idsParam = searchParams.get("ids");
 

@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { bootstrap, getAgentRegistry } from "@/lib/ai/bootstrap";
 import { AgentEngine } from "@/lib/agents/core/engine";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // POST /api/agents/product-hunter/run
 // Legacy endpoint — redirects to generic /api/agents/run
 // Kept for backward compatibility.
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   try {
     const body = await request.json();
 

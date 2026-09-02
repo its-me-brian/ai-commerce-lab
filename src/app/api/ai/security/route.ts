@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSecurityAudit } from "@/lib/security/middleware";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/ai/security
 // Query security audit events
 export async function GET(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action") || "recent";
     const count = parseInt(searchParams.get("count") || "50");

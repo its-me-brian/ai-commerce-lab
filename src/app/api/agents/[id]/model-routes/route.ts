@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/agents/[id]/model-routes
 // Get model routes (pool) for an agent
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   const { id } = await params;
 
   const { data, error } = await supabase
@@ -28,6 +32,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   const { id } = await params;
   const body = await request.json();
   const { modelId, priority, policy } = body as {
@@ -68,6 +75,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   const { id } = await params;
   const body = await request.json();
   const { routeId, priority, policy, enabled } = body as {
@@ -123,6 +133,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const routeId = searchParams.get("routeId");

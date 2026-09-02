@@ -1,8 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // POST /api/products/search
 // Search for products using Product Hunter agent
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   try {
     const body = await request.json();
     const { query, mode = "discover" } = body as {

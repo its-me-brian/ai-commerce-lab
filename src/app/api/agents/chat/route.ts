@@ -1,11 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { chatWithAgent } from "@/lib/ai/agent-chat";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // POST /api/agents/chat
 // Send a message to an agent and get a response.
 // Body: { agentId, message, conversationId?, workspaceId? }
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const body = await request.json();
     const { agentId, message, conversationId, workspaceId } = body as {
       agentId?: string;

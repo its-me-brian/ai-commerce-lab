@@ -3,11 +3,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   try {
     const { id } = await params;
     const engine = getConversationEngine();

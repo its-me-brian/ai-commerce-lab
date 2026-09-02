@@ -3,13 +3,17 @@
 // PATCH /api/catalog/[id] — Update product (status, content, etc.)
 // DELETE /api/catalog/[id] — Remove from catalog
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getCatalogService } from "@/lib/catalog/service";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   try {
     const { id } = await params;
     const catalog = getCatalogService();
@@ -32,9 +36,12 @@ export async function GET(
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -59,9 +66,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   try {
     const { id } = await params;
     const catalog = getCatalogService();

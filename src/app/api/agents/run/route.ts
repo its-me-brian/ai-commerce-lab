@@ -1,12 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { bootstrap, getAgentRegistry } from "@/lib/ai/bootstrap";
 import { AgentEngine } from "@/lib/agents/core/engine";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // POST /api/agents/run
 // Generic agent execution endpoint.
 // Accepts { agentId, input } — config comes from Supabase, never from the client.
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const body = await request.json();
     const { agentId, input } = body as {
       agentId: string;

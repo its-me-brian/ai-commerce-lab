@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/events
 // Query app events with optional filters
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   try {
     const { searchParams } = new URL(request.url);
     const eventType = searchParams.get("type");
@@ -45,6 +49,9 @@ export async function GET(request: NextRequest) {
 // POST /api/events
 // Log a new event
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   try {
     const body = await request.json();
     const { eventType, severity, source, agentId, message, metadata } = body as {

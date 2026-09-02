@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
 import { multiAgentChat } from "@/lib/ai/multi-agent-chat";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 interface RoomMessageRequest {
   workspaceId: string;
@@ -16,6 +17,10 @@ interface RoomMessageRequest {
 // GET: Load room conversation + messages (no side effects)
 export async function GET(req: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(req);
+    if ("error" in auth) return auth.error;
+
     const { searchParams } = new URL(req.url);
     const workspaceId = searchParams.get("workspaceId");
 
@@ -64,6 +69,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(req);
+    if ("error" in auth) return auth.error;
+
     const body = await req.json();
     const { workspaceId, message, targetAgentId } = body as RoomMessageRequest;
 

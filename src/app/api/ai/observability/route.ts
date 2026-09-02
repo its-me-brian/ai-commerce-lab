@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStructuredLogger, getExecutionTracer, getMetricsCollector } from "@/lib/ai/observability";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/ai/observability
 // Query logs, traces, and metrics
 export async function GET(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const { searchParams } = new URL(request.url);
     const resource = searchParams.get("resource") || "logs";
     const count = parseInt(searchParams.get("count") || "50");

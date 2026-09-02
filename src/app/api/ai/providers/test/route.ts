@@ -1,10 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { testProviderConnection } from "@/lib/ai/provider-test";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // POST /api/ai/providers/test
 // Tests connection to a specific AI provider.
 // Body: { provider: string, model?: string }
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request);
+  if ("error" in auth) return auth.error;
+
   try {
     const body = await request.json();
     const { provider, model } = body as {

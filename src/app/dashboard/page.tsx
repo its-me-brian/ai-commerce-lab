@@ -1,14 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/database/supabase";
 import { Card, CardHeader, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 import { groupTasksByDay, groupTasksByAgent } from "@/types/dashboard";
 import type { AgentRun, AppEvent, AgentTask, AgentHealthData } from "@/types/dashboard";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
 
 export const dynamic = "force-dynamic";
 
@@ -172,8 +167,22 @@ function QuickAction({
 // ═══════════════════════════════════════════════════════════════════
 // PAGE (Server Component)
 // ═══════════════════════════════════════════════════════════════════
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: { workspaceId?: string };
+}) {
+  const workspaceId = searchParams?.workspaceId;
+
   // ── Fetch all data in parallel ───────────────────────────────────
+  let agentsQuery = supabase.from("agents").select("*", { count: "exact", head: true });
+  let activeAgentsQuery = supabase.from("agents").select("*", { count: "exact", head: true }).eq("enabled", true).eq("status", "ready");
+
+  if (workspaceId) {
+    agentsQuery = agentsQuery.eq("workspace_id", workspaceId);
+    activeAgentsQuery = activeAgentsQuery.eq("workspace_id", workspaceId);
+  }
+
   const [
     agentsResult,
     activeAgentsResult,
@@ -188,8 +197,8 @@ export default async function DashboardPage() {
     recentEventsResult,
     allTasksResult,
   ] = await Promise.all([
-    supabase.from("agents").select("*", { count: "exact", head: true }),
-    supabase.from("agents").select("*", { count: "exact", head: true }).eq("enabled", true).eq("status", "ready"),
+    agentsQuery,
+    activeAgentsQuery,
     supabase.from("agent_tasks").select("*", { count: "exact", head: true }),
     supabase.from("agent_tasks").select("*", { count: "exact", head: true }).eq("status", "completed"),
     supabase.from("agent_tasks").select("*", { count: "exact", head: true }).eq("status", "failed"),
@@ -235,9 +244,15 @@ export default async function DashboardPage() {
   const recentEvents = (recentEventsResult.data || []) as unknown as AppEvent[];
 
   // ── Agent health breakdown ───────────────────────────────────────
-  const { data: agentStatuses } = await supabase
+  let agentStatusesQuery = supabase
     .from("agents")
     .select("status, enabled");
+
+  if (workspaceId) {
+    agentStatusesQuery = agentStatusesQuery.eq("workspace_id", workspaceId);
+  }
+
+  const { data: agentStatuses } = await agentStatusesQuery;
 
   const agentHealth: AgentHealthData = { ready: 0, error: 0, disabled: 0, other: 0 };
   for (const a of agentStatuses || []) {

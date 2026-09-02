@@ -1,10 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getWorkspaceService } from "@/lib/workspaces/service";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/workspaces
 // Returns the current workspace (or default).
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id") || undefined;
 
@@ -35,8 +40,12 @@ export async function GET(request: Request) {
 
 // POST /api/workspaces
 // Create a new workspace.
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const body = await request.json();
     const { name, description, target_country, currency, target_customer, brand_voice, target_margin, supplier_countries } = body;
 
@@ -82,8 +91,12 @@ export async function POST(request: Request) {
 
 // PUT /api/workspaces
 // Update an existing workspace.
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const body = await request.json();
     const { id, ...updates } = body;
 

@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEvaluationEngine } from "@/lib/ai/evaluation";
+import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/ai/evaluation
 // Get evaluation history and aggregated metrics
 export async function GET(request: NextRequest) {
   try {
+    // Auth check
+    const auth = await requireAuth(request);
+    if ("error" in auth) return auth.error;
+
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action") || "recent";
     const count = parseInt(searchParams.get("count") || "50");

@@ -76,7 +76,7 @@ export class CatalogService {
   /**
    * List all catalog products, optionally filtered by status.
    */
-  async list(options?: { status?: CatalogStatus; limit?: number; offset?: number }): Promise<CatalogProduct[]> {
+  async list(options?: { status?: CatalogStatus; limit?: number; offset?: number; workspaceId?: string }): Promise<CatalogProduct[]> {
     let query = supabase
       .from("product_catalog")
       .select("*")
@@ -84,6 +84,10 @@ export class CatalogService {
 
     if (options?.status) {
       query = query.eq("status", options.status);
+    }
+
+    if (options?.workspaceId) {
+      query = query.eq("workspace_id", options.workspaceId);
     }
 
     if (options?.limit) {
@@ -204,14 +208,19 @@ export class CatalogService {
   /**
    * Search products by name or category.
    */
-  async search(query: string): Promise<CatalogProduct[]> {
-    const { data, error } = await supabase
+  async search(query: string, options?: { workspaceId?: string }): Promise<CatalogProduct[]> {
+    let searchQuery = supabase
       .from("product_catalog")
       .select("*")
       .or(`name.ilike.%${query}%,category.ilike.%${query}%`)
       .order("overall_score", { ascending: false })
       .limit(20);
 
+    if (options?.workspaceId) {
+      searchQuery = searchQuery.eq("workspace_id", options.workspaceId);
+    }
+
+    const { data, error } = await searchQuery;
     if (error || !data) return [];
     return data as CatalogProduct[];
   }
