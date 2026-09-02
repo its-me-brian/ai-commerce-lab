@@ -8,7 +8,7 @@
 |-------|--------|-------------|---------|-------|-------|
 | 0 — Audit | COMPLETE | PASS | 3 docs created | lint/tsc/test ran | Audit complete |
 | 1 — Security/Auth | COMPLETE | PENDING APPROVAL | 48 files, +1496 lines | 55/61 pass, 17 integration fail (expected) | Auth + RLS + workspace scoping |
-| 2 — Workspace + Conversations | PENDING | — | — | — | |
+| 2 — Workspace + Conversations | COMPLETE | PENDING APPROVAL | 5 files, +1 migration | 55/61 pass, same as P1 | Race conditions, pagination, workspace ID |
 | 3 — Agents + Identity | PENDING | — | — | — | |
 | 4 — Frontend Consolidation | PENDING | — | — | — | |
 | 5 — Remove Mocks | PENDING | — | — | — | |
@@ -64,3 +64,24 @@
 - New: Supabase migration for RLS
 
 ### Status: Starting
+
+---
+
+## Phase 2 — Workspace + Conversations
+
+### Changes made
+1. Room race condition fixed with unique partial index + atomic upsert
+2. Direct chat now scoped to workspace (no cross-workspace leaks)
+3. Message pagination added (limit/offset, default 100)
+4. Workspace ID normalized ("default" → "ws-default" at API boundary)
+5. Compound index for message queries added
+
+### Files changed
+- `src/lib/ai/conversation-engine.ts` — Upsert for rooms/direct, pagination, message count
+- `src/app/api/conversations/room/route.ts` — Workspace ID normalization
+- `src/app/api/conversations/[id]/messages/route.ts` — Pagination support
+- `src/app/api/agents/chat/route.ts` — Workspace ID normalization
+- `supabase/migrations/035_fix_conversation_race_conditions.sql` — Unique constraints
+
+### Quality Gate 2
+- `docs/QUALITY_GATE_2_CONVERSATIONS.md` — Verification checklist

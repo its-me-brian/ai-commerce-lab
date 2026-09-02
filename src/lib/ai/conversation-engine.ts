@@ -184,17 +184,39 @@ export class ConversationEngine {
   }
 
   /**
-   * Get all messages for a conversation, ordered by creation time.
+   * Get messages for a conversation, ordered by creation time.
+   * Supports pagination via limit/offset. Default: last 100 messages.
    */
-  async getMessages(conversationId: string): Promise<ConversationMessage[]> {
+  async getMessages(
+    conversationId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<ConversationMessage[]> {
+    const limit = options?.limit ?? 100;
+    const offset = options?.offset ?? 0;
+
     const { data, error } = await supabase
       .from("conversation_messages")
       .select("*")
       .eq("conversation_id", conversationId)
-      .order("created_at");
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error || !data) return [];
-    return data as ConversationMessage[];
+    // Reverse to chronological order (we fetched newest-first for range)
+    return (data as ConversationMessage[]).reverse();
+  }
+
+  /**
+   * Get total message count for a conversation (for pagination metadata).
+   */
+  async getMessageCount(conversationId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from("conversation_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversationId);
+
+    if (error || count === null) return 0;
+    return count;
   }
 
   /**
@@ -295,13 +317,52 @@ export class ConversationEngine {
 
   /**
    * Get or create a direct conversation between workspace and agent.
-   * Returns existing active conversation if found, otherwise creates new one.
+   * Scoped to workspace — won't leak conversations across workspaces.
+   * Uses unique constraint (agent_id + workspace_id) for race safety.
    */
   async getOrCreateDirect(
     agentId: string,
     workspaceId?: string
   ): Promise<Conversation | null> {
-    // Look for existing active direct conversation for this agent
+    const now = new Date().toISOString();
+
+    // Try atomic upsert first (race-safe with unique constraint)
+    if (workspaceId) {
+      const { data, error } = await supabase
+        .from("conversations")
+        .upsert(
+          {
+            agent_id: agentId,
+            workspace_id: workspaceId,
+            conversation_type: "direct",
+            status: "active",
+            message_count: 0,
+            created_at: now,
+            updated_at: now,
+          },
+          {
+            onConflict: "agent_id,workspace_id",
+            ignoreDuplicates: false, // update updated_at on conflict
+          }
+        )
+        .select()
+        .single();
+
+      if (!error && data) {
+        // Check if it's actually active (upsert may have matched an archived one)
+        if (data.status === "active") return data as Conversation;
+        // If archived, reactivate
+        const { data: reactivated } = await supabase
+          .from("conversations")
+          .update({ status: "active", updated_at: now })
+          .eq("id", data.id)
+          .select()
+          .single();
+        if (reactivated) return reactivated as Conversation;
+      }
+    }
+
+    // Fallback: find existing (for workspaceless calls or if upsert fails)
     const existing = await supabase
       .from("conversations")
       .select("*")
@@ -326,30 +387,37 @@ export class ConversationEngine {
 
   /**
    * Get or create a room conversation for a workspace.
-   * Rooms are shared multi-agent conversations.
+   * Race-safe: unique constraint on (workspace_id) WHERE type='room' AND status='active'.
    */
   async getOrCreateRoom(
     workspaceId: string,
     title?: string
   ): Promise<Conversation | null> {
-    // Look for existing active room in this workspace
-    const existing = await supabase
+    const now = new Date().toISOString();
+
+    // Atomic upsert — race-safe with unique partial index
+    const { data, error } = await supabase
       .from("conversations")
-      .select("*")
-      .eq("workspace_id", workspaceId)
-      .eq("conversation_type", "room")
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
+      .upsert(
+        {
+          workspace_id: workspaceId,
+          conversation_type: "room",
+          title: title || "Company Room",
+          status: "active",
+          message_count: 0,
+          created_at: now,
+          updated_at: now,
+        },
+        {
+          onConflict: "workspace_id",
+          ignoreDuplicates: false,
+        }
+      )
+      .select()
+      .single();
 
-    if (existing.data) return existing.data as Conversation;
-
-    // Create new room conversation
-    return this.create({
-      workspace_id: workspaceId,
-      conversation_type: "room",
-      title: title || "Company Room",
-    });
+    if (error || !data) return null;
+    return data as Conversation;
   }
 
   /**

@@ -26,11 +26,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Normalize workspace ID — UI may send "default", backend uses "ws-default"
+    const normalizedWorkspaceId = workspaceId === "default" ? "ws-default" : workspaceId;
+
     const result = await chatWithAgent({
       agentId,
       message,
       conversationId,
-      workspaceId,
+      workspaceId: normalizedWorkspaceId,
     });
 
     return NextResponse.json({

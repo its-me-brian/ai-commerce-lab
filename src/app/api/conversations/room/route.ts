@@ -31,10 +31,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Normalize workspace ID
+    const normalizedWorkspaceId = workspaceId === "default" ? "ws-default" : workspaceId;
+
     const engine = getConversationEngine();
 
     // Find existing room conversation
-    const conversations = await engine.listByWorkspace(workspaceId);
+    const conversations = await engine.listByWorkspace(normalizedWorkspaceId);
     const room = conversations.find(
       (c) => c.conversation_type === "room" && c.status === "active"
     );
@@ -83,10 +86,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Normalize workspace ID — UI may send "default", backend uses "ws-default"
+    const normalizedWorkspaceId = workspaceId === "default" ? "ws-default" : workspaceId;
+
     const engine = getConversationEngine();
 
     // 1. Get or create room conversation for this workspace
-    const conversation = await engine.getOrCreateRoom(workspaceId);
+    const conversation = await engine.getOrCreateRoom(normalizedWorkspaceId);
     if (!conversation) {
       return NextResponse.json(
         { success: false, error: "Failed to create room conversation" },
@@ -98,7 +104,7 @@ export async function POST(req: NextRequest) {
     const result = await multiAgentChat({
       message,
       conversationId: conversation.id,
-      workspaceId,
+      workspaceId: normalizedWorkspaceId,
       targetAgentId: targetAgentId || undefined,
     });
 

@@ -1,5 +1,6 @@
 // GET /api/conversations/[id]/messages — Load messages for a conversation
 // Used by ChatContainer to restore history from Supabase.
+// Supports pagination: ?limit=50&offset=0 (default: last 100 messages)
 
 import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
@@ -25,13 +26,25 @@ export async function GET(
       );
     }
 
-    // Get all messages ordered chronologically
-    const messages = await engine.getMessages(id);
+    // Parse pagination params
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "100", 10), 1), 500);
+    const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
+
+    // Get messages with pagination
+    const messages = await engine.getMessages(id, { limit, offset });
+    const totalCount = await engine.getMessageCount(id);
 
     return NextResponse.json({
       success: true,
       conversation,
       messages,
+      pagination: {
+        total: totalCount,
+        limit,
+        offset,
+        hasMore: offset + limit < totalCount,
+      },
     });
   } catch (error) {
     return NextResponse.json(
