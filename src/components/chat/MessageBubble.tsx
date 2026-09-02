@@ -189,7 +189,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
         {/* Message bubble */}
         <div
-          className="px-3 py-2 rounded-2xl text-[13px] leading-relaxed"
+          className={`px-4 py-2.5 rounded-2xl text-[13px] leading-relaxed ${isUser ? "font-medium" : ""}`}
           style={{
             background: isUser
               ? "var(--accent)"
@@ -197,12 +197,13 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
                 ? "var(--error-bg)"
                 : "var(--bg-sunken)",
             color: isUser
-              ? "var(--text-inverse)"
+              ? "#ffffff"
               : isSystem
                 ? "var(--error)"
                 : "var(--text-primary)",
             borderBottomRightRadius: isUser ? "6px" : undefined,
             borderBottomLeftRadius: !isUser ? "6px" : undefined,
+            boxShadow: isUser ? "0 1px 3px rgba(37, 99, 235, 0.25)" : undefined,
           }}
         >
           <p className="whitespace-pre-wrap">{message.content}</p>
@@ -211,7 +212,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
         {/* Timestamp */}
         <p
-          className="text-[10px] mt-1 px-1"
+          className="text-[11px] mt-1.5 px-1"
           style={{
             color: "var(--text-tertiary)",
             textAlign: isUser ? "right" : "left",

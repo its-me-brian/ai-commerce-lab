@@ -41,7 +41,7 @@ export default function SettingsPage() {
           }
         }
       } catch {
-        // Error handling
+        console.error("Failed to load workspace settings");
       } finally {
         setLoading(false);
       }
@@ -59,7 +59,7 @@ export default function SettingsPage() {
         body: JSON.stringify(settings),
       });
     } catch {
-      // Error handling
+      console.error("Failed to save workspace settings");
     } finally {
       setSaving(false);
     }

@@ -96,7 +96,7 @@ export default function AgentProfilePage() {
           setModelRoutes(routesData.routes || []);
         }
       } catch {
-        // Error handling
+        console.error("Failed to load agent data");
       } finally {
         setLoading(false);
       }

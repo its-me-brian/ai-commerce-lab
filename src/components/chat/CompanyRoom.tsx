@@ -364,16 +364,17 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
 
                 {/* Message bubble */}
                 <div
-                  className="px-3 py-2 rounded-2xl text-[13px] leading-relaxed"
+                  className={`px-4 py-2.5 rounded-2xl text-[13px] leading-relaxed ${isUser ? "font-medium" : ""}`}
                   style={{
                     background: isUser
                       ? "var(--accent)"
                       : agentColors?.bg || "var(--bg-sunken)",
                     color: isUser
-                      ? "var(--text-inverse)"
+                      ? "#ffffff"
                       : agentColors?.text || "var(--text-primary)",
                     borderBottomRightRadius: isUser ? "6px" : undefined,
                     borderBottomLeftRadius: !isUser ? "6px" : undefined,
+                    boxShadow: isUser ? "0 1px 3px rgba(37, 99, 235, 0.25)" : undefined,
                   }}
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -381,7 +382,7 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
 
                 {/* Timestamp */}
                 <p
-                  className="text-[10px] mt-1 px-1"
+                  className="text-[11px] mt-1.5 px-1"
                   style={{
                     color: "var(--text-tertiary)",
                     textAlign: isUser ? "right" : "left",
