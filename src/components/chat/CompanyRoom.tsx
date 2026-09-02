@@ -367,14 +367,14 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
                   className={`px-4 py-2.5 rounded-2xl text-[13px] leading-relaxed ${isUser ? "font-medium" : ""}`}
                   style={{
                     background: isUser
-                      ? "var(--accent)"
+                      ? "var(--accent-light)"
                       : agentColors?.bg || "var(--bg-sunken)",
                     color: isUser
-                      ? "#ffffff"
+                      ? "var(--accent-hover)"
                       : agentColors?.text || "var(--text-primary)",
                     borderBottomRightRadius: isUser ? "6px" : undefined,
                     borderBottomLeftRadius: !isUser ? "6px" : undefined,
-                    boxShadow: isUser ? "0 1px 3px rgba(37, 99, 235, 0.25)" : undefined,
+                    border: isUser ? "1px solid var(--accent-muted)" : undefined,
                   }}
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>

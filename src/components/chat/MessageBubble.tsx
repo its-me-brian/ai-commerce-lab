@@ -191,19 +191,19 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
         <div
           className={`px-4 py-2.5 rounded-2xl text-[13px] leading-relaxed ${isUser ? "font-medium" : ""}`}
           style={{
-            background: isUser
-              ? "var(--accent)"
-              : isSystem
-                ? "var(--error-bg)"
-                : "var(--bg-sunken)",
-            color: isUser
-              ? "#ffffff"
-              : isSystem
-                ? "var(--error)"
-                : "var(--text-primary)",
+                    background: isUser
+                      ? "var(--accent-light)"
+                      : isSystem
+                        ? "var(--error-bg)"
+                        : "var(--bg-sunken)",
+                    color: isUser
+                      ? "var(--accent-hover)"
+                      : isSystem
+                        ? "var(--error)"
+                        : "var(--text-primary)",
             borderBottomRightRadius: isUser ? "6px" : undefined,
             borderBottomLeftRadius: !isUser ? "6px" : undefined,
-            boxShadow: isUser ? "0 1px 3px rgba(37, 99, 235, 0.25)" : undefined,
+                    border: isUser ? "1px solid var(--accent-muted)" : undefined,
           }}
         >
           <p className="whitespace-pre-wrap">{message.content}</p>
