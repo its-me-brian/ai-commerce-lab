@@ -88,8 +88,8 @@ export async function middleware(request: NextRequest) {
   response.headers.set("X-XSS-Protection", "1; mode=block");
   // Referrer policy
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  // Permissions policy — disable camera, mic, geolocation
-  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  // Permissions policy — disable camera, geolocation; allow microphone for speech-to-text
+  response.headers.set("Permissions-Policy", "camera=(), microphone=self, geolocation=()");
 
   // === Public routes (no auth required) ===
   const publicRoutes = ["/login", "/signup", "/"];

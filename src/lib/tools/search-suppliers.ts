@@ -90,7 +90,7 @@ const MOCK_SUPPLIERS: SupplierResult[] = [
 export class SearchSuppliersTool implements Tool {
   readonly id = "search_suppliers";
   readonly name = "Search Suppliers";
-  readonly description = "Search for suppliers by product category or name. Returns mock data for development.";
+  readonly description = "Search for suppliers by product category or name. DEV ONLY: returns mock data. Replace with real APIs (AliExpress, Alibaba) for production.";
   readonly inputSchema = {
     type: "object",
     properties: {

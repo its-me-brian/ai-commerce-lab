@@ -100,7 +100,7 @@ export default function WorkspacePage() {
   const isRoom = view === "room";
 
   return (
-    <div className="flex flex-1 min-h-0 relative overflow-hidden">
+    <div className="flex flex-1 h-full min-h-0 relative overflow-hidden">
       {/* Mobile overlay for agent sidebar */}
       {sidebarOpen && (
         <div
@@ -113,7 +113,7 @@ export default function WorkspacePage() {
       <div
         className={`
           fixed inset-y-0 left-0 z-30 w-[260px] flex flex-col border-r overflow-y-auto transition-transform duration-200 ease-in-out
-          lg:relative lg:z-auto lg:translate-x-0 lg:w-[240px] lg:left-[var(--sidebar-w)]
+          lg:relative lg:z-auto lg:translate-x-0 lg:w-[240px]
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
         style={{ borderColor: "var(--border-subtle)", background: "var(--bg-card)" }}

@@ -71,18 +71,18 @@ export class SourceTypeManager {
     // Register default mock sources
     this.registerSource({
       id: "fakestore",
-      name: "FakeStore API",
+      name: "[DEV] FakeStore API",
       type: "mock",
       provider: "FakeStore",
-      notes: "Test product data for development",
+      notes: "Dev-only: ~20 simulated products, no search API. For development and testing only.",
     });
 
     this.registerSource({
       id: "dummyjson",
-      name: "DummyJSON",
+      name: "[DEV] DummyJSON",
       type: "mock",
       provider: "DummyJSON",
-      notes: "Sample product data for testing",
+      notes: "Dev-only: simulated product data. For development and testing only.",
     });
 
     this.registerSource({

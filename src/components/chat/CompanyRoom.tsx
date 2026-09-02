@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import type { AgentRecord } from "../agents/AgentCard";
 import { Badge } from "../ui/Badge";
 import { formatTime } from "@/lib/utils/format";
+import { MicrophoneButton } from "./MicrophoneButton";
 
 // Agent color mapping for visual differentiation
 const AGENT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -478,6 +479,10 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
             rows={1}
             className="flex-1 resize-none bg-transparent text-sm py-1 focus:outline-none"
             style={{ color: "var(--text-primary)" }}
+          />
+          <MicrophoneButton
+            textareaRef={textareaRef}
+            onTextInserted={(text) => handleInputChange(text)}
           />
           <button
             onClick={handleSend}

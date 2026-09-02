@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { MicrophoneButton } from "./MicrophoneButton";
 
 interface ChatComposerProps {
   onSend: (message: string) => void;
@@ -39,6 +40,11 @@ export function ChatComposer({
     }
   }
 
+  // Sync voice text to React state (for form submission)
+  function handleVoiceText(text: string) {
+    setInput(text);
+  }
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -65,6 +71,11 @@ export function ChatComposer({
           rows={1}
           className="flex-1 resize-none bg-transparent text-sm py-1 focus:outline-none disabled:opacity-40"
           style={{ color: "var(--text-primary)" }}
+        />
+        <MicrophoneButton
+          textareaRef={textareaRef}
+          onTextInserted={handleVoiceText}
+          disabled={disabled}
         />
         <button
           type="submit"

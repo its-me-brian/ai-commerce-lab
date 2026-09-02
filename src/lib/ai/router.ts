@@ -11,7 +11,8 @@ import type { AIProvider } from "./providers/base";
 import { getAgentModelRoutes, type AgentModelRoute } from "./agent-model-routes";
 import { getModelRegistry, type ModelRecord } from "./model-registry";
 import { calculateModelCost } from "./model-pricing";
-import { getMetricsCollector } from "./observability";
+import { getMetricsCollector, getStructuredLogger, getExecutionTracer } from "./observability";
+import { getResponseCache } from "./response-cache";
 
 export interface RouterConfig {
   agentId: string;
@@ -164,6 +165,8 @@ export class AIModelRouter {
   /**
    * FASE 10: Generate using agent_model_routes.
    * Loads routes from DB, tries each in priority order, falls back on failure.
+   * PHASE 7: Checks response cache first — zero token cost on cache hit.
+   * PHASE 8: Logs execution and traces spans for observability.
    */
   async generateForAgent(
     agentId: string,
@@ -171,6 +174,52 @@ export class AIModelRouter {
     overrides?: { temperature?: number; maxTokens?: number }
   ): Promise<{ result: AIGenerateResult; log: RouterExecutionLog }> {
     const startTime = Date.now();
+    const logger = getStructuredLogger();
+    const tracer = getExecutionTracer();
+
+    // Start trace for this request
+    const traceId = tracer.startTrace(`router:${agentId}`, {
+      agentId,
+      hasSystemPrompt: !!options.systemPrompt,
+      promptLength: options.prompt?.length ?? 0,
+    });
+
+    // PHASE 7: Check response cache first
+    const cache = getResponseCache();
+    const cachedResult = cache.get(
+      options.systemPrompt || "",
+      options.prompt || "",
+      options.model
+    );
+
+    if (cachedResult) {
+      // Cache hit — return immediately with zero token cost
+      logger.log({
+        severity: "info",
+        component: "router",
+        message: `Cache hit for agent ${agentId}`,
+        traceId,
+        context: { agentId },
+      });
+
+      const log: RouterExecutionLog = {
+        agentId,
+        provider: "cache",
+        model: "cached",
+        inputTokens: 0,
+        outputTokens: 0,
+        durationMs: 0,
+        success: true,
+        usedFallback: false,
+        timestamp: new Date(),
+      };
+
+      const metrics = getMetricsCollector();
+      metrics.record("router.cache.hit", 1, { agent: agentId });
+
+      tracer.endSpan(traceId, true);
+      return { result: cachedResult, log };
+    }
     const routesManager = getAgentModelRoutes();
     const modelRegistry = getModelRegistry();
 
@@ -205,6 +254,15 @@ export class AIModelRouter {
       }
 
       try {
+        // Start span for this route attempt
+        const spanId = tracer.startSpan(
+          traceId,
+          traceId,
+          `route:${model.provider_id}/${model.model_id}`,
+          "system",
+          { provider: model.provider_id, model: model.model_id, priority: route.priority }
+        );
+
         const result = await provider.generate({
           ...options,
           model: options.model ?? model.model_id,
@@ -212,13 +270,44 @@ export class AIModelRouter {
           maxOutputTokens: options.maxOutputTokens ?? overrides?.maxTokens,
         });
 
+        // PHASE 7: Cache the successful response
+        cache.set(
+          options.systemPrompt || "",
+          options.prompt || "",
+          result,
+          model.model_id
+        );
+
+        const durationMs = Date.now() - startTime;
+        const cost = calculateModelCost(model.model_id, result.inputTokens, result.outputTokens);
+
+        logger.log({
+          severity: "info",
+          component: "router",
+          message: `LLM call succeeded: ${model.provider_id}/${model.model_id}`,
+          traceId,
+          durationMs,
+          success: true,
+          context: {
+            agentId,
+            provider: model.provider_id,
+            model: model.model_id,
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            cost,
+            usedFallback: route.priority > 0,
+          },
+        });
+
+        tracer.endSpan(spanId, true, undefined);
+
         const log: RouterExecutionLog = {
           agentId,
           provider: model.provider_id,
           model: model.model_id,
           inputTokens: result.inputTokens,
           outputTokens: result.outputTokens,
-          durationMs: Date.now() - startTime,
+          durationMs,
           success: true,
           usedFallback: route.priority > 0,
           timestamp: new Date(),
@@ -228,23 +317,52 @@ export class AIModelRouter {
 
         // Record telemetry metrics for agent routing
         const metrics = getMetricsCollector();
-        const cost = calculateModelCost(model.model_id, result.inputTokens, result.outputTokens);
         metrics.record("router.execution.count", 1, { provider: model.provider_id, model: model.model_id, agent: agentId, status: "success" });
-        metrics.record("router.execution.latency_ms", Date.now() - startTime, { provider: model.provider_id, model: model.model_id, agent: agentId });
+        metrics.record("router.execution.latency_ms", durationMs, { provider: model.provider_id, model: model.model_id, agent: agentId });
         metrics.record("router.execution.cost_dollars", cost, { provider: model.provider_id, model: model.model_id, agent: agentId });
 
+        tracer.endSpan(traceId, true);
         return { result, log };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(
-          `[AI Router] Route ${route.id} (${model.provider_id}/${model.model_id}) failed:`,
-          lastError.message
-        );
+
+        logger.log({
+          severity: "warn",
+          component: "router",
+          message: `Route failed: ${model.provider_id}/${model.model_id}`,
+          traceId,
+          success: false,
+          context: {
+            agentId,
+            provider: model.provider_id,
+            model: model.model_id,
+            error: lastError.message,
+          },
+        });
+
         continue;
       }
     }
 
     // All routes failed
+    const durationMs = Date.now() - startTime;
+
+    logger.log({
+      severity: "error",
+      component: "router",
+      message: `All routes failed for agent ${agentId}`,
+      traceId,
+      durationMs,
+      success: false,
+      context: {
+        agentId,
+        routeCount: routes.length,
+        lastError: lastError?.message,
+      },
+    });
+
+    tracer.endSpan(traceId, false, lastError?.message);
+
     const log: RouterExecutionLog = {
       agentId,
       provider: routes.length > 0 ? modelRecords.get(routes[0].model_id)?.provider_id ?? "unknown" : "unknown",

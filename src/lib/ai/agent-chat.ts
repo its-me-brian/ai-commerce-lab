@@ -9,7 +9,8 @@ import { getRouter } from "./router";
 import { getConversationEngine, type Conversation, type ConversationMessage } from "./conversation-engine";
 import { getWorkspaceService } from "../workspaces/service";
 import { getTaskEngine } from "./task-engine";
-import { preprocessMessage, buildEnrichedPrompt } from "./prompt-pipeline";
+import { preprocessMessage, buildEnrichedPrompt, generateStatusResponse } from "./prompt-pipeline";
+import { getStructuredLogger, getExecutionTracer } from "./observability";
 
 export interface ChatInput {
   agentId: string;
@@ -37,10 +38,20 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   const conversationEngine = getConversationEngine();
   const workspaceService = getWorkspaceService();
   const taskEngine = getTaskEngine();
+  const logger = getStructuredLogger();
+  const tracer = getExecutionTracer();
+
+  // Start trace for this chat request
+  const traceId = tracer.startTrace(`chat:${input.agentId}`, {
+    agentId: input.agentId,
+    hasConversationId: !!input.conversationId,
+    messageLength: input.message.length,
+  });
 
   // 1. Validate agent exists
   const agent = registry.get(input.agentId);
   if (!agent) {
+    tracer.endSpan(traceId, false, `Agent not found: ${input.agentId}`);
     throw new Error(`Agent not found: ${input.agentId}`);
   }
 
@@ -201,6 +212,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   const baseSystemPrompt = systemPromptParts.join("\n");
 
   // 6. §28, §29: MiniAI preprocessing — intent classification + entity extraction
+  // KEY OPTIMIZATION: Fast-path for simple intents AND status queries (no LLM call needed)
   let enrichedSystemPrompt = baseSystemPrompt;
   try {
     const pipelineResult = await preprocessMessage({
@@ -209,13 +221,106 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
       workspaceId: input.workspaceId,
       conversationHistory: messages,
     });
-    enrichedSystemPrompt = buildEnrichedPrompt(baseSystemPrompt, pipelineResult);
+
+    // FAST-PATH: If MiniAI can answer without LLM, skip the LLM call
+    if (pipelineResult.canAnswerWithoutLLM) {
+      let responseText: string;
+
+      // STATUS QUERY: Query task engine directly
+      if (pipelineResult.isStatusQuery) {
+        logger.log({
+          severity: "info",
+          component: "agent-chat",
+          message: `Status query fast-path for agent ${input.agentId}`,
+          traceId,
+          context: { agentId: input.agentId, targetAgent: pipelineResult.statusQueryAgent },
+        });
+
+        try {
+          const targetAgent = pipelineResult.statusQueryAgent;
+          let tasks: Awaited<ReturnType<typeof taskEngine.listByAgent>> = [];
+
+          if (targetAgent) {
+            // Query specific agent's tasks
+            tasks = await taskEngine.listByAgent(targetAgent);
+          } else {
+            // Query all agents' recent tasks
+            const agentIds = ["product-hunter", "market-research", "supplier-research", "opportunity-scoring", "store-builder"];
+            for (const agent of agentIds) {
+              const agentTasks = await taskEngine.listByAgent(agent);
+              tasks.push(...agentTasks);
+            }
+            // Sort by created_at descending, take most recent
+            tasks.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            tasks = tasks.slice(0, 10);
+          }
+
+          responseText = generateStatusResponse(targetAgent ?? null, tasks, input.message);
+        } catch {
+          // Fallback if task engine fails
+          responseText = "No pude consultar el estado de las tareas. ¿Podrías reformular tu pregunta?";
+        }
+      } else {
+        // SIMPLE FAST-PATH: greeting, thanks, etc.
+        responseText = pipelineResult.fastPathResponse!;
+
+        logger.log({
+          severity: "info",
+          component: "agent-chat",
+          message: `Fast-path response for agent ${input.agentId}`,
+          traceId,
+          context: { agentId: input.agentId, intent: pipelineResult.intent },
+        });
+      }
+
+      // Add token savings info to response
+      const tokenInfo = pipelineResult.tokenSavings
+        ? ` [MiniAI: ${pipelineResult.tokenSavings.saved} tokens saved]`
+        : "";
+
+      // Save fast-path response to conversation
+      const assistantMessage = await conversationEngine.addMessage({
+        conversation_id: conversation.id,
+        role: "assistant",
+        content: responseText + tokenInfo,
+        provider: "mini-ai-fast-path",
+        model: "deterministic",
+        input_tokens: 0,
+        output_tokens: 0,
+        duration_ms: 0,
+      });
+
+      if (!assistantMessage) {
+        throw new Error("Failed to save fast-path response");
+      }
+
+      return {
+        conversation,
+        userMessage,
+        assistantMessage,
+      };
+    }
+
+    // Normal path: build optimized prompt for LLM
+    enrichedSystemPrompt = buildEnrichedPrompt(
+      baseSystemPrompt,
+      pipelineResult,
+      messages,
+    );
   } catch {
     // Continue with base prompt if preprocessing fails
   }
 
   // 7. Call AI via router
   const startTime = Date.now();
+
+  logger.log({
+    severity: "info",
+    component: "agent-chat",
+    message: `LLM call starting for agent ${input.agentId}`,
+    traceId,
+    context: { agentId: input.agentId, messageLength: input.message.length },
+  });
 
   try {
     const { result, log } = await router.generateForAgent(
@@ -226,6 +331,24 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
         responseFormat: "text",
       }
     );
+
+    const durationMs = Date.now() - startTime;
+
+    logger.log({
+      severity: "info",
+      component: "agent-chat",
+      message: `LLM call completed for agent ${input.agentId}`,
+      traceId,
+      durationMs,
+      success: true,
+      context: {
+        agentId: input.agentId,
+        provider: log.provider,
+        model: log.model,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+      },
+    });
 
     // 7. Add assistant message
     const assistantMessage = await conversationEngine.addMessage({
@@ -249,6 +372,23 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
       assistantMessage,
     };
   } catch (error) {
+    const durationMs = Date.now() - startTime;
+
+    logger.log({
+      severity: "error",
+      component: "agent-chat",
+      message: `LLM call failed for agent ${input.agentId}`,
+      traceId,
+      durationMs,
+      success: false,
+      context: {
+        agentId: input.agentId,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+
+    tracer.endSpan(traceId, false, error instanceof Error ? error.message : String(error));
+
     // Add error message to conversation
     await conversationEngine.addMessage({
       conversation_id: conversation.id,

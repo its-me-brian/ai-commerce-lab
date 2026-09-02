@@ -8,6 +8,7 @@ import type {
   AIGenerateResult,
   AIConnectionTestResult,
 } from "../types";
+import { countTokens } from "../token-counter";
 
 export abstract class AIProvider {
   abstract readonly slug: AIProviderSlug;
@@ -32,7 +33,6 @@ export abstract class AIProvider {
   >;
 
   protected estimateTokens(text: string): number {
-    // Rough estimation: ~4 chars per token for English
-    return Math.ceil(text.length / 4);
+    return countTokens(text);
   }
 }

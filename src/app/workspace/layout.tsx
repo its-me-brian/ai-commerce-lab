@@ -25,7 +25,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   }, [mobileOpen]);
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg)]">
+    <div className="flex h-screen overflow-hidden bg-[var(--bg)]">
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
@@ -51,9 +51,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main content */}
-      <div className="main-content flex-1 flex flex-col min-w-0 min-h-screen">
+      <div className="main-content flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Mobile header */}
-        <div className="mobile-header sticky top-0 z-30 h-14 bg-[var(--bg-card)] border-b border-[var(--border-subtle)] flex items-center px-4 gap-3">
+        <div className="mobile-header sticky top-0 z-30 h-14 bg-[var(--bg-card)] border-b border-[var(--border-subtle)] flex items-center px-4 gap-3 shrink-0">
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             className="w-9 h-9 flex items-center justify-center bg-transparent border border-[var(--border-subtle)] rounded-[var(--r-md)] cursor-pointer text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
@@ -72,7 +72,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           <span className="text-sm font-semibold text-[var(--text-primary)]">AI Commerce Lab</span>
         </div>
 
-        {children}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -17,7 +17,7 @@ export interface GeneratedImage {
 export class GenerateImageTool implements Tool {
   readonly id = "generate_image";
   readonly name = "Generate Image";
-  readonly description = "Generate product images. Returns mock placeholders for development.";
+  readonly description = "Generate product images. DEV STUB: returns placeholder images. Replace with DALL-E or Stable Diffusion for production.";
   readonly inputSchema = {
     type: "object",
     properties: {

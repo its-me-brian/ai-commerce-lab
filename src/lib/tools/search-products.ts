@@ -27,11 +27,11 @@ export interface RawProduct {
   reviewCount?: number;
 }
 
-// --- DummyJSON Source (free, no API key) ---
+// --- DummyJSON Source (DEV ONLY — no API key, returns simulated products) ---
 
 class DummyJsonSource implements ProductSource {
   readonly id = "dummyjson";
-  readonly name = "DummyJSON Products";
+  readonly name = "[DEV] DummyJSON Products";
 
   async search(
     query: string,
@@ -71,11 +71,11 @@ class DummyJsonSource implements ProductSource {
   }
 }
 
-// --- FakeStoreAPI Source (free, no API key, ~20 real products) ---
+// --- FakeStoreAPI Source (DEV ONLY — returns ~20 simulated products, no search API) ---
 
 class FakeStoreSource implements ProductSource {
   readonly id = "fakestore";
-  readonly name = "FakeStore Products";
+  readonly name = "[DEV] FakeStore Products";
 
   async search(
     query: string,
@@ -251,22 +251,36 @@ const SEARCH_SOURCES: ProductSource[] = [
 /**
  * Get available search sources (for Dashboard UI).
  * Only returns sources that are actually configured.
+ * Dev sources (DummyJSON, FakeStore) always available — no config needed.
  */
-export function getAvailableSources(): Array<{ id: string; name: string; configured: boolean }> {
+export function getAvailableSources(): Array<{ id: string; name: string; configured: boolean; type: "dev" | "real" }> {
   return SEARCH_SOURCES.map((s) => {
     let configured = true;
+    let type: "dev" | "real" = "dev";
     if (s.id === "ebay") {
       configured = !!(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET);
+      type = "real";
     }
-    return { id: s.id, name: s.name, configured };
+    return { id: s.id, name: s.name, configured, type };
   });
+}
+
+/**
+ * Get the best available source for a query.
+ * Prefers real sources when configured, falls back to dev sources.
+ */
+export function getDefaultSource(): string {
+  const sources = getAvailableSources();
+  const configuredReal = sources.find((s) => s.type === "real" && s.configured);
+  if (configuredReal) return configuredReal.id;
+  return "dummyjson"; // fallback for dev
 }
 
 export class SearchProductsTool implements Tool {
   readonly id = "search_products";
   readonly name = "Search Products";
   readonly description =
-    "Discovers products from external sources (DummyJSON, AliExpress, Amazon). Returns real product data with prices, images, and ratings.";
+    "Discovers products from external sources. Returns real product data when eBay API is configured. Dev sources (DummyJSON, FakeStore) return simulated products for testing.";
   readonly inputSchema = {
     type: "object",
     properties: {
@@ -276,8 +290,7 @@ export class SearchProductsTool implements Tool {
       },
       source: {
         type: "string",
-        description: "Source to search (default: dummyjson)",
-        default: "dummyjson",
+        description: "Source to search (default: auto-selects best available)",
       },
       limit: {
         type: "number",
@@ -307,7 +320,7 @@ export class SearchProductsTool implements Tool {
   async execute(input: Record<string, unknown>): Promise<ToolResult> {
     // Runtime validation — no `as` casts
     const query = typeof input.query === "string" ? input.query : "";
-    const sourceId = typeof input.source === "string" ? input.source : "dummyjson";
+    const sourceId = typeof input.source === "string" ? input.source : getDefaultSource();
     const limit = typeof input.limit === "number" ? input.limit : 10;
     const minPrice = typeof input.minPrice === "number" ? input.minPrice : undefined;
     const maxPrice = typeof input.maxPrice === "number" ? input.maxPrice : undefined;
