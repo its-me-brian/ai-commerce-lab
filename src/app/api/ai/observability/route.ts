@@ -36,8 +36,7 @@ export async function GET(request: NextRequest) {
         // Fallback to Supabase if in-memory is empty
         if (entries.length === 0) {
           try {
-            const { getSupabaseClient } = await import("@/lib/supabase/server");
-            const supabase = await getSupabaseClient();
+            const { supabase } = await import("@/lib/database/supabase");
 
             let query = supabase
               .from("structured_logs")
@@ -82,8 +81,7 @@ export async function GET(request: NextRequest) {
           // Fallback to Supabase if in-memory is empty
           if (!trace && flat.length === 0) {
             try {
-              const { getSupabaseClient } = await import("@/lib/supabase/server");
-              const supabase = await getSupabaseClient();
+              const { supabase } = await import("@/lib/database/supabase");
 
               const { data: traceData } = await supabase
                 .from("traces")
@@ -117,8 +115,7 @@ export async function GET(request: NextRequest) {
         // Fallback to Supabase if in-memory is empty
         if (traces.length === 0) {
           try {
-            const { getSupabaseClient } = await import("@/lib/supabase/server");
-            const supabase = await getSupabaseClient();
+            const { supabase } = await import("@/lib/database/supabase");
 
             const { data, error } = await supabase
               .from("traces")
@@ -127,17 +124,8 @@ export async function GET(request: NextRequest) {
               .limit(count);
 
             if (!error && data) {
-              traces = data.map((row: Record<string, unknown>) => ({
-                id: row.id,
-                rootSpanId: row.root_span_id,
-                operation: row.operation,
-                agentId: row.agent_id,
-                status: row.status,
-                startedAt: row.started_at,
-                completedAt: row.completed_at,
-                durationMs: row.duration_ms,
-                metadata: row.metadata,
-              }));
+              // Return raw Supabase data (different shape than in-memory TraceSpan)
+              return NextResponse.json({ success: true, traces: data, source: "supabase" });
             }
           } catch {
             // Supabase unavailable
@@ -163,8 +151,7 @@ export async function GET(request: NextRequest) {
         // Fallback to Supabase if in-memory is empty
         if (summaries.length === 0) {
           try {
-            const { getSupabaseClient } = await import("@/lib/supabase/server");
-            const supabase = await getSupabaseClient();
+            const { supabase } = await import("@/lib/database/supabase");
 
             const { data, error } = await supabase
               .from("metrics")

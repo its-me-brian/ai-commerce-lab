@@ -146,6 +146,15 @@ export default function AgentDetailPage({
   const [profileName, setProfileName] = useState("");
   const [profileDescription, setProfileDescription] = useState("");
 
+  // Definition edit state
+  const [editingDefinition, setEditingDefinition] = useState(false);
+  const [defIdentityName, setDefIdentityName] = useState("");
+  const [defIdentityRole, setDefIdentityRole] = useState("");
+  const [defIdentityDescription, setDefIdentityDescription] = useState("");
+  const [defMission, setDefMission] = useState("");
+  const [defExpertise, setDefExpertise] = useState("");
+  const [defRules, setDefRules] = useState("");
+
   // Test form — generic JSON input
   const [testInput, setTestInput] = useState(
     DEFAULT_TEST_INPUTS[id] || '{\n  "name": "Test Product",\n  "supplierPrice": 10\n}'
@@ -178,6 +187,19 @@ export default function AgentDetailPage({
           setTemperature(data.config.temperature);
           setMaxTokens(data.config.max_output_tokens);
         }
+      }
+
+      // Load agent definition
+      const defRes = await fetch(`/api/agents/${id}/definition`);
+      const defData = await defRes.json();
+      if (defData.success && defData.definition) {
+        const def = defData.definition;
+        setDefIdentityName(def.identity_name || "");
+        setDefIdentityRole(def.identity_role || "");
+        setDefIdentityDescription(def.identity_description || "");
+        setDefMission(def.mission || "");
+        setDefExpertise(Array.isArray(def.expertise) ? def.expertise.join(", ") : "");
+        setDefRules(Array.isArray(def.rules) ? def.rules.join("\n") : "");
       }
     } catch (err) {
       console.error("Failed to load config:", err);
@@ -340,6 +362,37 @@ export default function AgentDetailPage({
     }
   }
 
+  async function handleSaveDefinition() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/agents/${id}/definition`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identity_name: defIdentityName,
+          identity_role: defIdentityRole,
+          identity_description: defIdentityDescription,
+          mission: defMission,
+          expertise: defExpertise.split(",").map((s) => s.trim()).filter(Boolean),
+          rules: defRules.split("\n").map((s) => s.trim()).filter(Boolean),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setToast({ type: "success", message: "Definition saved" });
+        setEditingDefinition(false);
+        fetchConfig();
+      } else {
+        setToast({ type: "error", message: data.error || "Save failed" });
+      }
+    } catch {
+      setToast({ type: "error", message: "Network error" });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setToast(null), 3000);
+    }
+  }
+
   async function handleTest() {
     setTestInputError("");
 
@@ -489,83 +542,180 @@ export default function AgentDetailPage({
       {/* Agent Definition (Identity, Mission, Personality, Expertise, Rules, Skills) */}
       {config.agent.identity && (
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20, marginBottom: 14 }}>
-          <h2 style={{ marginBottom: 16 }}>Agent Definition</h2>
-
-          {/* Identity + Mission */}
-          <div style={{ marginBottom: 16 }}>
-            <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Identity</h3>
-            <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginBottom: 8 }}>
-              {config.agent.identity.description}
-            </p>
-            {config.agent.mission && (
-              <>
-                <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Mission</h3>
-                <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>{config.agent.mission}</p>
-              </>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h2>Agent Definition</h2>
+            {!editingDefinition && (
+              <button
+                onClick={() => setEditingDefinition(true)}
+                style={{
+                  fontSize: "0.75rem", padding: "4px 12px", borderRadius: "var(--r-md)",
+                  background: "var(--bg-sunken)", border: "1px solid var(--border)",
+                  cursor: "pointer", color: "var(--text-secondary)",
+                }}
+              >
+                Edit Definition
+              </button>
             )}
           </div>
 
-          {/* Personality */}
-          {config.agent.personality && (
-            <div style={{ marginBottom: 16 }}>
-              <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Personality</h3>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                {config.agent.personality.traits.map((trait) => (
-                  <span key={trait} style={{
-                    fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
-                    background: "var(--bg-sunken)", color: "var(--text-secondary)",
-                  }}>{trait}</span>
-                ))}
+          {editingDefinition ? (
+            /* Edit Form */
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Identity Name</label>
+                <input
+                  value={defIdentityName}
+                  onChange={(e) => setDefIdentityName(e.target.value)}
+                  style={{ width: "100%", padding: "6px 10px", fontSize: "0.8125rem", borderRadius: "var(--r-md)", border: "1px solid var(--border)", background: "var(--bg-sunken)" }}
+                />
               </div>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>
-                Communication: {config.agent.personality.communicationStyle.join(", ")}
-              </p>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>
-                Decision: {config.agent.personality.decisionStyle}
-              </p>
-            </div>
-          )}
-
-          {/* Expertise */}
-          {config.agent.expertise && config.agent.expertise.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Expertise</h3>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {config.agent.expertise.map((item) => (
-                  <span key={item} style={{
-                    fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
-                    background: "var(--accent-bg)", color: "var(--accent)",
-                  }}>{item}</span>
-                ))}
+              <div>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Identity Role</label>
+                <input
+                  value={defIdentityRole}
+                  onChange={(e) => setDefIdentityRole(e.target.value)}
+                  style={{ width: "100%", padding: "6px 10px", fontSize: "0.8125rem", borderRadius: "var(--r-md)", border: "1px solid var(--border)", background: "var(--bg-sunken)" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Identity Description</label>
+                <textarea
+                  value={defIdentityDescription}
+                  onChange={(e) => setDefIdentityDescription(e.target.value)}
+                  rows={3}
+                  style={{ width: "100%", padding: "6px 10px", fontSize: "0.8125rem", borderRadius: "var(--r-md)", border: "1px solid var(--border)", background: "var(--bg-sunken)", resize: "vertical" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Mission</label>
+                <textarea
+                  value={defMission}
+                  onChange={(e) => setDefMission(e.target.value)}
+                  rows={3}
+                  style={{ width: "100%", padding: "6px 10px", fontSize: "0.8125rem", borderRadius: "var(--r-md)", border: "1px solid var(--border)", background: "var(--bg-sunken)", resize: "vertical" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Expertise (comma-separated)</label>
+                <input
+                  value={defExpertise}
+                  onChange={(e) => setDefExpertise(e.target.value)}
+                  style={{ width: "100%", padding: "6px 10px", fontSize: "0.8125rem", borderRadius: "var(--r-md)", border: "1px solid var(--border)", background: "var(--bg-sunken)" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Rules (one per line)</label>
+                <textarea
+                  value={defRules}
+                  onChange={(e) => setDefRules(e.target.value)}
+                  rows={4}
+                  style={{ width: "100%", padding: "6px 10px", fontSize: "0.8125rem", borderRadius: "var(--r-md)", border: "1px solid var(--border)", background: "var(--bg-sunken)", resize: "vertical", fontFamily: "monospace" }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={handleSaveDefinition}
+                  disabled={saving}
+                  style={{
+                    fontSize: "0.75rem", padding: "6px 16px", borderRadius: "var(--r-md)",
+                    background: "var(--accent)", color: "white", border: "none",
+                    cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  {saving ? "Saving..." : "Save Definition"}
+                </button>
+                <button
+                  onClick={() => setEditingDefinition(false)}
+                  style={{
+                    fontSize: "0.75rem", padding: "6px 16px", borderRadius: "var(--r-md)",
+                    background: "var(--bg-sunken)", border: "1px solid var(--border)",
+                    cursor: "pointer", color: "var(--text-secondary)",
+                  }}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
-          )}
-
-          {/* Rules */}
-          {config.agent.agent_rules && config.agent.agent_rules.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Rules</h3>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {config.agent.agent_rules.map((rule, i) => (
-                  <li key={i} style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: 4 }}>{rule}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Skills */}
-          {config.skills && config.skills.length > 0 && (
-            <div>
-              <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Skills</h3>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {config.skills.map((s) => (
-                  <span key={s.skill_id} style={{
-                    fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
-                    background: "var(--success-bg)", color: "var(--success)",
-                  }}>{s.skills.name}</span>
-                ))}
+          ) : (
+            /* Read-only View */
+            <>
+              {/* Identity + Mission */}
+              <div style={{ marginBottom: 16 }}>
+                <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Identity</h3>
+                <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginBottom: 8 }}>
+                  {config.agent.identity.description}
+                </p>
+                {config.agent.mission && (
+                  <>
+                    <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Mission</h3>
+                    <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>{config.agent.mission}</p>
+                  </>
+                )}
               </div>
-            </div>
+
+              {/* Personality */}
+              {config.agent.personality && (
+                <div style={{ marginBottom: 16 }}>
+                  <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Personality</h3>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                    {config.agent.personality.traits.map((trait) => (
+                      <span key={trait} style={{
+                        fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
+                        background: "var(--bg-sunken)", color: "var(--text-secondary)",
+                      }}>{trait}</span>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>
+                    Communication: {config.agent.personality.communicationStyle.join(", ")}
+                  </p>
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>
+                    Decision: {config.agent.personality.decisionStyle}
+                  </p>
+                </div>
+              )}
+
+              {/* Expertise */}
+              {config.agent.expertise && config.agent.expertise.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Expertise</h3>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {config.agent.expertise.map((item) => (
+                      <span key={item} style={{
+                        fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
+                        background: "var(--accent-bg)", color: "var(--accent)",
+                      }}>{item}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rules */}
+              {config.agent.agent_rules && config.agent.agent_rules.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Rules</h3>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {config.agent.agent_rules.map((rule, i) => (
+                      <li key={i} style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: 4 }}>{rule}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Skills */}
+              {config.skills && config.skills.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 6 }}>Skills</h3>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {config.skills.map((s) => (
+                      <span key={s.skill_id} style={{
+                        fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 9999,
+                        background: "var(--success-bg)", color: "var(--success)",
+                      }}>{s.skills.name}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

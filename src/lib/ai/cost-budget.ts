@@ -101,6 +101,24 @@ export interface CostRecord {
   /** Timestamp */
   timestamp: number;
 
+  /** Optional provider name */
+  provider?: string;
+
+  /** Optional model name */
+  model?: string;
+
+  /** Optional input tokens */
+  inputTokens?: number;
+
+  /** Optional output tokens */
+  outputTokens?: number;
+
+  /** Optional task ID */
+  taskId?: string;
+
+  /** Optional run ID */
+  runId?: string;
+
   /** Optional description of what incurred this cost */
   description?: string;
 }
@@ -174,8 +192,7 @@ export class CostBudgetTracker {
     this.budgets.delete(budgetId);
     // Delete from Supabase (fire-and-forget)
     try {
-      const { getSupabaseClient } = await import("@/lib/supabase/server");
-      const supabase = await getSupabaseClient();
+      const { supabase } = await import("@/lib/database/supabase");
       await supabase.from("cost_budgets").delete().eq("id", budgetId);
     } catch (error) {
       console.error("[CostBudget] Failed to delete budget from Supabase:", error);
@@ -427,8 +444,7 @@ export class CostBudgetTracker {
    */
   async persistBudgetToSupabase(budget: CostBudget): Promise<void> {
     try {
-      const { getSupabaseClient } = await import("@/lib/supabase/server");
-      const supabase = await getSupabaseClient();
+      const { supabase } = await import("@/lib/database/supabase");
 
       await supabase.from("cost_budgets").upsert(
         {
@@ -454,8 +470,7 @@ export class CostBudgetTracker {
    */
   async persistCostRecordToSupabase(record: CostRecord): Promise<void> {
     try {
-      const { getSupabaseClient } = await import("@/lib/supabase/server");
-      const supabase = await getSupabaseClient();
+      const { supabase } = await import("@/lib/database/supabase");
 
       await supabase.from("cost_records").insert({
         entity_id: record.entityId,
@@ -478,8 +493,7 @@ export class CostBudgetTracker {
    */
   async loadBudgetsFromSupabase(): Promise<void> {
     try {
-      const { getSupabaseClient } = await import("@/lib/supabase/server");
-      const supabase = await getSupabaseClient();
+      const { supabase } = await import("@/lib/database/supabase");
 
       const { data, error } = await supabase
         .from("cost_budgets")
