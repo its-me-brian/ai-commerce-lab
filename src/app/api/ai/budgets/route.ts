@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     const tracker = getCostBudgetTracker();
 
     if (action === "remove" && budget?.id) {
-      tracker.removeBudget(budget.id);
+      await tracker.removeBudget(budget.id);
       return NextResponse.json({ success: true, message: `Budget ${budget.id} removed` });
     }
 

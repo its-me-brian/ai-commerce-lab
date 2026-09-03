@@ -10,6 +10,9 @@
 // This is NOT the same as the cost scoring in EvaluationEngine.
 // EvaluationEngine judges cost EFFICIENCY after the fact.
 // CostBudgetTracker PREVENTS execution when budgets are exhausted.
+//
+// Persistence: budgets and cost records are persisted to Supabase
+// (cost_budgets, cost_records tables) for survival across restarts.
 
 /**
  * Budget time window.
@@ -160,13 +163,23 @@ export class CostBudgetTracker {
    */
   setBudget(budget: CostBudget): void {
     this.budgets.set(budget.id, budget);
+    // Persist to Supabase (fire-and-forget)
+    this.persistBudgetToSupabase(budget);
   }
 
   /**
    * Remove a budget.
    */
-  removeBudget(budgetId: string): void {
+  async removeBudget(budgetId: string): Promise<void> {
     this.budgets.delete(budgetId);
+    // Delete from Supabase (fire-and-forget)
+    try {
+      const { getSupabaseClient } = await import("@/lib/supabase/server");
+      const supabase = await getSupabaseClient();
+      await supabase.from("cost_budgets").delete().eq("id", budgetId);
+    } catch (error) {
+      console.error("[CostBudget] Failed to delete budget from Supabase:", error);
+    }
   }
 
   /**
@@ -280,6 +293,9 @@ export class CostBudgetTracker {
     if (this.records.length > this.maxRecords) {
       this.records = this.records.slice(-this.maxRecords);
     }
+
+    // Persist to Supabase (fire-and-forget)
+    this.persistCostRecordToSupabase(fullRecord);
 
     // Check alerts for all affected budgets
     const newAlerts = this.checkAlerts(record.entityId, record.entityType);
@@ -402,6 +418,96 @@ export class CostBudgetTracker {
   }
 
   // ============================================
+  // SUPABASE PERSISTENCE
+  // ============================================
+
+  /**
+   * Persist a budget to Supabase cost_budgets table.
+   * Fire-and-forget with error logging.
+   */
+  async persistBudgetToSupabase(budget: CostBudget): Promise<void> {
+    try {
+      const { getSupabaseClient } = await import("@/lib/supabase/server");
+      const supabase = await getSupabaseClient();
+
+      await supabase.from("cost_budgets").upsert(
+        {
+          id: budget.id,
+          entity_id: budget.entityId,
+          entity_type: budget.entityType,
+          max_dollars: budget.maxDollars,
+          time_window: budget.window,
+          description: budget.description ?? null,
+          alert_thresholds: budget.alertThresholds ?? [0.8, 0.95],
+          active: budget.active,
+        },
+        { onConflict: "id" }
+      );
+    } catch (error) {
+      console.error("[CostBudget] Failed to persist budget to Supabase:", error);
+    }
+  }
+
+  /**
+   * Persist a cost record to Supabase cost_records table.
+   * Fire-and-forget with error logging.
+   */
+  async persistCostRecordToSupabase(record: CostRecord): Promise<void> {
+    try {
+      const { getSupabaseClient } = await import("@/lib/supabase/server");
+      const supabase = await getSupabaseClient();
+
+      await supabase.from("cost_records").insert({
+        entity_id: record.entityId,
+        entity_type: record.entityType,
+        cost_dollars: record.costDollars,
+        provider: record.provider ?? null,
+        model: record.model ?? null,
+        input_tokens: record.inputTokens ?? null,
+        output_tokens: record.outputTokens ?? null,
+        task_id: record.taskId ?? null,
+        run_id: record.runId ?? null,
+      });
+    } catch (error) {
+      console.error("[CostBudget] Failed to persist cost record to Supabase:", error);
+    }
+  }
+
+  /**
+   * Load budgets from Supabase (for cold-start recovery).
+   */
+  async loadBudgetsFromSupabase(): Promise<void> {
+    try {
+      const { getSupabaseClient } = await import("@/lib/supabase/server");
+      const supabase = await getSupabaseClient();
+
+      const { data, error } = await supabase
+        .from("cost_budgets")
+        .select("*")
+        .eq("active", true);
+
+      if (error) throw error;
+
+      for (const row of data ?? []) {
+        this.budgets.set(row.id, {
+          id: row.id,
+          entityId: row.entity_id,
+          entityType: row.entity_type as BudgetEntityType,
+          maxDollars: row.max_dollars,
+          window: row.time_window as BudgetWindow,
+          alertThresholds: row.alert_thresholds ?? undefined,
+          active: row.active,
+          description: row.description ?? undefined,
+        });
+      }
+
+      console.log(`[CostBudget] Loaded ${data?.length ?? 0} budgets from Supabase`);
+    } catch (error) {
+      console.error("[CostBudget] Failed to load budgets from Supabase:", error);
+    }
+  }
+
+  // ============================================
   // INTERNAL
   // ============================================
 
@@ -455,10 +561,16 @@ export class CostBudgetTracker {
 // ============================================
 
 let trackerInstance: CostBudgetTracker | null = null;
+let loadedFromSupabase = false;
 
 export function getCostBudgetTracker(): CostBudgetTracker {
   if (!trackerInstance) {
     trackerInstance = new CostBudgetTracker();
+    // Load budgets from Supabase on cold start (fire-and-forget)
+    if (!loadedFromSupabase) {
+      loadedFromSupabase = true;
+      trackerInstance.loadBudgetsFromSupabase();
+    }
   }
   return trackerInstance;
 }

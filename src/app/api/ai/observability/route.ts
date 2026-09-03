@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth/api-auth";
 
 // GET /api/ai/observability
 // Query logs, traces, and metrics
+// Falls back to Supabase when in-memory data is empty (cold start)
 export async function GET(request: NextRequest) {
   try {
     // Auth check
@@ -32,6 +33,41 @@ export async function GET(request: NextRequest) {
           entries = logger.getRecent(count);
         }
 
+        // Fallback to Supabase if in-memory is empty
+        if (entries.length === 0) {
+          try {
+            const { getSupabaseClient } = await import("@/lib/supabase/server");
+            const supabase = await getSupabaseClient();
+
+            let query = supabase
+              .from("structured_logs")
+              .select("*")
+              .order("created_at", { ascending: false })
+              .limit(count);
+
+            if (severity) query = query.eq("severity", severity);
+            if (component) query = query.eq("component", component);
+            if (traceId) query = query.eq("trace_id", traceId);
+
+            const { data, error } = await query;
+            if (!error && data) {
+              entries = data.map((row: Record<string, unknown>) => ({
+                id: row.id,
+                severity: row.severity,
+                component: row.component,
+                message: row.message,
+                context: row.context,
+                traceId: row.trace_id,
+                durationMs: row.duration_ms,
+                success: row.success,
+                timestamp: new Date(row.created_at as string).getTime(),
+              }));
+            }
+          } catch {
+            // Supabase unavailable, return empty
+          }
+        }
+
         return NextResponse.json({ success: true, logs: entries });
       }
 
@@ -42,10 +78,72 @@ export async function GET(request: NextRequest) {
         if (traceId) {
           const trace = tracer.getTrace(traceId);
           const flat = tracer.flattenSpans(traceId);
+
+          // Fallback to Supabase if in-memory is empty
+          if (!trace && flat.length === 0) {
+            try {
+              const { getSupabaseClient } = await import("@/lib/supabase/server");
+              const supabase = await getSupabaseClient();
+
+              const { data: traceData } = await supabase
+                .from("traces")
+                .select("*")
+                .eq("id", traceId)
+                .single();
+
+              const { data: spansData } = await supabase
+                .from("spans")
+                .select("*")
+                .eq("trace_id", traceId)
+                .order("started_at", { ascending: true });
+
+              if (traceData) {
+                return NextResponse.json({
+                  success: true,
+                  trace: traceData,
+                  spans: spansData ?? [],
+                });
+              }
+            } catch {
+              // Supabase unavailable
+            }
+          }
+
           return NextResponse.json({ success: true, trace, spans: flat });
         }
 
-        const traces = tracer.getRecentTraces(count);
+        let traces = tracer.getRecentTraces(count);
+
+        // Fallback to Supabase if in-memory is empty
+        if (traces.length === 0) {
+          try {
+            const { getSupabaseClient } = await import("@/lib/supabase/server");
+            const supabase = await getSupabaseClient();
+
+            const { data, error } = await supabase
+              .from("traces")
+              .select("*")
+              .order("started_at", { ascending: false })
+              .limit(count);
+
+            if (!error && data) {
+              traces = data.map((row: Record<string, unknown>) => ({
+                id: row.id,
+                rootSpanId: row.root_span_id,
+                operation: row.operation,
+                agentId: row.agent_id,
+                status: row.status,
+                startedAt: row.started_at,
+                completedAt: row.completed_at,
+                durationMs: row.duration_ms,
+                metadata: row.metadata,
+              }));
+            }
+          } catch {
+            // Supabase unavailable
+          }
+        }
+
         return NextResponse.json({ success: true, traces });
       }
 
@@ -61,6 +159,28 @@ export async function GET(request: NextRequest) {
 
         const names = metrics.getMetricNames();
         const summaries = names.map((n) => metrics.getSummary(n)).filter(Boolean);
+
+        // Fallback to Supabase if in-memory is empty
+        if (summaries.length === 0) {
+          try {
+            const { getSupabaseClient } = await import("@/lib/supabase/server");
+            const supabase = await getSupabaseClient();
+
+            const { data, error } = await supabase
+              .from("metrics")
+              .select("name")
+              .order("created_at", { ascending: false })
+              .limit(count);
+
+            if (!error && data) {
+              const uniqueNames = [...new Set(data.map((r: Record<string, unknown>) => r.name as string))];
+              return NextResponse.json({ success: true, metrics: uniqueNames.map((n) => ({ name: n })) });
+            }
+          } catch {
+            // Supabase unavailable
+          }
+        }
+
         return NextResponse.json({ success: true, metrics: summaries });
       }
 
