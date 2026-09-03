@@ -6,6 +6,18 @@ import { Badge } from "../ui/Badge";
 import { formatTime } from "@/lib/utils/format";
 import { MicrophoneButton } from "./MicrophoneButton";
 import { getAgentColor } from "@/lib/agents/colors";
+import { useClassifier } from "@/hooks/useClassifier";
+
+// Intent categories for chat message classification
+const INTENT_CATEGORIES = [
+  "question",
+  "request",
+  "instruction",
+  "feedback",
+  "complaint",
+  "greeting",
+  "other",
+];
 
 interface RoomMessage {
   id: string;
@@ -36,10 +48,47 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const loadingRef = useRef(false);
 
+  // Client-side intent classification using ONNX
+  const { classify, modelReady } = useClassifier();
+  const [detectedIntent, setDetectedIntent] = useState<string | null>(null);
+  const [intentConfidence, setIntentConfidence] = useState<number | null>(null);
+  const classifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  // Classify intent when input changes (debounced)
+  useEffect(() => {
+    if (!modelReady || !input.trim() || input.trim().length < 5) {
+      setDetectedIntent(null);
+      setIntentConfidence(null);
+      return;
+    }
+
+    // Clear previous timeout
+    if (classifyTimeoutRef.current) {
+      clearTimeout(classifyTimeoutRef.current);
+    }
+
+    // Debounce classification by 500ms
+    classifyTimeoutRef.current = setTimeout(async () => {
+      try {
+        const result = await classify(input.trim(), INTENT_CATEGORIES);
+        setDetectedIntent(result.bestCategory);
+        setIntentConfidence(result.confidence);
+      } catch {
+        // Silently fail — intent classification is optional
+      }
+    }, 500);
+
+    return () => {
+      if (classifyTimeoutRef.current) {
+        clearTimeout(classifyTimeoutRef.current);
+      }
+    };
+  }, [input, modelReady, classify]);
 
   // Load room conversation on mount
   useEffect(() => {
@@ -436,6 +485,38 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {/* Intent classification indicator (ONNX-powered) */}
+        {detectedIntent && intentConfidence !== null && intentConfidence > 0.6 && (
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <span
+              className="text-[10px] px-2 py-0.5 rounded-full"
+              style={{
+                background: "var(--accent-bg)",
+                color: "var(--accent)",
+              }}
+            >
+              Intent: {detectedIntent}
+            </span>
+            <span
+              className="text-[10px]"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              {Math.round(intentConfidence * 100)}% confidence
+            </span>
+            {modelReady && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded"
+                style={{
+                  background: "var(--success-bg)",
+                  color: "var(--success)",
+                }}
+              >
+                ONNX
+              </span>
+            )}
           </div>
         )}
 
