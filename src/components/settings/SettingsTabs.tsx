@@ -405,6 +405,64 @@ function IntegrationsTab({
   models: Model[];
   onRefresh: () => void;
 }) {
+  const [shopifyStores, setShopifyStores] = useState<Array<{
+    id: string; shop_domain: string; store_name: string | null;
+    status: string; products_count: number; last_products_sync_at: string | null;
+    created_at: string;
+  }>>([]);
+  const [shopifyLoading, setShopifyLoading] = useState(false);
+  const [shopDomain, setShopDomain] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [shopifyMsg, setShopifyMsg] = useState<string | null>(null);
+
+  // Load Shopify stores
+  useEffect(() => {
+    fetch("/api/shopify/stores")
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setShopifyStores(d.stores || []); })
+      .catch(() => {});
+  }, []);
+
+  const handleConnect = () => {
+    if (!shopDomain.trim()) return;
+    const domain = shopDomain.includes(".myshopify.com")
+      ? shopDomain.trim()
+      : `${shopDomain.trim()}.myshopify.com`;
+    window.location.href = `/api/shopify/install?shop=${encodeURIComponent(domain)}`;
+  };
+
+  const handleSync = async (storeId: string) => {
+    setSyncing(true);
+    setShopifyMsg(null);
+    try {
+      const res = await fetch("/api/shopify/sync", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setShopifyMsg(`Synced ${data.synced} products (${data.skipped} skipped)`);
+        // Refresh stores
+        const storesRes = await fetch("/api/shopify/stores");
+        const storesData = await storesRes.json();
+        if (storesData.success) setShopifyStores(storesData.stores);
+      } else {
+        setShopifyMsg(data.error || "Sync failed");
+      }
+    } catch {
+      setShopifyMsg("Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleDisconnect = async (storeId: string) => {
+    if (!confirm("Disconnect this store? Products will remain in catalog.")) return;
+    try {
+      await fetch(`/api/shopify/stores?id=${storeId}`, { method: "DELETE" });
+      setShopifyStores((prev) => prev.filter((s) => s.id !== storeId));
+    } catch {
+      // ignore
+    }
+  };
+
   // Group routes by agent
   const byAgent = routes.reduce<Record<string, AgentRoute[]>>((acc, r) => {
     (acc[r.agent_id] = acc[r.agent_id] || []).push(r);
@@ -418,6 +476,100 @@ function IntegrationsTab({
 
   return (
     <div>
+      {/* Shopify Section */}
+      <div style={{ marginBottom: 24 }}>
+        <h3 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: 4 }}>Shopify</h3>
+        <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginBottom: 12 }}>
+          Connect your Shopify store to sync products into the catalog.
+        </p>
+
+        {/* Connected stores */}
+        {shopifyStores.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            {shopifyStores.map((store) => (
+              <div key={store.id} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 14px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)",
+                border: "1px solid var(--border)", marginBottom: 8,
+              }}>
+                <div>
+                  <div style={{ fontSize: "0.8125rem", fontWeight: 500 }}>
+                    {store.store_name || store.shop_domain}
+                  </div>
+                  <div style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>
+                    {store.shop_domain} · {store.products_count} products
+                    {store.last_products_sync_at && ` · synced ${new Date(store.last_products_sync_at).toLocaleDateString()}`}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    onClick={() => handleSync(store.id)}
+                    disabled={syncing}
+                    style={{
+                      padding: "5px 12px", borderRadius: "var(--r-sm)", border: "1px solid var(--border)",
+                      background: "var(--bg-card)", color: "var(--text-primary)", fontSize: "0.75rem",
+                      cursor: syncing ? "wait" : "pointer",
+                    }}
+                  >
+                    {syncing ? "Syncing..." : "Sync"}
+                  </button>
+                  <button
+                    onClick={() => handleDisconnect(store.id)}
+                    style={{
+                      padding: "5px 12px", borderRadius: "var(--r-sm)", border: "1px solid var(--error)",
+                      background: "transparent", color: "var(--error)", fontSize: "0.75rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Connect new store */}
+        {shopifyStores.length === 0 && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <input
+              type="text"
+              value={shopDomain}
+              onChange={(e) => setShopDomain(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleConnect()}
+              placeholder="my-store.myshopify.com"
+              style={{
+                flex: 1, padding: "8px 12px", borderRadius: "var(--r-md)", border: "1px solid var(--border)",
+                background: "var(--bg-sunken)", fontSize: "0.8125rem", color: "var(--text-primary)", outline: "none",
+              }}
+            />
+            <button
+              onClick={handleConnect}
+              disabled={!shopDomain.trim()}
+              style={{
+                padding: "8px 16px", borderRadius: "var(--r-md)", border: "none",
+                background: "var(--success)", color: "#fff", fontSize: "0.8125rem", fontWeight: 600,
+                cursor: shopDomain.trim() ? "pointer" : "not-allowed",
+                opacity: shopDomain.trim() ? 1 : 0.5,
+              }}
+            >
+              Connect
+            </button>
+          </div>
+        )}
+
+        {shopifyMsg && (
+          <p style={{ fontSize: "0.75rem", color: "var(--accent)", marginTop: 4 }}>{shopifyMsg}</p>
+        )}
+
+        <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginTop: 8 }}>
+          Requires SHOPIFY_API_KEY and SHOPIFY_API_SECRET environment variables.
+        </p>
+      </div>
+
+      <div style={{ height: 1, background: "var(--border)", margin: "20px 0" }} />
+
+      {/* Agent → Model Routing */}
       <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginBottom: 16 }}>
         Agent → Model routing. Controls which models each agent can use and in what priority order.
       </p>
