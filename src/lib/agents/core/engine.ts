@@ -68,7 +68,7 @@ export class AgentEngine {
     const validationErrors = agent.validateInput(input);
     if (validationErrors.length > 0) {
       const errorMsg = `Input validation failed: ${validationErrors.join(", ")}`;
-      await this.createAndFailTask(taskId, agentId, taskType, input, errorMsg);
+      await this.createAndFailTask(taskId, agentId, taskType, input, errorMsg, workspaceId);
       throw new Error(errorMsg);
     }
 
@@ -119,7 +119,7 @@ export class AgentEngine {
       const errorMsg = `Budget exceeded: ${b.budget.entityType}:${b.budget.entityId} — ` +
         `${b.currentSpending.toFixed(4)}/${b.budget.maxDollars.toFixed(4)} used ` +
         `(${(b.utilizationPercent * 100).toFixed(1)}%)`;
-      await this.createAndFailTask(taskId, agentId, taskType, input, errorMsg);
+      await this.createAndFailTask(taskId, agentId, taskType, input, errorMsg, workspaceId);
       throw new Error(errorMsg);
     }
 
@@ -453,11 +453,13 @@ export class AgentEngine {
     agentId: string,
     taskType: string,
     input: Record<string, unknown>,
-    error: string
+    error: string,
+    workspaceId?: string
   ): Promise<void> {
     await supabase.from("agent_tasks").insert({
       id: taskId,
       agent_id: agentId,
+      workspace_id: workspaceId || "ws-default",
       status: "failed",
       task_type: taskType,
       input,

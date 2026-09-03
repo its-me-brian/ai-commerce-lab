@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWorkspaceService } from "@/lib/workspaces/service";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireAuth, requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // GET /api/workspaces
 // Returns the current workspace (or default).
@@ -90,11 +90,11 @@ export async function POST(request: NextRequest) {
 }
 
 // PUT /api/workspaces
-// Update an existing workspace.
+// Update an existing workspace — requires admin role.
 export async function PUT(request: NextRequest) {
   try {
-    // Auth check
-    const auth = await requireAuth(request);
+    // Workspace access check — user must be admin of the workspace
+    const auth = await requireWorkspaceAccess(request, { minimumRole: "admin" });
     if ("error" in auth) return auth.error;
 
     const body = await request.json();
@@ -104,6 +104,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         { error: { code: "INVALID_INPUT", message: "id is required" } },
         { status: 400 }
+      );
+    }
+
+    // Verify the user has access to the specific workspace being updated
+    if (id !== auth.workspaceId) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Cannot update a workspace you don't belong to" } },
+        { status: 403 }
       );
     }
 
