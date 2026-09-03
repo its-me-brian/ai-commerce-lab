@@ -51,7 +51,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
         </p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div style={{ display: "grid", gap: 14 }} className="config-grid">
         {/* Execution Info */}
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 20 }}>
           <h2 style={{ marginBottom: 16, fontSize: "0.875rem" }}>Execution</h2>

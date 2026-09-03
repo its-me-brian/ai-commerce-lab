@@ -757,7 +757,7 @@ export default function AgentDetailPage({
                 </select>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gap: 12 }} className="config-grid">
                 <div>
                   <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 500, marginBottom: 4 }}>Temperature</label>
                   <input
@@ -1105,7 +1105,7 @@ export default function AgentDetailPage({
                     {(testResult.data as Record<string, unknown>).recommendation as string}
                   </span>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div style={{ display: "grid", gap: 8 }} className="config-grid">
                     <MiniStat label="Margin" value={`${(testResult.data as Record<string, unknown>).estimatedMargin}%`} />
                     <MiniStat label="Demand" value={`${(testResult.data as Record<string, unknown>).demandScore}/100`} />
                     <MiniStat label="Competition" value={`${(testResult.data as Record<string, unknown>).competitionScore}/100`} />
