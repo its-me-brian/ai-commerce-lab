@@ -57,16 +57,6 @@ const nav = [
     ),
   },
   {
-    label: "Tasks",
-    href: "/dashboard/tasks",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2H9z" />
-        <path d="M9 5a2 2 0 012-2h0a2 2 0 012 2v0" />
-      </svg>
-    ),
-  },
-  {
     label: "Approvals",
     href: "/dashboard/approvals",
     icon: (
@@ -77,39 +67,12 @@ const nav = [
     ),
   },
   {
-    label: "Models",
-    href: "/dashboard/models",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M4 2v12M8 4v8M12 2v12" />
-      </svg>
-    ),
-  },
-  {
-    label: "Test Center",
-    href: "/dashboard/test-center",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M5 3l6 5-6 5V3z" />
-      </svg>
-    ),
-  },
-  {
     label: "Observability",
     href: "/dashboard/observability",
     icon: (
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
         <circle cx="8" cy="8" r="6" />
         <path d="M8 5v3l2 1.5" />
-      </svg>
-    ),
-  },
-  {
-    label: "Activity",
-    href: "/dashboard/activity",
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M3 8h2l2-5 2 10 2-5h2" />
       </svg>
     ),
   },
