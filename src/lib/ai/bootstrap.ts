@@ -11,6 +11,7 @@ import { ClaudeProvider } from "./providers/claude";
 import { GrokProvider } from "./providers/grok";
 import { OllamaProvider } from "./providers/ollama";
 import { WorkersAIProvider } from "./providers/workers-ai";
+import { OpenAICompatibleProvider } from "./providers/openai-compatible";
 import { getProviderManager } from "./provider-manager";
 import { bootstrapMiniAIs } from "./mini-ai/bootstrap";
 import { bootstrapWorkflows } from "./workflow/bootstrap";
@@ -40,6 +41,17 @@ const providerClasses: Record<string, ProviderConstructor> = {
   xai: GrokProvider,
   ollama: OllamaProvider,
   "workers-ai": WorkersAIProvider,
+};
+
+// Known OpenAI-compatible providers — slug → default base URL
+// These are used as fallback when a DB provider has a base_url but no concrete class
+const openAICompatibleDefaults: Record<string, string> = {
+  qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  deepseek: "https://api.deepseek.com/v1",
+  mistral: "https://api.mistral.ai/v1",
+  groq: "https://api.groq.com/openai/v1",
+  together: "https://api.together.xyz/v1",
+  fireworks: "https://api.fireworks.ai/inference/v1",
 };
 
 let bootstrapped = false;
@@ -75,6 +87,20 @@ export async function bootstrap(): Promise<void> {
       if (ProviderClass) {
         router.registerProvider(new ProviderClass(apiKey));
         console.log(`[Bootstrap] Registered provider from DB: ${dbProvider.slug}`);
+      } else if (dbProvider.base_url || openAICompatibleDefaults[dbProvider.slug]) {
+        // OpenAI-compatible provider — use base URL from DB or known defaults
+        const baseUrl = dbProvider.base_url || openAICompatibleDefaults[dbProvider.slug];
+        const defaultModel = (dbProvider.config as Record<string, unknown>)?.defaultModel as string | undefined;
+        router.registerProvider(
+          new OpenAICompatibleProvider(
+            dbProvider.slug,
+            apiKey,
+            baseUrl,
+            dbProvider.name,
+            defaultModel
+          )
+        );
+        console.log(`[Bootstrap] Registered OpenAI-compatible provider from DB: ${dbProvider.slug}`);
       } else {
         console.warn(
           `[Bootstrap] No provider class for slug: ${dbProvider.slug} — API key configured but no implementation`
@@ -118,6 +144,33 @@ export async function bootstrap(): Promise<void> {
     if (cfAccountId && cfApiToken) {
       router.registerProvider(new WorkersAIProvider(`${cfAccountId}:${cfApiToken}`));
       console.log(`[Bootstrap] Registered Workers AI provider`);
+    }
+
+    // OpenAI-compatible providers — Qwen, DeepSeek, etc.
+    const qwenKey = process.env.QWEN_API_KEY;
+    if (qwenKey) {
+      router.registerProvider(
+        new OpenAICompatibleProvider(
+          "qwen",
+          qwenKey,
+          "https://dashscope.aliyuncs.com/compatible-mode/v1",
+          "Alibaba Qwen"
+        )
+      );
+      console.log(`[Bootstrap] Registered Qwen provider`);
+    }
+
+    const deepseekKey = process.env.DEEPSEEK_API_KEY;
+    if (deepseekKey) {
+      router.registerProvider(
+        new OpenAICompatibleProvider(
+          "deepseek",
+          deepseekKey,
+          "https://api.deepseek.com/v1",
+          "DeepSeek"
+        )
+      );
+      console.log(`[Bootstrap] Registered DeepSeek provider`);
     }
   }
 

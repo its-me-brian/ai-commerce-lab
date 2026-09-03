@@ -114,6 +114,11 @@ src/
 - States: working, online, idle, warning, error, disabled
 - Auto-refreshes every 30 seconds
 
+### Tasks & Approvals
+- **Task tracking**: Monitor agent tasks with status, priority, and cost
+- **Approval workflow**: Human-in-the-loop for critical actions (product listings, price changes, supplier orders)
+- Dashboard pages for managing tasks and approvals
+
 ### Observability (§22)
 - Structured logs, metrics, traces persisted to Supabase
 - 6 dedicated tables with RLS policies
@@ -126,11 +131,14 @@ src/
 | `/api/agents/list` | GET | List all agents from Supabase |
 | `/api/agents/[id]` | GET/PATCH | Agent profile + updates |
 | `/api/agents/chat` | POST | Direct chat with agent |
+| `/api/agents/[id]/approvals` | GET | Get agent approvals |
 | `/api/conversations/room` | GET/POST | Room chat (multi-agent) |
+| `/api/tasks` | GET | List tasks with filters |
 | `/api/ai/providers/test` | POST | Test provider connectivity |
 | `/api/ai/budgets` | GET/POST | Cost budget management |
 | `/api/events` | GET | Observability events |
 | `/api/catalog` | GET | Product catalog |
+| `/api/health` | GET | System health check |
 
 ## Environment Variables
 

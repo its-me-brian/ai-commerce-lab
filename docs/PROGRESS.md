@@ -19,12 +19,12 @@
 | 7 — Prompt Optimization | COMPLETE | PASS | 2 new files, 4 modified | tsc PASS | Real token counting, response cache |
 | 8 — Observability | COMPLETE | PASS | 1 new file, 2 modified | tsc PASS | Structured logging, tracing, health check |
 | 9 — Final Polish | COMPLETE | PASS | 15 new files, 14 modified | tsc PASS, 56/61 tests pass | All phases verified |
-| 10 — Providers + Router | PENDING | — | — | — | |
-| 10 — Tasks + Approvals | PENDING | — | — | — | |
-| 11 — Test Suite | PENDING | — | — | — | |
-| 12 — Frontend QA | PENDING | — | — | — | |
-| 13 — Documentation | PENDING | — | — | — | |
-| 14 — Clean Install + Build | PENDING | — | — | — | |
+| 10 — Providers + Router | COMPLETE | PASS | 1 file consolidated | tsc PASS, 60/61 tests pass | Consolidated /api/ai/providers/test and /api/settings/providers/test |
+| 10 — Tasks + Approvals | COMPLETE | PASS | 6 new files, 1 modified | tsc PASS, 60/61 tests pass | TaskList, TaskCard, ApprovalCard, ApprovalList, Tasks page, Approvals page |
+| 11 — Test Suite | COMPLETE | PASS | 2 new test files, vitest config updated | tsc PASS, 62/63 tests pass | React component tests for TaskCard and ApprovalCard |
+| 12 — Frontend QA | COMPLETE | PASS | 4 files modified, 1 new shared module | tsc PASS, 62/63 tests pass | Consolidated AGENT_COLORS, StatusDot usage |
+| 13 — Documentation | COMPLETE | PASS | README updated | — | Added Tasks/Approvals features, new API routes |
+| 14 — Clean Install + Build | COMPLETE | PASS | Build passes | 62/63 tests pass | Next.js 16.3.3, TypeScript clean |
 | 15 — Vercel Staging | PENDING | — | — | — | |
 | 16 — Real-World Tests | PENDING | — | — | — | |
 

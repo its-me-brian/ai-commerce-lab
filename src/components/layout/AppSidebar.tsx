@@ -57,6 +57,26 @@ const nav = [
     ),
   },
   {
+    label: "Tasks",
+    href: "/dashboard/tasks",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2H9z" />
+        <path d="M9 5a2 2 0 012-2h0a2 2 0 012 2v0" />
+      </svg>
+    ),
+  },
+  {
+    label: "Approvals",
+    href: "/dashboard/approvals",
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M9 12l2 2 4-4" />
+        <path d="M13 8a5 5 0 11-10 0 5 5 0 0110 0z" />
+      </svg>
+    ),
+  },
+  {
     label: "Models",
     href: "/dashboard/models",
     icon: (

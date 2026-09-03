@@ -34,6 +34,20 @@ export interface RouteUpdateInput {
 
 export class AgentModelRoutes {
   /**
+   * Get all routes, ordered by agent_id and priority.
+   */
+  async list(): Promise<AgentModelRoute[]> {
+    const { data, error } = await supabase
+      .from("agent_model_routes")
+      .select("*")
+      .order("agent_id")
+      .order("priority");
+
+    if (error || !data) return [];
+    return data as AgentModelRoute[];
+  }
+
+  /**
    * Get all routes for an agent, ordered by priority.
    */
   async listByAgent(agentId: string): Promise<AgentModelRoute[]> {

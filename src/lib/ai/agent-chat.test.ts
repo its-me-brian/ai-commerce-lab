@@ -21,7 +21,7 @@ vi.mock("./bootstrap", () => ({
   bootstrap: vi.fn().mockResolvedValue(undefined),
   getAgentRegistry: vi.fn().mockReturnValue({
     get: mockGetAgent,
-    getDefinition: mockGetDefinition,
+    getDefinition: (...args: unknown[]) => mockGetDefinition(...args),
   }),
 }));
 
@@ -51,6 +51,25 @@ vi.mock("../workspaces/service", () => ({
 vi.mock("./task-engine", () => ({
   getTaskEngine: vi.fn().mockReturnValue({
     listByAgent: mockListByAgent,
+  }),
+}));
+
+vi.mock("./prompt-pipeline", () => ({
+  preprocessMessage: vi.fn().mockResolvedValue({
+    canAnswerWithoutLLM: false,
+    isStatusQuery: false,
+  }),
+  buildEnrichedPrompt: vi.fn().mockImplementation((_base: string) => _base),
+  generateStatusResponse: vi.fn().mockReturnValue(""),
+}));
+
+vi.mock("./observability", () => ({
+  getStructuredLogger: vi.fn().mockReturnValue({
+    log: vi.fn(),
+  }),
+  getExecutionTracer: vi.fn().mockReturnValue({
+    startTrace: vi.fn().mockReturnValue("trace-test"),
+    endSpan: vi.fn(),
   }),
 }));
 
@@ -205,6 +224,18 @@ describe("AgentChat", () => {
   });
 
   it("should include system prompt from agent definition", async () => {
+    mockGetDefinition.mockReturnValue({
+      identity: {
+        name: "Product Research Specialist",
+        role: "Product Research",
+        description: "Research products",
+      },
+      mission: "Find the best products",
+      personality: { traits: ["analytical"], communicationStyle: ["direct"] },
+      expertise: ["market research"],
+      rules: ["always cite sources"],
+    });
+
     mockGetOrCreateDirect.mockResolvedValue({
       id: "conv-1",
       agent_id: "product-hunter",

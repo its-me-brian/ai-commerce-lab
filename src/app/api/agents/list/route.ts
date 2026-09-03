@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // GET /api/agents/list
 // List all agents with their configs and definitions for the workspace selector
+// PHASE 1: Now requires workspace membership
 export async function GET(request: NextRequest) {
   try {
-    // Auth check
-    const auth = await requireAuth(request);
-    if ("error" in auth) return auth.error;
+    // Auth + workspace check
+    const access = await requireWorkspaceAccess(request);
+    if ("error" in access) return access.error;
 
-    // Get all agents
+    const { workspaceId } = access;
+
+    // Get all agents for this workspace (plus global agents with no workspace)
     const { data: agents, error: agentsError } = await supabase
       .from("agents")
       .select("*")
+      .or(`workspace_id.eq.${workspaceId},workspace_id.is.null`)
       .order("name");
 
     if (agentsError) {
@@ -58,6 +62,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       agents: agentsWithConfigs,
+      workspaceId,
     });
   } catch (error) {
     return NextResponse.json(

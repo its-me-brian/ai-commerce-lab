@@ -95,8 +95,9 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = ["/login", "/signup", "/"];
   const isPublicRoute = publicRoutes.some((route) => pathname === route);
 
-  // API routes: allow without auth for now (will add per-route auth later)
-  const isApiRoute = pathname.startsWith("/api/");
+  // Public API routes (no auth required)
+  const publicApiRoutes = ["/api/health"];
+  const isPublicApiRoute = publicApiRoutes.some((route) => pathname.startsWith(route));
 
   // Static assets: no auth needed
   const isStaticAsset =
@@ -105,7 +106,7 @@ export async function middleware(request: NextRequest) {
     pathname.includes(".");
 
   // === Auth check for protected routes ===
-  if (!isPublicRoute && !isApiRoute && !isStaticAsset) {
+  if (!isPublicRoute && !isStaticAsset) {
     const supabase = await refreshSession(request, response);
 
     // If Supabase is configured, enforce auth
@@ -113,14 +114,22 @@ export async function middleware(request: NextRequest) {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        // Redirect to login, preserving the original URL
+        // API routes: return 401 JSON
+        if (pathname.startsWith("/api/") && !isPublicApiRoute) {
+          return NextResponse.json(
+            { success: false, error: "Authentication required" },
+            { status: 401 }
+          );
+        }
+
+        // Page routes: redirect to login
         const loginUrl = request.nextUrl.clone();
         loginUrl.pathname = "/login";
         loginUrl.searchParams.set("redirect", pathname);
         return NextResponse.redirect(loginUrl);
       }
     }
-    // If supabase is null (not configured), allow access without auth
+    // If supabase is null (not configured), allow access without auth (dev mode)
   }
 
   // === Rate Limiting for API routes ===

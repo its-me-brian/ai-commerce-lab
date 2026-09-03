@@ -1,98 +1,117 @@
-// Health Check Endpoint
-// PHASE 8: Provides /api/health for load balancers, k8s probes, uptime monitors.
-// Returns system status with optional detailed breakdown.
+// Health Check API
+// Aggregated system health: providers, models, database, workflows.
+// No auth required — this is a monitoring endpoint.
 
-import { NextRequest, NextResponse } from "next/server";
-import { getMetricsCollector } from "@/lib/ai/observability";
-import { getResponseCache } from "@/lib/ai/response-cache";
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/database/supabase";
 
-interface HealthStatus {
-  status: "healthy" | "degraded" | "unhealthy";
+interface HealthCheck {
+  status: "healthy" | "degraded" | "down";
   timestamp: string;
-  uptime: number;
-  version: string;
-  checks: {
-    database: CheckResult;
-    aiProviders: CheckResult;
-    cache: CheckResult;
-  };
+  checks: Record<string, {
+    status: "ok" | "error";
+    latencyMs?: number;
+    error?: string;
+    details?: string;
+  }>;
 }
 
-interface CheckResult {
-  status: "ok" | "degraded" | "error";
-  latencyMs?: number;
-  message?: string;
-}
+export async function GET(): Promise<NextResponse<HealthCheck>> {
+  const checks: HealthCheck["checks"] = {};
+  let overallStatus: HealthCheck["status"] = "healthy";
 
-/**
- * GET /api/health
- * Basic health check for load balancers and monitoring.
- * Returns 200 if healthy, 503 if unhealthy.
- */
-export async function GET(request: NextRequest) {
-  const startTime = Date.now();
-  const checks: HealthStatus["checks"] = {
-    database: { status: "ok" },
-    aiProviders: { status: "ok" },
-    cache: { status: "ok" },
-  };
-
-  // Check database
+  // 1. Database check
+  const dbStart = Date.now();
   try {
-    const dbStart = Date.now();
-    const { supabase } = await import("@/lib/database/supabase");
-    const { error } = await supabase.from("agents").select("id").limit(1);
-    checks.database.latencyMs = Date.now() - dbStart;
+    const { error } = await supabase.from("ai_providers").select("id").limit(1);
+    checks.database = {
+      status: error ? "error" : "ok",
+      latencyMs: Date.now() - dbStart,
+      error: error?.message,
+    };
+    if (error) overallStatus = "degraded";
+  } catch (e) {
+    checks.database = {
+      status: "error",
+      latencyMs: Date.now() - dbStart,
+      error: e instanceof Error ? e.message : "Unknown error",
+    };
+    overallStatus = "down";
+  }
 
-    if (error) {
-      checks.database.status = "error";
-      checks.database.message = error.message;
+  // 2. Providers check
+  const provStart = Date.now();
+  try {
+    const { data, error } = await supabase
+      .from("ai_providers")
+      .select("id, enabled")
+      .eq("enabled", true);
+    checks.providers = {
+      status: error ? "error" : "ok",
+      latencyMs: Date.now() - provStart,
+      error: error?.message,
+    };
+    if (data) {
+      checks.providers.details = `${data.length} enabled`;
     }
-  } catch (err) {
-    checks.database.status = "error";
-    checks.database.message = err instanceof Error ? err.message : "Unknown error";
+    if (error) overallStatus = "degraded";
+  } catch (e) {
+    checks.providers = {
+      status: "error",
+      latencyMs: Date.now() - provStart,
+      error: e instanceof Error ? e.message : "Unknown error",
+    };
   }
 
-  // Check AI providers (just verify router is initialized)
+  // 3. Models check
+  const modelStart = Date.now();
   try {
-    const { getRouter } = await import("@/lib/ai/router");
-    const router = getRouter();
-    const logs = router.getExecutionLogs();
-    checks.aiProviders.status = logs.length > 0 ? "ok" : "ok"; // Router exists = ok
-  } catch (err) {
-    checks.aiProviders.status = "error";
-    checks.aiProviders.message = err instanceof Error ? err.message : "Unknown error";
+    const { data, error } = await supabase
+      .from("ai_models")
+      .select("id, enabled")
+      .eq("enabled", true);
+    checks.models = {
+      status: error ? "error" : "ok",
+      latencyMs: Date.now() - modelStart,
+      error: error?.message,
+    };
+    if (data) {
+      checks.models.details = `${data.length} enabled`;
+    }
+  } catch (e) {
+    checks.models = {
+      status: "error",
+      latencyMs: Date.now() - modelStart,
+      error: e instanceof Error ? e.message : "Unknown error",
+    };
   }
 
-  // Check cache
+  // 4. Agents check
+  const agentStart = Date.now();
   try {
-    const cache = getResponseCache();
-    const stats = cache.getStats();
-    checks.cache.status = "ok";
-    checks.cache.message = `Hit rate: ${(stats.hitRate * 100).toFixed(1)}%, Entries: ${stats.entries}`;
-  } catch (err) {
-    checks.cache.status = "error";
-    checks.cache.message = err instanceof Error ? err.message : "Unknown error";
+    const { data, error } = await supabase
+      .from("agent_tasks")
+      .select("id")
+      .eq("status", "running");
+    checks.agents = {
+      status: error ? "error" : "ok",
+      latencyMs: Date.now() - agentStart,
+      error: error?.message,
+    };
+    if (data) {
+      checks.agents.details = `${data.length} running`;
+    }
+  } catch (e) {
+    checks.agents = {
+      status: "error",
+      latencyMs: Date.now() - agentStart,
+      error: e instanceof Error ? e.message : "Unknown error",
+    };
   }
 
-  // Determine overall status
-  const allOk = Object.values(checks).every((c) => c.status === "ok");
-  const anyError = Object.values(checks).some((c) => c.status === "error");
-
-  const status: HealthStatus["status"] = allOk ? "healthy" : anyError ? "unhealthy" : "degraded";
-
-  const response: HealthStatus = {
-    status,
+  return NextResponse.json({
+    status: overallStatus,
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    version: process.env.npm_package_version || "unknown",
     checks,
-  };
-
-  return NextResponse.json(response, {
-    status: status === "unhealthy" ? 503 : 200,
-    headers: {
-      "Cache-Control": "no-cache, no-store, must-revalidate",
-    },
   });
 }

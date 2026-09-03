@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { StatusDot, type StatusDotStatus } from "@/components/ui/StatusDot";
 
 interface AgentNode {
   id: string;
@@ -131,7 +132,7 @@ function TreeNode({
           <div style={{ width: 14, flexShrink: 0 }} />
         )}
 
-        <StatusDot status={agent.status} enabled={agent.enabled} />
+        <StatusDot status={!agent.enabled ? "disabled" : agent.status === "ready" ? "online" : agent.status === "error" ? "error" : "online"} />
 
         <span
           style={{
@@ -213,23 +214,4 @@ function TreeNode({
   );
 }
 
-function StatusDot({ status, enabled }: { status: string; enabled: boolean }) {
-  const color = !enabled
-    ? "var(--text-tertiary)"
-    : status === "ready"
-      ? "var(--success)"
-      : status === "error"
-        ? "var(--error)"
-        : "var(--warning)";
-  return (
-    <div
-      style={{
-        width: 7,
-        height: 7,
-        borderRadius: "50%",
-        background: color,
-        flexShrink: 0,
-      }}
-    />
-  );
-}
+// Removed local StatusDot — use canonical from @/components/ui/StatusDot

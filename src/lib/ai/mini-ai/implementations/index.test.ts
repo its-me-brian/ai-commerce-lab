@@ -2,19 +2,68 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // Mock the router to avoid actual LLM calls
+// Returns schema-compatible output per mini-AI ID so hybrid mode validation passes
 vi.mock("../../router", () => ({
   getRouter: () => ({
-    generate: vi.fn().mockResolvedValue({
-      result: {
-        content: '{"result": "mocked"}',
-        provider: "gemini",
-        model: "gemini-3-flash",
-        inputTokens: 100,
-        outputTokens: 50,
-        durationMs: 200,
-        cached: false,
-      },
-      log: {},
+    generate: vi.fn().mockImplementation(async (config: { agentId: string }) => {
+      const id = config.agentId?.replace("mini-ai:", "") || "";
+      const outputs: Record<string, unknown> = {
+        researcher: {
+          topic: "test",
+          findings: [{ fact: "test", confidence: 0.5, source: "test" }],
+          sources: ["test"],
+          confidence: 0.5,
+          summary: "test",
+        },
+        classifier: {
+          bestCategory: "a",
+          confidence: 0.9,
+          allCategories: [{ category: "a", score: 0.9 }],
+          reasoning: "mock",
+        },
+        extractor: {
+          extracted: { price: "€10" },
+          confidence: 0.8,
+          missingFields: [],
+          fields: ["price"],
+        },
+        summarizer: {
+          summary: "Mock summary",
+          keyPoints: ["point 1"],
+          confidence: 0.7,
+          compressionRatio: 0.5,
+        },
+        critic: {
+          criteria: [
+            { name: "clarity", score: 0.8, passed: true, feedback: "clear" },
+          ],
+          overallScore: 0.8,
+          strengths: ["clear"],
+          weaknesses: [],
+          suggestions: ["improve detail"],
+          passThreshold: 0.6,
+          passed: true,
+        },
+        validator: {
+          valid: true,
+          violations: [],
+          score: 1.0,
+          checkedRules: 1,
+          passedRules: 1,
+        },
+      };
+      return {
+        result: {
+          content: JSON.stringify(outputs[id] || { result: "mocked" }),
+          provider: "gemini",
+          model: "gemini-3-flash",
+          inputTokens: 100,
+          outputTokens: 50,
+          durationMs: 200,
+          cached: false,
+        },
+        log: {},
+      };
     }),
   }),
 }));

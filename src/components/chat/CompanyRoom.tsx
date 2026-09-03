@@ -5,28 +5,7 @@ import type { AgentRecord } from "../agents/AgentCard";
 import { Badge } from "../ui/Badge";
 import { formatTime } from "@/lib/utils/format";
 import { MicrophoneButton } from "./MicrophoneButton";
-
-// Agent color mapping for visual differentiation
-const AGENT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  ceo: { bg: "#fef3c7", text: "#92400e", border: "#f59e0b" },
-  producthunter: { bg: "#dbeafe", text: "#1e40af", border: "#3b82f6" },
-  "product-hunter": { bg: "#dbeafe", text: "#1e40af", border: "#3b82f6" },
-  marketresearch: { bg: "#fce7f3", text: "#9d174d", border: "#ec4899" },
-  "market-research": { bg: "#fce7f3", text: "#9d174d", border: "#ec4899" },
-  supplierresearch: { bg: "#d1fae5", text: "#065f46", border: "#10b981" },
-  "supplier-research": { bg: "#d1fae5", text: "#065f46", border: "#10b981" },
-  opportunitiescoring: { bg: "#ede9fe", text: "#5b21b6", border: "#8b5cf6" },
-  "opportunity-scoring": { bg: "#ede9fe", text: "#5b21b6", border: "#8b5cf6" },
-  storebuilder: { bg: "#ccfbf1", text: "#0f766e", border: "#14b8a6" },
-  "store-builder": { bg: "#ccfbf1", text: "#0f766e", border: "#14b8a6" },
-  marketing: { bg: "#fee2e2", text: "#991b1b", border: "#ef4444" },
-  secretary: { bg: "#f3f4f6", text: "#374151", border: "#6b7280" },
-  finance: { bg: "#ecfdf5", text: "#065f46", border: "#22c55e" },
-};
-
-function getAgentColor(agentId: string) {
-  return AGENT_COLORS[agentId.toLowerCase()] || { bg: "#f3f4f6", text: "#374151", border: "#6b7280" };
-}
+import { getAgentColor } from "@/lib/agents/colors";
 
 interface RoomMessage {
   id: string;

@@ -4,28 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { CompanyRoom } from "@/components/chat/CompanyRoom";
 import { ChatContainer } from "@/components/chat/ChatContainer";
 import type { AgentRecord } from "@/components/agents/AgentCard";
-
-// Agent colors for avatars
-const AGENT_COLORS: Record<string, string> = {
-  ceo: "#f59e0b",
-  producthunter: "#3b82f6",
-  "product-hunter": "#3b82f6",
-  marketresearch: "#ec4899",
-  "market-research": "#ec4899",
-  supplierresearch: "#10b981",
-  "supplier-research": "#10b981",
-  opportunitiescoring: "#8b5cf6",
-  "opportunity-scoring": "#8b5cf6",
-  storebuilder: "#14b8a6",
-  "store-builder": "#14b8a6",
-  marketing: "#ef4444",
-  secretary: "#6b7280",
-  finance: "#22c55e",
-};
-
-function getAgentColor(id: string) {
-  return AGENT_COLORS[id.toLowerCase()] || "#6b7280";
-}
+import { getAgentColor, getAgentHexColor } from "@/lib/agents/colors";
 
 export default function WorkspacePage() {
   const [agents, setAgents] = useState<AgentRecord[]>([]);
@@ -183,7 +162,7 @@ export default function WorkspacePage() {
                 <div className="flex items-center gap-2">
                   <div
                     className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
-                    style={{ background: getAgentColor(agent.id) }}
+                       style={{ background: getAgentHexColor(agent.id) }}
                   >
                     {agent.name.charAt(0)}
                   </div>
@@ -366,7 +345,7 @@ export default function WorkspacePage() {
                   >
                     <div
                       className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white shrink-0"
-                      style={{ background: getAgentColor(agent.id) }}
+                    style={{ background: getAgentHexColor(agent.id) }}
                     >
                       {agent.name.charAt(0)}
                     </div>
@@ -414,7 +393,7 @@ export default function WorkspacePage() {
 
 // ─── Agent Profile Panel ──────────────────────────────────────────
 function AgentProfilePanel({ agent }: { agent: AgentRecord }) {
-  const color = getAgentColor(agent.id);
+  const colors = getAgentColor(agent.id);
   const skills = agent.config?.skills || [];
   const tools = agent.config?.tools || [];
 
@@ -423,8 +402,8 @@ function AgentProfilePanel({ agent }: { agent: AgentRecord }) {
       {/* Agent header */}
       <div className="flex items-center gap-3">
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
-          style={{ background: color }}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+          style={{ background: colors.bg, color: colors.text }}
         >
           {agent.name.charAt(0)}
         </div>

@@ -21,6 +21,7 @@ import { getWorkspaceService } from "../../workspaces/service";
 import { getAgentMemoryService } from "../../ai/agent-memory";
 import { logEvent } from "../../logging/event-logger";
 import { getMiniAIEngine } from "../../ai/mini-ai/engine";
+import { withRetry, withTimeout } from "../../ai/retry";
 import type { AgentContext, AgentResult, AgentConfiguration } from "./types";
 import type { AIProviderSlug } from "../../ai/types";
 import type { MiniAIResult } from "../../ai/mini-ai/types";
@@ -186,8 +187,16 @@ export class AgentEngine {
     };
 
     try {
-      // 7. Execute agent via router
-      const result = await agent.execute(context);
+      // 7. Execute agent via router with retry + timeout
+      const result = await withRetry(
+        () => withTimeout(
+          () => agent.execute(context),
+          120_000, // 2 minute timeout per execution
+          `agent:${agentId}`
+        ),
+        { maxRetries: 2, baseDelayMs: 1000 },
+        { agentId, operation: "agent.execute" }
+      );
 
       // 8. Persist run with cost calculation
       const inputTokens = result.metadata.inputTokens;

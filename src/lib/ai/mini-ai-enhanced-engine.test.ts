@@ -35,7 +35,15 @@ vi.mock("./router", () => ({
   getRouter: () => ({
     generate: vi.fn().mockResolvedValue({
       result: {
-        content: '{"result": "mocked"}',
+        content: JSON.stringify({
+          bestCategory: "product",
+          confidence: 0.9,
+          allCategories: [
+            { category: "product", score: 0.9 },
+            { category: "marketing", score: 0.3 },
+          ],
+          reasoning: "Mock classification",
+        }),
         provider: "gemini",
         model: "gemini-3-flash",
         inputTokens: 100,
