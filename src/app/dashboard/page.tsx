@@ -421,8 +421,7 @@ export default async function DashboardPage({
             <div className="flex flex-col gap-1.5">
               <QuickAction href="/dashboard/agents" label="View Agents" description="See all agents and their status" />
               <QuickAction href="/dashboard/runs" label="Run History" description="View all agent executions" />
-              <QuickAction href="/dashboard/models" label="Configure Models" description="Set up AI providers and models" />
-              <QuickAction href="/dashboard/settings" label="Settings" description="API keys and environment" />
+              <QuickAction href="/dashboard/settings" label="Settings" description="AI providers, models, budgets, and security" />
               {pendingApprovals > 0 && (
                 <div
                   className="mt-1 rounded-[var(--r-md)] border px-3 py-2.5 text-xs"

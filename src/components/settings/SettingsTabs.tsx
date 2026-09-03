@@ -41,26 +41,65 @@ interface AgentRoute {
   enabled: boolean;
 }
 
-type Tab = "providers" | "models" | "integrations";
+type Tab = "providers" | "models" | "integrations" | "budgets" | "security" | "workspace";
+
+interface Budget {
+  id: string;
+  entityId: string;
+  entityType: string;
+  maxDollars: number;
+  window: string;
+  active: boolean;
+}
+
+interface SecurityEvent {
+  id: string;
+  eventType: string;
+  severity: string;
+  message: string;
+  source: string;
+  timestamp: number;
+}
+
+interface WorkspaceSettings {
+  id: string;
+  name: string;
+  industry: string;
+  target_market: string;
+  budget_limit: number;
+  currency: string;
+  timezone: string;
+}
 
 export function SettingsTabs({ envStatus }: { envStatus: EnvVar[] }) {
   const [activeTab, setActiveTab] = useState<Tab>("providers");
   const [providers, setProviders] = useState<Provider[]>([]);
   const [models, setModels] = useState<Model[]>([]);
   const [routes, setRoutes] = useState<AgentRoute[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
+  const [workspaceSettings, setWorkspaceSettings] = useState<WorkspaceSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [provRes, modelRes, routeRes] = await Promise.all([
+      const [provRes, modelRes, routeRes, budgetRes, securityRes, wsRes] = await Promise.all([
         fetch("/api/settings/credentials").then((r) => r.json()),
         fetch("/api/settings/models").then((r) => r.json()),
         fetch("/api/settings/routes").then((r) => r.json()),
+        fetch("/api/ai/budgets?action=list").then((r) => r.json()),
+        fetch("/api/ai/security?action=recent&count=50").then((r) => r.json()),
+        fetch("/api/workspaces").then((r) => r.json()),
       ]);
       setProviders(provRes.credentials || []);
       setModels(modelRes.models || []);
       setRoutes(routeRes.routes || []);
+      setBudgets(budgetRes.budgets || []);
+      setSecurityEvents(securityRes.events || []);
+      if (wsRes.success && wsRes.workspaces?.length > 0) {
+        setWorkspaceSettings(wsRes.workspaces[0]);
+      }
     } catch (err) {
       console.error("Failed to load settings:", err);
     } finally {
@@ -72,10 +111,13 @@ export function SettingsTabs({ envStatus }: { envStatus: EnvVar[] }) {
     fetchData();
   }, [fetchData]);
 
-  const tabs: { id: Tab; label: string; count: number }[] = [
+  const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "providers", label: "AI Providers", count: providers.length },
     { id: "models", label: "Models", count: models.length },
     { id: "integrations", label: "Integrations", count: routes.length },
+    { id: "budgets", label: "Budgets", count: budgets.length },
+    { id: "security", label: "Security", count: securityEvents.length },
+    { id: "workspace", label: "Workspace" },
   ];
 
   return (
@@ -127,6 +169,15 @@ export function SettingsTabs({ envStatus }: { envStatus: EnvVar[] }) {
           )}
           {activeTab === "integrations" && (
             <IntegrationsTab routes={routes} models={models} onRefresh={fetchData} />
+          )}
+          {activeTab === "budgets" && (
+            <BudgetsTab budgets={budgets} onRefresh={fetchData} />
+          )}
+          {activeTab === "security" && (
+            <SecurityTab events={securityEvents} onRefresh={fetchData} />
+          )}
+          {activeTab === "workspace" && (
+            <WorkspaceTab settings={workspaceSettings} onRefresh={fetchData} />
           )}
         </>
       )}
@@ -415,6 +466,350 @@ function IntegrationsTab({
           </div>
         ))
       )}
+    </div>
+  );
+}
+
+// ============================================
+// BUDGETS TAB
+// ============================================
+
+function BudgetsTab({
+  budgets,
+  onRefresh,
+}: {
+  budgets: Budget[];
+  onRefresh: () => void;
+}) {
+  const [statuses, setStatuses] = useState<Array<{
+    budget: Budget;
+    currentSpending: number;
+    remainingDollars: number;
+    utilizationPercent: number;
+    exhausted: boolean;
+  }>>([]);
+
+  useEffect(() => {
+    async function fetchStatuses() {
+      if (budgets.length === 0) return;
+      const entities = [...new Set(budgets.map((b) => `${b.entityType}:${b.entityId}`))];
+      const results = await Promise.all(
+        entities.map(async (key) => {
+          const [type, id] = key.split(":");
+          const res = await fetch(`/api/ai/budgets?action=status&entityId=${id}&entityType=${type}`);
+          const data = await res.json();
+          return data.success ? data.statuses : [];
+        })
+      );
+      setStatuses(results.flat());
+    }
+    fetchStatuses();
+  }, [budgets]);
+
+  const utilizationColor = (pct: number) => {
+    if (pct >= 1) return "var(--error)";
+    if (pct >= 0.8) return "var(--warning)";
+    return "var(--accent)";
+  };
+
+  if (budgets.length === 0) {
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <p style={{ fontSize: "0.875rem", color: "var(--text-tertiary)" }}>No budgets configured</p>
+        <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginTop: 4 }}>
+          Create budgets via the API to set spending limits
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: "grid", gap: 10 }}>
+        {statuses.map((status) => {
+          const pct = Math.min(status.utilizationPercent, 1);
+          const barColor = utilizationColor(status.utilizationPercent);
+          return (
+            <div key={status.budget.id} style={{
+              padding: "14px 16px", background: "var(--bg-sunken)", border: "1px solid var(--border)",
+              borderRadius: "var(--r-md)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <div>
+                  <p style={{ fontSize: "0.8125rem", fontWeight: 600 }}>
+                    {status.budget.entityId}
+                    <span style={{
+                      marginLeft: 6, fontSize: "0.5625rem", fontWeight: 600, padding: "1px 5px", borderRadius: 4,
+                      background: "var(--bg-hover)", color: "var(--text-tertiary)", textTransform: "uppercase",
+                    }}>
+                      {status.budget.entityType}
+                    </span>
+                  </p>
+                  <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>
+                    {status.budget.window} · Max ${status.budget.maxDollars.toFixed(2)}
+                  </p>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <p style={{ fontSize: "0.75rem", fontWeight: 600 }}>
+                    <span style={{ color: barColor }}>${status.currentSpending.toFixed(4)}</span>
+                    {" / "}
+                    <span style={{ color: "var(--text-tertiary)" }}>${status.budget.maxDollars.toFixed(4)}</span>
+                  </p>
+                  {status.exhausted && (
+                    <p style={{ fontSize: "0.5625rem", color: "var(--error)", fontWeight: 600 }}>EXHAUSTED</p>
+                  )}
+                </div>
+              </div>
+              <div style={{ height: 6, background: "var(--bg-hover)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{
+                  width: `${pct * 100}%`, height: "100%", background: barColor,
+                  borderRadius: 3, transition: "width 300ms ease",
+                }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// SECURITY TAB
+// ============================================
+
+function SecurityTab({
+  events,
+  onRefresh,
+}: {
+  events: SecurityEvent[];
+  onRefresh: () => void;
+}) {
+  const [filterSeverity, setFilterSeverity] = useState("");
+
+  const filtered = filterSeverity
+    ? events.filter((e) => e.severity === filterSeverity)
+    : events;
+
+  const severityColors: Record<string, { bg: string; text: string }> = {
+    low: { bg: "var(--bg-sunken)", text: "var(--text-tertiary)" },
+    medium: { bg: "var(--warning-bg, #fef3c7)", text: "var(--warning)" },
+    high: { bg: "var(--error-bg, #fee2e2)", text: "var(--error)" },
+    critical: { bg: "var(--error-bg, #fee2e2)", text: "var(--error)" },
+  };
+
+  return (
+    <div>
+      {/* Filters */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <select
+          value={filterSeverity}
+          onChange={(e) => setFilterSeverity(e.target.value)}
+          style={{
+            padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+            fontSize: "0.75rem", background: "var(--bg-card)",
+          }}
+        >
+          <option value="">All severities</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", alignSelf: "center" }}>
+          {filtered.length} events
+        </span>
+      </div>
+
+      {/* Events list */}
+      <div style={{
+        background: "var(--bg-sunken)", border: "1px solid var(--border)",
+        borderRadius: "var(--r-md)", overflow: "hidden",
+      }}>
+        {filtered.length === 0 ? (
+          <div style={{ padding: 40, textAlign: "center" }}>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-tertiary)" }}>No security events</p>
+          </div>
+        ) : (
+          <div>
+            {filtered.map((event) => {
+              const colors = severityColors[event.severity] || severityColors.low;
+              return (
+                <div key={event.id} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "10px 14px", borderBottom: "1px solid var(--border)",
+                }}>
+                  <span style={{
+                    fontSize: "0.5625rem", fontWeight: 600, padding: "1px 5px", borderRadius: 4,
+                    background: colors.bg, color: colors.text, textTransform: "uppercase",
+                    minWidth: 50, textAlign: "center",
+                  }}>
+                    {event.severity}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: "0.8125rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {event.message}
+                    </p>
+                    <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>
+                      {event.source}
+                    </p>
+                  </div>
+                  <span style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", flexShrink: 0 }}>
+                    {new Date(event.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// WORKSPACE TAB
+// ============================================
+
+function WorkspaceTab({
+  settings,
+  onRefresh,
+}: {
+  settings: WorkspaceSettings | null;
+  onRefresh: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [localSettings, setLocalSettings] = useState<WorkspaceSettings | null>(settings);
+
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
+
+  if (!localSettings) {
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <p style={{ fontSize: "0.875rem", color: "var(--text-tertiary)" }}>No workspace found</p>
+      </div>
+    );
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await fetch("/api/workspaces", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(localSettings),
+      });
+      onRefresh();
+    } catch {
+      console.error("Failed to save workspace settings");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div>
+          <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+            Company Name
+          </label>
+          <input
+            type="text"
+            value={localSettings.name}
+            onChange={(e) => setLocalSettings({ ...localSettings, name: e.target.value })}
+            style={{
+              width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+              fontSize: "0.8125rem", background: "var(--bg-card)", color: "var(--text-primary)",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+            Industry
+          </label>
+          <input
+            type="text"
+            value={localSettings.industry}
+            onChange={(e) => setLocalSettings({ ...localSettings, industry: e.target.value })}
+            style={{
+              width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+              fontSize: "0.8125rem", background: "var(--bg-card)", color: "var(--text-primary)",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+            Target Market
+          </label>
+          <input
+            type="text"
+            value={localSettings.target_market}
+            onChange={(e) => setLocalSettings({ ...localSettings, target_market: e.target.value })}
+            style={{
+              width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+              fontSize: "0.8125rem", background: "var(--bg-card)", color: "var(--text-primary)",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+            Currency
+          </label>
+          <input
+            type="text"
+            value={localSettings.currency}
+            onChange={(e) => setLocalSettings({ ...localSettings, currency: e.target.value })}
+            style={{
+              width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+              fontSize: "0.8125rem", background: "var(--bg-card)", color: "var(--text-primary)",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+            Budget Limit
+          </label>
+          <input
+            type="number"
+            value={localSettings.budget_limit}
+            onChange={(e) => setLocalSettings({ ...localSettings, budget_limit: parseFloat(e.target.value) || 0 })}
+            style={{
+              width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+              fontSize: "0.8125rem", background: "var(--bg-card)", color: "var(--text-primary)",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+            Timezone
+          </label>
+          <input
+            type="text"
+            value={localSettings.timezone}
+            onChange={(e) => setLocalSettings({ ...localSettings, timezone: e.target.value })}
+            style={{
+              width: "100%", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+              fontSize: "0.8125rem", background: "var(--bg-card)", color: "var(--text-primary)",
+            }}
+          />
+        </div>
+      </div>
+      <div style={{ marginTop: 16 }}>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            padding: "8px 16px", border: "none", borderRadius: "var(--r-md)", cursor: "pointer",
+            background: "var(--accent)", color: "white", fontSize: "0.8125rem", fontWeight: 500,
+          }}
+        >
+          {saving ? "Saving..." : "Save Changes"}
+        </button>
+      </div>
     </div>
   );
 }
