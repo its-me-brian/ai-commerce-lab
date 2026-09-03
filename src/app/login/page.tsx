@@ -23,19 +23,34 @@ export default function LoginPage() {
       return;
     }
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (authError) {
-      setError(authError.message);
+      if (authError) {
+        // Show helpful message for common errors
+        if (authError.message.includes("Email not confirmed")) {
+          setError("Email not confirmed. Please check your inbox or contact support.");
+        } else {
+          setError(authError.message);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (data?.session) {
+        // Success — navigate to workspace
+        window.location.href = "/workspace";
+      } else {
+        setError("Login failed. Please try again.");
+        setLoading(false);
+      }
+    } catch (err) {
+      setError(`Network error: ${err instanceof Error ? err.message : "Unknown"}`);
       setLoading(false);
-      return;
     }
-
-    router.push("/workspace");
-    router.refresh();
   };
 
   return (
