@@ -96,11 +96,12 @@ export async function PATCH(
     );
   }
 
-  // Verify the route belongs to this agent
+  // Verify the route belongs to this agent (and workspace)
   const { data: existing } = await supabase
     .from("agent_model_routes")
     .select("agent_id")
     .eq("id", routeId)
+    .eq("workspace_id", auth.workspaceId)
     .single();
 
   if (!existing || existing.agent_id !== id) {
@@ -149,11 +150,12 @@ export async function DELETE(
     );
   }
 
-  // Verify ownership
+  // Verify ownership (workspace-scoped)
   const { data: existing } = await supabase
     .from("agent_model_routes")
     .select("agent_id")
     .eq("id", routeId)
+    .eq("workspace_id", auth.workspaceId)
     .single();
 
   if (!existing || existing.agent_id !== id) {

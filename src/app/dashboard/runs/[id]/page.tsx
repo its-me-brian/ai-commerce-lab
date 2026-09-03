@@ -9,22 +9,24 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  // Fetch run
+  // Fetch run (verify workspace ownership)
   const { data: run, error: runError } = await supabase
     .from("agent_runs")
     .select("*")
     .eq("id", id)
+    .eq("workspace_id", "ws-default")
     .single();
 
   if (runError || !run) {
     notFound();
   }
 
-  // Fetch associated task
+  // Fetch associated task (verify workspace ownership)
   const { data: task } = await supabase
     .from("agent_tasks")
     .select("*")
     .eq("id", run.task_id)
+    .eq("workspace_id", "ws-default")
     .single();
 
   return (

@@ -24,10 +24,11 @@ export async function GET(request: NextRequest) {
       throw agentsError;
     }
 
-    // Get all configs
+    // Get all configs for this workspace
     const { data: configs, error: configsError } = await supabase
       .from("agent_configs")
-      .select("*");
+      .select("*")
+      .eq("workspace_id", workspaceId);
 
     if (configsError) {
       console.error("[API] Failed to load configs:", configsError.message);

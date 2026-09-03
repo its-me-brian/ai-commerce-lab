@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
             let query = supabase
               .from("structured_logs")
               .select("*")
+              .eq("workspace_id", auth.workspaceId)
               .order("created_at", { ascending: false })
               .limit(count);
 
@@ -87,12 +88,14 @@ export async function GET(request: NextRequest) {
                 .from("traces")
                 .select("*")
                 .eq("id", traceId)
+                .eq("workspace_id", auth.workspaceId)
                 .single();
 
               const { data: spansData } = await supabase
                 .from("spans")
                 .select("*")
                 .eq("trace_id", traceId)
+                .eq("workspace_id", auth.workspaceId)
                 .order("started_at", { ascending: true });
 
               if (traceData) {
@@ -120,6 +123,7 @@ export async function GET(request: NextRequest) {
             const { data, error } = await supabase
               .from("traces")
               .select("*")
+              .eq("workspace_id", auth.workspaceId)
               .order("started_at", { ascending: false })
               .limit(count);
 
@@ -156,6 +160,7 @@ export async function GET(request: NextRequest) {
             const { data, error } = await supabase
               .from("metrics")
               .select("name")
+              .eq("workspace_id", auth.workspaceId)
               .order("created_at", { ascending: false })
               .limit(count);
 

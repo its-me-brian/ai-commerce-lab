@@ -26,13 +26,16 @@ export async function POST(request: NextRequest) {
     return authResult.error;
   }
 
+  const { workspaceId } = authResult;
+
   try {
     const body = await request.json();
-    const { workspace_id, query_embedding, limit, min_score, category } = body;
+    const { query_embedding, limit, min_score, category } = body;
+    const workspace_id = workspaceId;
 
-    if (!workspace_id || !query_embedding) {
+    if (!query_embedding) {
       return NextResponse.json(
-        { error: "Missing required fields: workspace_id, query_embedding" },
+        { error: "Missing required field: query_embedding" },
         { status: 400 }
       );
     }

@@ -15,9 +15,13 @@ interface AgentRow {
 }
 
 export default async function AgentsPage() {
+  // TODO: Get workspace_id from auth context (cookies/session)
+  const workspaceId = "ws-default";
+
   const { data: agents, error: agentsError } = await supabase
     .from("agents")
     .select("*")
+    .eq("workspace_id", workspaceId)
     .order("name");
 
   if (agentsError) {
@@ -26,15 +30,18 @@ export default async function AgentsPage() {
 
   const { data: configs } = await supabase
     .from("agent_configs")
-    .select("agent_id, primary_provider_id, primary_model_id");
+    .select("agent_id, primary_provider_id, primary_model_id")
+    .eq("workspace_id", workspaceId);
 
   const { data: models } = await supabase
     .from("ai_models")
-    .select("id, name");
+    .select("id, name")
+    .eq("workspace_id", workspaceId);
 
   const { data: providers } = await supabase
     .from("ai_providers")
-    .select("id, name");
+    .select("id, name")
+    .eq("workspace_id", workspaceId);
 
   const configMap = new Map((configs || []).map((c) => [c.agent_id, c]));
   const modelMap = new Map((models || []).map((m) => [m.id, m.name]));

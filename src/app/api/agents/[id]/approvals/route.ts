@@ -11,11 +11,11 @@ export async function GET(
 
   const { id } = await params;
 
-  // NOTE: After migration 041 is applied, add .eq("workspace_id", auth.workspaceId)
   const { data, error } = await supabase
     .from("approvals" as never)
     .select("*")
     .eq("agent_id", id)
+    .eq("workspace_id", auth.workspaceId)
     .order("created_at", { ascending: false })
     .limit(50);
 

@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
     const { data: providers, error: providersError } = await supabase
       .from("ai_providers")
       .select("*")
+      .eq("workspace_id", auth.workspaceId)
       .order("name");
 
     if (providersError) {
@@ -61,6 +62,7 @@ export async function GET(request: NextRequest) {
     const { data: models, error: modelsError } = await supabase
       .from("ai_models")
       .select("*")
+      .eq("workspace_id", auth.workspaceId)
       .order("name");
 
     if (modelsError) {
@@ -80,7 +82,7 @@ export async function GET(request: NextRequest) {
       console.error("[API] Failed to load runs:", runsError.message);
     }
 
-    // Get agent skills
+    // Get agent skills (scoped via agent's workspace_id from query above)
     const { data: agentSkills, error: skillsError } = await supabase
       .from("agent_skills")
       .select("skill_id, skills(id, name, slug, description, category)")

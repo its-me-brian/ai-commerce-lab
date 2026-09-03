@@ -13,12 +13,12 @@ export async function GET(
 
   const { id } = await params;
 
-  // NOTE: After migration 041 is applied, add workspace_id filters
-  // Get task IDs for this agent
+  // Get task IDs for this agent in current workspace
   const { data: tasks } = await supabase
     .from("agent_tasks")
     .select("id")
-    .eq("agent_id", id);
+    .eq("agent_id", id)
+    .eq("workspace_id", auth.workspaceId);
 
   if (!tasks || tasks.length === 0) {
     return NextResponse.json({ success: true, handoffs: [] });
