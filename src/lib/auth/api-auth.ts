@@ -189,18 +189,20 @@ export async function requireWorkspaceAccess(
     // AUTO-ONBOARDING: If user is not a member, add them as owner of ws-default
     // This handles: (a) users created before the trigger, (b) trigger failures
     if (workspaceId === "ws-default") {
+      // Use upsert to handle both cases: user not in DB, or trigger already added them
       const { error: insertError } = await supabase
         .from("workspace_members")
-        .insert({
-          workspace_id: "ws-default",
-          user_id: user.id,
-          role: "owner",
-        })
-        .select()
-        .single();
+        .upsert(
+          {
+            workspace_id: "ws-default",
+            user_id: user.id,
+            role: "owner",
+          },
+          { onConflict: "workspace_id,user_id", ignoreDuplicates: true }
+        );
 
       if (!insertError) {
-        // Success — user was auto-added, return owner access
+        // Success — user was auto-added (or already existed), return owner access
         return { user, workspaceId, role: "owner" };
       }
       console.error("[Auth] Auto-onboarding failed:", insertError);
