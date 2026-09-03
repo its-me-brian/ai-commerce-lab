@@ -10,8 +10,9 @@
 -- Returns TRUE if the authenticated user has a membership in the given workspace.
 
 -- Drop old signatures from migration 037 (parameter was named "ws_id")
-DROP FUNCTION IF EXISTS public.is_workspace_member(text);
-DROP FUNCTION IF EXISTS public.has_workspace_role(text, text);
+-- CASCADE drops all dependent RLS policies — they are recreated in section 6 below
+DROP FUNCTION IF EXISTS public.is_workspace_member(text) CASCADE;
+DROP FUNCTION IF EXISTS public.has_workspace_role(text, text) CASCADE;
 
 CREATE OR REPLACE FUNCTION public.is_workspace_member(workspace_id TEXT)
 RETURNS BOOLEAN AS $$
