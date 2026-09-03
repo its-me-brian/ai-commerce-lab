@@ -488,10 +488,18 @@ function BudgetsTab({
     utilizationPercent: number;
     exhausted: boolean;
   }>>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    entityId: "",
+    entityType: "agent" as "agent" | "workflow" | "mini-ai" | "global",
+    maxDollars: "",
+    window: "day" as "minute" | "hour" | "day" | "month" | "total",
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function fetchStatuses() {
-      if (budgets.length === 0) return;
+      if (budgets.length === 0) { setStatuses([]); return; }
       const entities = [...new Set(budgets.map((b) => `${b.entityType}:${b.entityId}`))];
       const results = await Promise.all(
         entities.map(async (key) => {
@@ -512,64 +520,222 @@ function BudgetsTab({
     return "var(--accent)";
   };
 
-  if (budgets.length === 0) {
-    return (
-      <div style={{ padding: 40, textAlign: "center" }}>
-        <p style={{ fontSize: "0.875rem", color: "var(--text-tertiary)" }}>No budgets configured</p>
-        <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginTop: 4 }}>
-          Create budgets via the API to set spending limits
-        </p>
-      </div>
-    );
+  async function handleCreate() {
+    if (!form.entityId || !form.maxDollars) return;
+    setSaving(true);
+    try {
+      await fetch("/api/ai/budgets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          budget: {
+            id: `budget-${form.entityType}-${form.entityId}-${Date.now()}`,
+            entityId: form.entityId,
+            entityType: form.entityType,
+            maxDollars: parseFloat(form.maxDollars),
+            window: form.window,
+            active: true,
+          },
+        }),
+      });
+      setForm({ entityId: "", entityType: "agent", maxDollars: "", window: "day" });
+      setShowForm(false);
+      onRefresh();
+    } catch {
+      console.error("Failed to create budget");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRemove(budgetId: string) {
+    try {
+      await fetch("/api/ai/budgets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "remove", budget: { id: budgetId } }),
+      });
+      onRefresh();
+    } catch {
+      console.error("Failed to remove budget");
+    }
   }
 
   return (
     <div>
-      <div style={{ display: "grid", gap: 10 }}>
-        {statuses.map((status) => {
-          const pct = Math.min(status.utilizationPercent, 1);
-          const barColor = utilizationColor(status.utilizationPercent);
-          return (
-            <div key={status.budget.id} style={{
-              padding: "14px 16px", background: "var(--bg-sunken)", border: "1px solid var(--border)",
-              borderRadius: "var(--r-md)",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <div>
-                  <p style={{ fontSize: "0.8125rem", fontWeight: 600 }}>
-                    {status.budget.entityId}
-                    <span style={{
-                      marginLeft: 6, fontSize: "0.5625rem", fontWeight: 600, padding: "1px 5px", borderRadius: 4,
-                      background: "var(--bg-hover)", color: "var(--text-tertiary)", textTransform: "uppercase",
-                    }}>
-                      {status.budget.entityType}
-                    </span>
-                  </p>
-                  <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>
-                    {status.budget.window} · Max ${status.budget.maxDollars.toFixed(2)}
-                  </p>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <p style={{ fontSize: "0.75rem", fontWeight: 600 }}>
-                    <span style={{ color: barColor }}>${status.currentSpending.toFixed(4)}</span>
-                    {" / "}
-                    <span style={{ color: "var(--text-tertiary)" }}>${status.budget.maxDollars.toFixed(4)}</span>
-                  </p>
-                  {status.exhausted && (
-                    <p style={{ fontSize: "0.5625rem", color: "var(--error)", fontWeight: 600 }}>EXHAUSTED</p>
-                  )}
-                </div>
-              </div>
-              <div style={{ height: 6, background: "var(--bg-hover)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{
-                  width: `${pct * 100}%`, height: "100%", background: barColor,
-                  borderRadius: 3, transition: "width 300ms ease",
-                }} />
-              </div>
-            </div>
-          );
-        })}
+      {/* Header + Add button */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>
+          Spending limits per agent, workflow, or globally
+        </p>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          style={{
+            padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+            fontSize: "0.75rem", cursor: "pointer", background: "var(--bg-card)",
+            color: "var(--text-primary)",
+          }}
+        >
+          {showForm ? "Cancel" : "+ Add Budget"}
+        </button>
       </div>
+
+      {/* Create form */}
+      {showForm && (
+        <div style={{
+          padding: 14, marginBottom: 14, background: "var(--bg-sunken)", border: "1px solid var(--border)",
+          borderRadius: "var(--r-md)",
+        }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 8, alignItems: "end" }}>
+            <div>
+              <label style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", display: "block", marginBottom: 4 }}>
+                Entity Type
+              </label>
+              <select
+                value={form.entityType}
+                onChange={(e) => setForm({ ...form, entityType: e.target.value as typeof form.entityType })}
+                style={{
+                  width: "100%", padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+                  fontSize: "0.75rem", background: "var(--bg-card)",
+                }}
+              >
+                <option value="agent">Agent</option>
+                <option value="workflow">Workflow</option>
+                <option value="mini-ai">Mini-AI</option>
+                <option value="global">Global</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", display: "block", marginBottom: 4 }}>
+                Entity ID
+              </label>
+              <input
+                type="text"
+                value={form.entityId}
+                onChange={(e) => setForm({ ...form, entityId: e.target.value })}
+                placeholder="e.g. product-hunter"
+                style={{
+                  width: "100%", padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+                  fontSize: "0.75rem", background: "var(--bg-card)",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", display: "block", marginBottom: 4 }}>
+                Limit ($)
+              </label>
+              <input
+                type="number"
+                value={form.maxDollars}
+                onChange={(e) => setForm({ ...form, maxDollars: e.target.value })}
+                placeholder="5.00"
+                step="0.01"
+                style={{
+                  width: "100%", padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+                  fontSize: "0.75rem", background: "var(--bg-card)",
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", display: "block", marginBottom: 4 }}>
+                Window
+              </label>
+              <select
+                value={form.window}
+                onChange={(e) => setForm({ ...form, window: e.target.value as typeof form.window })}
+                style={{
+                  width: "100%", padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+                  fontSize: "0.75rem", background: "var(--bg-card)",
+                }}
+              >
+                <option value="hour">Per Hour</option>
+                <option value="day">Per Day</option>
+                <option value="month">Per Month</option>
+                <option value="total">Total</option>
+              </select>
+            </div>
+            <button
+              onClick={handleCreate}
+              disabled={saving || !form.entityId || !form.maxDollars}
+              style={{
+                padding: "6px 14px", border: "none", borderRadius: "var(--r-md)", cursor: "pointer",
+                background: "var(--accent)", color: "white", fontSize: "0.75rem", fontWeight: 500,
+                opacity: saving || !form.entityId || !form.maxDollars ? 0.5 : 1,
+              }}
+            >
+              {saving ? "..." : "Create"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Budget list */}
+      {budgets.length === 0 ? (
+        <div style={{ padding: 40, textAlign: "center" }}>
+          <p style={{ fontSize: "0.875rem", color: "var(--text-tertiary)" }}>No budgets configured</p>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginTop: 4 }}>
+            Add a budget to limit spending per agent or globally
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 10 }}>
+          {statuses.map((status) => {
+            const pct = Math.min(status.utilizationPercent, 1);
+            const barColor = utilizationColor(status.utilizationPercent);
+            return (
+              <div key={status.budget.id} style={{
+                padding: "14px 16px", background: "var(--bg-sunken)", border: "1px solid var(--border)",
+                borderRadius: "var(--r-md)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <div>
+                    <p style={{ fontSize: "0.8125rem", fontWeight: 600 }}>
+                      {status.budget.entityId}
+                      <span style={{
+                        marginLeft: 6, fontSize: "0.5625rem", fontWeight: 600, padding: "1px 5px", borderRadius: 4,
+                        background: "var(--bg-hover)", color: "var(--text-tertiary)", textTransform: "uppercase",
+                      }}>
+                        {status.budget.entityType}
+                      </span>
+                    </p>
+                    <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)" }}>
+                      {status.budget.window} · Max ${status.budget.maxDollars.toFixed(2)}
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ textAlign: "right" }}>
+                      <p style={{ fontSize: "0.75rem", fontWeight: 600 }}>
+                        <span style={{ color: barColor }}>${status.currentSpending.toFixed(4)}</span>
+                        {" / "}
+                        <span style={{ color: "var(--text-tertiary)" }}>${status.budget.maxDollars.toFixed(4)}</span>
+                      </p>
+                      {status.exhausted && (
+                        <p style={{ fontSize: "0.5625rem", color: "var(--error)", fontWeight: 600 }}>EXHAUSTED</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleRemove(status.budget.id)}
+                      style={{
+                        padding: "4px 8px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+                        fontSize: "0.6875rem", cursor: "pointer", background: "var(--bg-card)",
+                        color: "var(--error)",
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                <div style={{ height: 6, background: "var(--bg-hover)", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{
+                    width: `${pct * 100}%`, height: "100%", background: barColor,
+                    borderRadius: 3, transition: "width 300ms ease",
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
