@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
     const engine = new AgentEngine();
     const { taskId, result } = await engine.executeTask(agentId, input, {
       taskType: "general",
+      workspaceId: auth.workspaceId,
     });
 
     return NextResponse.json({

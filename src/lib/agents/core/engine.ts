@@ -21,6 +21,7 @@ import { getWorkspaceService } from "../../workspaces/service";
 import { getAgentMemoryService } from "../../ai/agent-memory";
 import { logEvent } from "../../logging/event-logger";
 import { getMiniAIEngine } from "../../ai/mini-ai/engine";
+import { getCostBudgetTracker } from "../../ai/cost-budget";
 import { withRetry, withTimeout } from "../../ai/retry";
 import type { AgentContext, AgentResult, AgentConfiguration } from "./types";
 import type { AIProviderSlug } from "../../ai/types";
@@ -44,11 +45,12 @@ export class AgentEngine {
   async executeTask(
     agentId: string,
     input: Record<string, unknown>,
-    options?: { taskType?: string }
+    options?: { taskType?: string; workspaceId?: string }
   ): Promise<{ taskId: string; result: AgentResult }> {
     const taskId = randomUUID();
     const startTime = Date.now();
     const taskType = options?.taskType || "general";
+    const workspaceId = options?.workspaceId || "ws-default";
 
     // 1. Resolve agent from Registry (source of truth)
     const registry = getAgentRegistry();
@@ -74,6 +76,7 @@ export class AgentEngine {
     const { error: taskError } = await supabase.from("agent_tasks").insert({
       id: taskId,
       agent_id: agentId,
+      workspace_id: workspaceId,
       status: "running",
       task_type: taskType,
       input,
@@ -100,6 +103,23 @@ export class AgentEngine {
     if (!permissionCheck.allowed) {
       const errorMsg = `Permission denied: ${permissionCheck.denied.join(", ")}`;
       await this.failTask(taskId, errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    // 5b. Budget check — pre-flight estimate before execution
+    const budgetTracker = getCostBudgetTracker();
+    const estimatedCost = this.estimateExecutionCost(
+      config.inputPricePerMillion,
+      config.outputPricePerMillion
+    );
+
+    const budgetCheck = budgetTracker.checkBudget(agentId, "agent", estimatedCost);
+    if (!budgetCheck.allowed) {
+      const b = budgetCheck.violatedBudget;
+      const errorMsg = `Budget exceeded: ${b.budget.entityType}:${b.budget.entityId} — ` +
+        `${b.currentSpending.toFixed(4)}/${b.budget.maxDollars.toFixed(4)} used ` +
+        `(${(b.utilizationPercent * 100).toFixed(1)}%)`;
+      await this.createAndFailTask(taskId, agentId, taskType, input, errorMsg);
       throw new Error(errorMsg);
     }
 
@@ -210,6 +230,7 @@ export class AgentEngine {
       const { error: runError } = await supabase.from("agent_runs").insert({
         task_id: taskId,
         agent_id: agentId,
+        workspace_id: workspaceId,
         provider: result.metadata.providerUsed,
         model: result.metadata.modelUsed,
         input_tokens: inputTokens,
@@ -223,6 +244,39 @@ export class AgentEngine {
 
       if (runError) {
         console.error(`[AgentEngine] Failed to persist run: ${runError.message}`);
+      }
+
+      // 8b. Record cost in budget tracker (post-execution)
+      try {
+        const alerts = budgetTracker.recordCost({
+          entityId: agentId,
+          entityType: "agent",
+          costDollars: cost,
+          provider: result.metadata.providerUsed,
+          model: result.metadata.modelUsed,
+          inputTokens: inputTokens,
+          outputTokens: outputTokens,
+          taskId,
+          description: `Agent ${agentId} — ${taskType}`,
+        });
+
+        // Log budget alerts
+        for (const alert of alerts) {
+          await logEvent({
+            eventType: "budget_alert",
+            agentId,
+            severity: alert.level === "exceeded" ? "critical" : alert.level === "critical" ? "error" : "warning",
+            message: `Budget ${alert.level}: ${alert.entityType}:${alert.entityId} — ` +
+              `${(alert.utilizationPercent * 100).toFixed(1)}% used`,
+            metadata: {
+              budgetId: alert.budgetId,
+              currentSpending: alert.currentSpending,
+              budgetLimit: alert.budgetLimit,
+            },
+          });
+        }
+      } catch {
+        // Non-critical — don't fail execution if budget recording fails
       }
 
       // 9. Update task status with cost
@@ -308,6 +362,7 @@ export class AgentEngine {
       const { error: runError } = await supabase.from("agent_runs").insert({
         task_id: taskId,
         agent_id: agentId,
+        workspace_id: workspaceId,
         provider: config.primaryProvider,
         model: config.primaryModel,
         input_tokens: 0,
@@ -530,5 +585,22 @@ export class AgentEngine {
 
     // Round to 6 decimal places for currency precision
     return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000;
+  }
+
+  /**
+   * Estimate the cost of a single execution for budget pre-flight check.
+   * Uses a conservative estimate: 2K input tokens + 1K output tokens.
+   * This is a rough upper-bound for typical agent executions.
+   */
+  private estimateExecutionCost(
+    inputPricePerMillion: number,
+    outputPricePerMillion: number
+  ): number {
+    const estimatedInputTokens = 2_000;
+    const estimatedOutputTokens = 1_000;
+    return this.calculateCost(
+      estimatedInputTokens, estimatedOutputTokens,
+      inputPricePerMillion, outputPricePerMillion
+    );
   }
 }

@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     const engine = new AgentEngine();
     const { taskId, result } = await engine.executeTask(agentId, body, {
       taskType: "product_analysis",
+      workspaceId: auth.workspaceId,
     });
 
     return NextResponse.json({
