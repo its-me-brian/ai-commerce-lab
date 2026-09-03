@@ -129,7 +129,7 @@ Abstract class that all providers implement:
 - `testConnection(model)` — verify API key works
 - `getAvailableModels()` — list available models
 
-Implementations: `gemini.ts`, `claude.ts`, `grok.ts`, `ollama.ts`, `workers-ai.ts`
+Implementations: `gemini.ts`, `claude.ts`, `grok.ts`, `workers-ai.ts`, `openai-compatible.ts`
 
 ### AgentRegistry (`src/lib/agents/core/registry.ts`)
 Central registry of all agent instances:

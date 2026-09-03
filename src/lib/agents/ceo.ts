@@ -320,7 +320,7 @@ export class CEOAgent extends BaseAgent {
           input: {
             mode: "discover",
             query: input.query || "trending products",
-            source: input.source || "dummyjson",
+            source: input.source || "ebay",
             limit: input.limit || 5,
           },
           taskType: "workflow-products",
@@ -417,7 +417,7 @@ export class CEOAgent extends BaseAgent {
           input: {
             mode: "discover",
             query: input.query || "trending products",
-            source: input.source || "dummyjson",
+            source: input.source || "ebay",
             limit: input.limit || 3,
           },
           taskType: "pipeline-products",

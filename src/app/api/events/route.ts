@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // GET /api/events
 // Query app events with optional filters
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   try {
@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("app_events")
       .select("*")
+      .eq("workspace_id", auth.workspaceId)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -35,7 +36,8 @@ export async function GET(request: NextRequest) {
     // Get total count for pagination
     const { count } = await supabase
       .from("app_events")
-      .select("*", { count: "exact", head: true });
+      .select("*", { count: "exact", head: true })
+      .eq("workspace_id", auth.workspaceId);
 
     return NextResponse.json({ success: true, events: data, total: count });
   } catch (error) {
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
 // POST /api/events
 // Log a new event
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   try {
@@ -82,6 +84,7 @@ export async function POST(request: NextRequest) {
         agent_id: agentId || null,
         message,
         metadata: metadata || {},
+        workspace_id: auth.workspaceId,
       })
       .select()
       .single();

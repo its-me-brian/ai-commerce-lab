@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // POST /api/ceo/orchestrate
 // Send a goal to the CEO agent for orchestration
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   try {
     const body = await request.json();
-    const { goal, workspaceId } = body as {
-      goal?: string;
-      workspaceId?: string;
-    };
+    const { goal } = body as { goal?: string };
 
     if (!goal) {
       return NextResponse.json(
@@ -29,7 +25,6 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         agentId: "ceo",
         message: `Goal: ${goal}\n\nPlease create an execution plan and coordinate the appropriate agents to achieve this goal.`,
-        workspaceId,
       }),
     });
 

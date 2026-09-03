@@ -4,22 +4,29 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   try {
     const { id } = await params;
     const engine = getConversationEngine();
 
-    // Verify conversation exists
+    // Verify conversation exists and belongs to this workspace
     const conversation = await engine.getById(id);
     if (!conversation) {
+      return NextResponse.json(
+        { success: false, error: "Conversation not found" },
+        { status: 404 }
+      );
+    }
+
+    if (conversation.workspace_id !== auth.workspaceId) {
       return NextResponse.json(
         { success: false, error: "Conversation not found" },
         { status: 404 }

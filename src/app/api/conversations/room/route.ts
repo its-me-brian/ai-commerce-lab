@@ -1,14 +1,12 @@
 // GET /api/conversations/room — Load room conversation for a workspace
 // POST /api/conversations/room — Send a message in a Company Room
-// §8, §14: Multi-agent fan-out — CEO coordinates, delegates to relevant agents
 
 import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
 import { multiAgentChat } from "@/lib/ai/multi-agent-chat";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 interface RoomMessageRequest {
-  workspaceId: string;
   message: string;
   /** @mention target — agent ID to route to. null = fan-out mode (CEO coordinates). */
   targetAgentId?: string;
@@ -17,27 +15,14 @@ interface RoomMessageRequest {
 // GET: Load room conversation + messages (no side effects)
 export async function GET(req: NextRequest) {
   try {
-    // Auth check
-    const auth = await requireAuth(req);
+    // Auth + workspace check
+    const auth = await requireWorkspaceAccess(req);
     if ("error" in auth) return auth.error;
-
-    const { searchParams } = new URL(req.url);
-    const workspaceId = searchParams.get("workspaceId");
-
-    if (!workspaceId) {
-      return NextResponse.json(
-        { success: false, error: "workspaceId is required" },
-        { status: 400 }
-      );
-    }
-
-    // Normalize workspace ID
-    const normalizedWorkspaceId = workspaceId === "default" ? "ws-default" : workspaceId;
 
     const engine = getConversationEngine();
 
-    // Find existing room conversation
-    const conversations = await engine.listByWorkspace(normalizedWorkspaceId);
+    // Find existing room conversation for this workspace
+    const conversations = await engine.listByWorkspace(auth.workspaceId);
     const room = conversations.find(
       (c) => c.conversation_type === "room" && c.status === "active"
     );
@@ -72,27 +57,24 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    // Auth check
-    const auth = await requireAuth(req);
+    // Auth + workspace check
+    const auth = await requireWorkspaceAccess(req);
     if ("error" in auth) return auth.error;
 
     const body = await req.json();
-    const { workspaceId, message, targetAgentId } = body as RoomMessageRequest;
+    const { message, targetAgentId } = body as RoomMessageRequest;
 
-    if (!workspaceId || !message) {
+    if (!message) {
       return NextResponse.json(
-        { success: false, error: "workspaceId and message are required" },
+        { success: false, error: "message is required" },
         { status: 400 }
       );
     }
 
-    // Normalize workspace ID — UI may send "default", backend uses "ws-default"
-    const normalizedWorkspaceId = workspaceId === "default" ? "ws-default" : workspaceId;
-
     const engine = getConversationEngine();
 
     // 1. Get or create room conversation for this workspace
-    const conversation = await engine.getOrCreateRoom(normalizedWorkspaceId);
+    const conversation = await engine.getOrCreateRoom(auth.workspaceId);
     if (!conversation) {
       return NextResponse.json(
         { success: false, error: "Failed to create room conversation" },
@@ -104,7 +86,7 @@ export async function POST(req: NextRequest) {
     const result = await multiAgentChat({
       message,
       conversationId: conversation.id,
-      workspaceId: normalizedWorkspaceId,
+      workspaceId: auth.workspaceId,
       targetAgentId: targetAgentId || undefined,
     });
 

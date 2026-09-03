@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // GET /api/agents/config?agentId=product-hunter
 // Get agent configuration
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   try {
@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
       .from("agents")
       .select("*")
       .eq("id", agentId)
+      .eq("workspace_id", auth.workspaceId)
       .single();
 
     if (agentError || !agent) {
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
       .from("agent_configs")
       .select("*")
       .eq("agent_id", agentId)
+      .eq("workspace_id", auth.workspaceId)
       .single();
 
     if (configError && configError.code !== "PGRST116") {
@@ -70,6 +72,7 @@ export async function GET(request: NextRequest) {
       .from("agent_runs")
       .select("*")
       .eq("agent_id", agentId)
+      .eq("workspace_id", auth.workspaceId)
       .order("created_at", { ascending: false })
       .limit(5);
 
@@ -112,7 +115,7 @@ export async function GET(request: NextRequest) {
 // PUT /api/agents/config
 // Update agent configuration
 export async function PUT(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   try {
@@ -167,6 +170,7 @@ export async function PUT(request: NextRequest) {
           fallback_model_id: fallbackModelId || null,
           temperature: temperature ?? 0.2,
           max_output_tokens: maxTokens ?? 4096,
+          workspace_id: auth.workspaceId,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "agent_id" }

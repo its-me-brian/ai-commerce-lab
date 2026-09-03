@@ -55,12 +55,6 @@ describe("SourceTypeManager", () => {
       expect(sources.length).toBeGreaterThan(0);
     });
 
-    it("should include default mock sources", () => {
-      const sources = manager.listSources();
-      expect(sources.some((s) => s.id === "fakestore")).toBe(true);
-      expect(sources.some((s) => s.id === "dummyjson")).toBe(true);
-    });
-
     it("should include default real sources", () => {
       const sources = manager.listSources();
       expect(sources.some((s) => s.id === "ebay-browse")).toBe(true);
@@ -129,10 +123,10 @@ describe("SourceTypeManager", () => {
 
   describe("createProvenance", () => {
     it("should create provenance for a source", () => {
-      const provenance = manager.createProvenance("fakestore");
+      const provenance = manager.createProvenance("ebay-browse");
 
-      expect(provenance.sourceId).toBe("fakestore");
-      expect(provenance.sourceType).toBe("mock");
+      expect(provenance.sourceId).toBe("ebay-browse");
+      expect(provenance.sourceType).toBe("real");
       expect(provenance.collectedAt).toBeDefined();
     });
 
@@ -143,7 +137,7 @@ describe("SourceTypeManager", () => {
     });
 
     it("should accept custom options", () => {
-      const provenance = manager.createProvenance("fakestore", {
+      const provenance = manager.createProvenance("ebay-browse", {
         verified: true,
         confidence: 90,
         transformations: ["normalized", "deduplicated"],
@@ -161,9 +155,9 @@ describe("SourceTypeManager", () => {
       expect(manager.isMockSource("ebay-browse")).toBe(false);
     });
 
-    it("should correctly identify mock sources", () => {
-      expect(manager.isMockSource("fakestore")).toBe(true);
-      expect(manager.isRealSource("fakestore")).toBe(false);
+    it("should correctly identify unregistered sources as not mock", () => {
+      expect(manager.isMockSource("nonexistent")).toBe(false);
+      expect(manager.isRealSource("nonexistent")).toBe(false);
     });
   });
 
@@ -173,7 +167,7 @@ describe("SourceTypeManager", () => {
 
       expect(summary.total).toBeGreaterThan(0);
       expect(summary.real).toBeGreaterThan(0);
-      expect(summary.mock).toBeGreaterThan(0);
+      expect(summary.mock).toBe(0);
       expect(summary.total).toBe(summary.real + summary.mock + summary.hybrid);
     });
   });
@@ -181,8 +175,8 @@ describe("SourceTypeManager", () => {
   describe("validateSourceMarking", () => {
     it("should validate proper source marking", () => {
       const result = manager.validateSourceMarking({
-        sourceType: "mock",
-        source: "fakestore",
+        sourceType: "real",
+        source: "ebay-browse",
       });
 
       expect(result.valid).toBe(true);
@@ -191,7 +185,7 @@ describe("SourceTypeManager", () => {
 
     it("should warn when sourceType is missing", () => {
       const result = manager.validateSourceMarking({
-        source: "fakestore",
+        source: "ebay-browse",
       });
 
       expect(result.valid).toBe(false);

@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // GET /api/agents/[id]/events
-// Get task events for tasks owned by this agent
+// Get task events for tasks owned by this agent in the current workspace
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   const { id } = await params;
 
-  // Get task IDs for this agent first
+  // NOTE: After migration 041 is applied, add workspace_id filters
+  // Get task IDs for this agent
   const { data: tasks } = await supabase
     .from("agent_tasks")
     .select("id")

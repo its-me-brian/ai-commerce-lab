@@ -3,11 +3,11 @@
 // Stores documents with embeddings to Supabase.
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { supabase } from "@/lib/database/supabase";
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request);
+  const authResult = await requireWorkspaceAccess(request);
   if ("error" in authResult) {
     return authResult.error;
   }

@@ -3,12 +3,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 export async function GET(req: NextRequest) {
   try {
     // Auth check
-    const auth = await requireAuth(req);
+    const auth = await requireWorkspaceAccess(req);
     if ("error" in auth) return auth.error;
 
     const { searchParams } = new URL(req.url);
@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
       .from("agent_runs")
       .select("agent_id, status, created_at")
       .in("agent_id", agentIds)
+      .eq("workspace_id", auth.workspaceId)
       .order("created_at", { ascending: false })
       .limit(agentIds.length * 10);
 

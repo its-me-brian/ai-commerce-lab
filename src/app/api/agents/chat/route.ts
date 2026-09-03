@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chatWithAgent } from "@/lib/ai/agent-chat";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // POST /api/agents/chat
 // Send a message to an agent and get a response.
-// Body: { agentId, message, conversationId?, workspaceId? }
+// Body: { agentId, message, conversationId? }
 export async function POST(request: NextRequest) {
   try {
-    // Auth check
-    const auth = await requireAuth(request);
+    // Auth + workspace check — workspaceId comes from session, NOT from request body
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const body = await request.json();
-    const { agentId, message, conversationId, workspaceId } = body as {
+    const { agentId, message, conversationId } = body as {
       agentId?: string;
       message?: string;
       conversationId?: string;
-      workspaceId?: string;
     };
 
     if (!agentId || !message) {
@@ -26,14 +25,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Normalize workspace ID — UI may send "default", backend uses "ws-default"
-    const normalizedWorkspaceId = workspaceId === "default" ? "ws-default" : workspaceId;
-
     const result = await chatWithAgent({
       agentId,
       message,
       conversationId,
-      workspaceId: normalizedWorkspaceId,
+      workspaceId: auth.workspaceId,
     });
 
     return NextResponse.json({

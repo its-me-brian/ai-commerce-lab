@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // GET /api/agents/history?agentId=product-hunter&limit=20
 // Get agent task history
 export async function GET(request: NextRequest) {
   try {
     // Auth check
-    const auth = await requireAuth(request);
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const { searchParams } = new URL(request.url);
@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("agent_tasks")
       .select("*")
+      .eq("workspace_id", auth.workspaceId)
       .order("created_at", { ascending: false })
       .limit(limit);
 

@@ -3,7 +3,7 @@
 // Performs cosine similarity search against stored embeddings.
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { supabase } from "@/lib/database/supabase";
 
 /** Cosine similarity between two vectors. */
@@ -21,7 +21,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request);
+  const authResult = await requireWorkspaceAccess(request);
   if ("error" in authResult) {
     return authResult.error;
   }

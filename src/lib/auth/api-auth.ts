@@ -161,6 +161,12 @@ export async function requireWorkspaceAccess(
     return { user, workspaceId, role: "owner" };
   }
 
+  // Dev synthetic user: skip DB membership check (not a real Supabase auth user)
+  // This allows local-dev to work without creating a real auth.users record
+  if (user.id === "local-dev") {
+    return { user, workspaceId, role: "owner" };
+  }
+
   // Check workspace membership via service role client
   // (We use service role here because we're checking authorization, not reading data)
   const { createClient } = await import("@supabase/supabase-js");

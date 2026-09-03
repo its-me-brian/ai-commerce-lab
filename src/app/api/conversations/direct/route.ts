@@ -3,12 +3,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 export async function GET(req: NextRequest) {
   try {
-    // Auth check
-    const auth = await requireAuth(req);
+    // Auth + workspace check
+    const auth = await requireWorkspaceAccess(req);
     if ("error" in auth) return auth.error;
 
     const { searchParams } = new URL(req.url);
@@ -23,10 +23,10 @@ export async function GET(req: NextRequest) {
 
     const engine = getConversationEngine();
 
-    // Find existing active direct conversation for this agent
+    // Find existing active direct conversation for this agent in this workspace
     const conversations = await engine.listByAgent(agentId);
     const direct = conversations.find(
-      (c) => c.conversation_type === "direct" && c.status === "active"
+      (c) => c.conversation_type === "direct" && c.status === "active" && c.workspace_id === auth.workspaceId
     );
 
     if (!direct) {

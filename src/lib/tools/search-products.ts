@@ -1,6 +1,5 @@
 // Search Products Tool
 // Discovers products from external sources.
-// Uses DummyJSON as free default source (no API key needed).
 // Architecture: add new sources by implementing ProductSearchSource interface.
 
 import type { Tool, ToolResult } from "./types";
@@ -25,100 +24,6 @@ export interface RawProduct {
   category?: string;
   rating?: number;
   reviewCount?: number;
-}
-
-// --- DummyJSON Source (DEV ONLY — no API key, returns simulated products) ---
-
-class DummyJsonSource implements ProductSource {
-  readonly id = "dummyjson";
-  readonly name = "[DEV] DummyJSON Products";
-
-  async search(
-    query: string,
-    options?: { limit?: number; minPrice?: number; maxPrice?: number }
-  ): Promise<RawProduct[]> {
-    const limit = options?.limit || 10;
-
-    // DummyJSON supports search by keyword
-    const url = `https://dummyjson.com/products/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`DummyJSON API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const products: RawProduct[] = (data.products || [])
-      .map((p: Record<string, unknown>) => ({
-        source: "dummyjson",
-        externalId: String(p.id),
-        name: String(p.title),
-        price: Number(p.price),
-        currency: "USD",
-        imageUrl: String(p.thumbnail || ""),
-        url: `https://dummyjson.com/products/${p.id}`,
-        category: String(p.category || ""),
-        rating: Number(p.rating || 0),
-        reviewCount: 0,
-      }))
-      .filter((p: RawProduct) => {
-        if (options?.minPrice && p.price < options.minPrice) return false;
-        if (options?.maxPrice && p.price > options.maxPrice) return false;
-        return true;
-      });
-
-    return products;
-  }
-}
-
-// --- FakeStoreAPI Source (DEV ONLY — returns ~20 simulated products, no search API) ---
-
-class FakeStoreSource implements ProductSource {
-  readonly id = "fakestore";
-  readonly name = "[DEV] FakeStore Products";
-
-  async search(
-    query: string,
-    options?: { limit?: number; minPrice?: number; maxPrice?: number }
-  ): Promise<RawProduct[]> {
-    const limit = options?.limit || 10;
-
-    // FakeStoreAPI doesn't support search — fetch all and filter client-side
-    const response = await fetch("https://fakestoreapi.com/products");
-    if (!response.ok) {
-      throw new Error(`FakeStore API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const queryLower = query.toLowerCase();
-
-    const products: RawProduct[] = (data || [])
-      .map((p: Record<string, unknown>) => ({
-        source: "fakestore",
-        externalId: String(p.id),
-        name: String(p.title),
-        price: Number(p.price),
-        currency: "USD",
-        imageUrl: String(p.image || ""),
-        url: `https://fakestoreapi.com/products/${p.id}`,
-        category: String(p.category || ""),
-        rating: typeof p.rating === "object" ? Number((p.rating as Record<string, unknown>).rate || 0) : 0,
-        reviewCount: typeof p.rating === "object" ? Number((p.rating as Record<string, unknown>).count || 0) : 0,
-      }))
-      .filter((p: RawProduct) => {
-        // Client-side search: match name or category
-        const matchesQuery = !queryLower ||
-          p.name.toLowerCase().includes(queryLower) ||
-          (p.category && p.category.toLowerCase().includes(queryLower));
-        if (!matchesQuery) return false;
-        if (options?.minPrice && p.price < options.minPrice) return false;
-        if (options?.maxPrice && p.price > options.maxPrice) return false;
-        return true;
-      })
-      .slice(0, limit);
-
-    return products;
-  }
 }
 
 // --- eBay Browse API Source (free, 5000 req/day, requires OAuth registration) ---
@@ -243,44 +148,40 @@ class EbayBrowseSource implements ProductSource {
 
 // Registry of search sources — add new sources here
 const SEARCH_SOURCES: ProductSource[] = [
-  new DummyJsonSource(),
-  new FakeStoreSource(),
   new EbayBrowseSource(),
 ];
 
 /**
  * Get available search sources (for Dashboard UI).
  * Only returns sources that are actually configured.
- * Dev sources (DummyJSON, FakeStore) always available — no config needed.
  */
-export function getAvailableSources(): Array<{ id: string; name: string; configured: boolean; type: "dev" | "real" }> {
+export function getAvailableSources(): Array<{ id: string; name: string; configured: boolean }> {
   return SEARCH_SOURCES.map((s) => {
-    let configured = true;
-    let type: "dev" | "real" = "dev";
-    if (s.id === "ebay") {
-      configured = !!(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET);
-      type = "real";
-    }
-    return { id: s.id, name: s.name, configured, type };
+    const configured = s.id === "ebay"
+      ? !!(process.env.EBAY_CLIENT_ID && process.env.EBAY_CLIENT_SECRET)
+      : true;
+    return { id: s.id, name: s.name, configured };
   });
 }
 
 /**
  * Get the best available source for a query.
- * Prefers real sources when configured, falls back to dev sources.
+ * Returns the first configured source, or throws if none configured.
  */
 export function getDefaultSource(): string {
   const sources = getAvailableSources();
-  const configuredReal = sources.find((s) => s.type === "real" && s.configured);
-  if (configuredReal) return configuredReal.id;
-  return "dummyjson"; // fallback for dev
+  const configured = sources.find((s) => s.configured);
+  if (!configured) {
+    throw new Error("No product search source configured. Set EBAY_CLIENT_ID and EBAY_CLIENT_SECRET in .env.local.");
+  }
+  return configured.id;
 }
 
 export class SearchProductsTool implements Tool {
   readonly id = "search_products";
   readonly name = "Search Products";
   readonly description =
-    "Discovers products from external sources. Returns real product data when eBay API is configured. Dev sources (DummyJSON, FakeStore) return simulated products for testing.";
+    "Discovers products from external sources. Requires eBay API configuration (EBAY_CLIENT_ID, EBAY_CLIENT_SECRET).";
   readonly inputSchema = {
     type: "object",
     properties: {
@@ -290,7 +191,7 @@ export class SearchProductsTool implements Tool {
       },
       source: {
         type: "string",
-        description: "Source to search (default: auto-selects best available)",
+        description: "Source to search (default: ebay)",
       },
       limit: {
         type: "number",
@@ -334,7 +235,7 @@ export class SearchProductsTool implements Tool {
       return {
         success: false,
         output: null,
-        error: `Source not found: ${sourceId}. Available: ${SEARCH_SOURCES.map((s) => s.id).join(", ")}`,
+        error: `Source not found: ${sourceId}. Available: ${SEARCH_SOURCES.map((s) => s.id).join(", ")}. Configure EBAY_CLIENT_ID and EBAY_CLIENT_SECRET in .env.local.`,
       };
     }
 

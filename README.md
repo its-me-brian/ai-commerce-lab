@@ -16,7 +16,7 @@ User → Workspace → General Room → @mention routing
 
 **9 AI Agents**: CEO, Product Hunter, Market Research, Supplier Research, Opportunity Scoring, Store Builder, Marketing, Finance, Secretary
 
-**5 AI Providers**: Google Gemini, Anthropic Claude, xAI Grok, Ollama (local), Workers AI (Cloudflare)
+**5 AI Providers**: Google Gemini, Anthropic Claude, xAI Grok, Workers AI (Cloudflare), OpenAI-compatible (Qwen, DeepSeek)
 
 ## Tech Stack
 

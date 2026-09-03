@@ -68,23 +68,7 @@ export class SourceTypeManager {
   private sources: Map<string, DataSource> = new Map();
 
   constructor() {
-    // Register default mock sources
-    this.registerSource({
-      id: "fakestore",
-      name: "[DEV] FakeStore API",
-      type: "mock",
-      provider: "FakeStore",
-      notes: "Dev-only: ~20 simulated products, no search API. For development and testing only.",
-    });
-
-    this.registerSource({
-      id: "dummyjson",
-      name: "[DEV] DummyJSON",
-      type: "mock",
-      provider: "DummyJSON",
-      notes: "Dev-only: simulated product data. For development and testing only.",
-    });
-
+    // Register real data sources
     this.registerSource({
       id: "ebay-browse",
       name: "eBay Browse API",

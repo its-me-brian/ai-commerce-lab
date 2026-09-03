@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bootstrap, getAgentRegistry } from "@/lib/ai/bootstrap";
 import { AgentEngine } from "@/lib/agents/core/engine";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // POST /api/agents/product-hunter/run
 // Legacy endpoint — redirects to generic /api/agents/run
 // Kept for backward compatibility.
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   try {

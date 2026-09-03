@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCostBudgetTracker } from "@/lib/ai/cost-budget";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import type { CostBudget, BudgetEntityType } from "@/lib/ai/cost-budget";
 
 // GET /api/ai/budgets
@@ -8,7 +8,7 @@ import type { CostBudget, BudgetEntityType } from "@/lib/ai/cost-budget";
 export async function GET(request: NextRequest) {
   try {
     // Auth check
-    const auth = await requireAuth(request);
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const { searchParams } = new URL(request.url);
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Auth check
-    const auth = await requireAuth(request);
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const body = await request.json();

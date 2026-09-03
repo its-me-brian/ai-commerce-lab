@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // GET /api/tasks
 // List tasks with optional filters
 export async function GET(request: NextRequest) {
   try {
     // Auth check
-    const auth = await requireAuth(request);
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const { searchParams } = new URL(request.url);
@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("agent_tasks")
       .select("*, agents(name)")
+      .eq("workspace_id", auth.workspaceId)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -34,7 +35,8 @@ export async function GET(request: NextRequest) {
     // Get total count
     let countQuery = supabase
       .from("agent_tasks")
-      .select("*", { count: "exact", head: true });
+      .select("*", { count: "exact", head: true })
+      .eq("workspace_id", auth.workspaceId);
 
     if (agentId) countQuery = countQuery.eq("agent_id", agentId);
     if (status) countQuery = countQuery.eq("status", status);

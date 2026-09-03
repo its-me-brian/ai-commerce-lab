@@ -78,7 +78,7 @@ const DEFAULT_TEST_INPUTS: Record<string, string> = {
 const DISCOVER_TEST_INPUT = JSON.stringify({
   mode: "discover",
   query: "wireless earbuds",
-  source: "dummyjson",
+  source: "ebay",
   limit: 5,
 }, null, 2);
 
@@ -161,7 +161,7 @@ export default function AgentDetailPage({
   );
   const [testInputError, setTestInputError] = useState("");
   const [searchMode, setSearchMode] = useState<"analyze" | "discover">("analyze");
-  const [searchSource, setSearchSource] = useState("dummyjson");
+  const [searchSource, setSearchSource] = useState("ebay");
   const [availableSources, setAvailableSources] = useState<Array<{ id: string; name: string; configured: boolean }>>([]);
 
   useEffect(() => {
@@ -987,7 +987,7 @@ export default function AgentDetailPage({
                         const mode = e.target.value as "analyze" | "discover";
                         setSearchMode(mode);
                         if (mode === "discover") {
-                          setTestInput(DISCOVER_TEST_INPUT.replace('"dummyjson"', `"${searchSource}"`));
+                          setTestInput(DISCOVER_TEST_INPUT.replace('"ebay"', `"${searchSource}"`));
                         } else {
                           setTestInput(DEFAULT_TEST_INPUTS[id] || '{\n  "name": "Test Product",\n  "supplierPrice": 10\n}');
                         }
@@ -1022,10 +1022,7 @@ export default function AgentDetailPage({
                             </option>
                           ))
                         ) : (
-                          <>
-                            <option value="dummyjson">DummyJSON (194 products)</option>
-                            <option value="fakestore">FakeStore (20 products)</option>
-                          </>
+                          <option value="ebay">eBay Products</option>
                         )}
                       </select>
                     </div>

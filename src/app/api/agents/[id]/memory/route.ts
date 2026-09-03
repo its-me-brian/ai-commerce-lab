@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   const { id } = await params;
@@ -15,6 +15,7 @@ export async function GET(
     .from("agent_memory" as never)
     .select("*")
     .eq("agent_id", id)
+    .eq("workspace_id", auth.workspaceId)
     .order("created_at", { ascending: false })
     .limit(50);
 

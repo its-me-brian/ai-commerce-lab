@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // GET /api/agents/[id]/model-routes
 // Get model routes (pool) for an agent
@@ -8,7 +8,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   const { id } = await params;
@@ -17,6 +17,7 @@ export async function GET(
     .from("agent_model_routes")
     .select("*, ai_models!inner(name, model_id, provider_id, context_window, input_price, output_price, capabilities, ai_providers(name, slug))")
     .eq("agent_id", id)
+    .eq("workspace_id", auth.workspaceId)
     .order("priority", { ascending: true });
 
   if (error) {
@@ -32,7 +33,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   const { id } = await params;
@@ -58,6 +59,7 @@ export async function POST(
       priority: priority ?? 1,
       policy: policy ?? "preferred",
       enabled: true,
+      workspace_id: auth.workspaceId,
     })
     .select()
     .single();
@@ -75,7 +77,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   const { id } = await params;
@@ -133,7 +135,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth(request);
+  const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   const { id } = await params;

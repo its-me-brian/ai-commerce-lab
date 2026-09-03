@@ -118,7 +118,7 @@ export class ProductHunterAgent extends BaseAgent {
     // 1. Search for products
     const searchResult = await toolRegistry.execute("search_products", {
       query: input.query,
-      source: input.source || "dummyjson",
+      source: input.source || "ebay",
       limit: input.limit || 5,
       minPrice: input.minPrice,
       maxPrice: input.maxPrice,

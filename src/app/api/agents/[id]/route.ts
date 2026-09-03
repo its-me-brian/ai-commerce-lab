@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 export async function GET(
   request: NextRequest,
@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     // Auth check
-    const auth = await requireAuth(request);
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const { id } = await params;
@@ -20,6 +20,7 @@ export async function GET(
       .from("agents")
       .select("*")
       .eq("id", id)
+      .eq("workspace_id", auth.workspaceId)
       .single();
 
     if (error || !agent) {
@@ -44,7 +45,7 @@ export async function PATCH(
 ) {
   try {
     // Auth check
-    const auth = await requireAuth(request);
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const { id } = await params;
@@ -74,6 +75,7 @@ export async function PATCH(
       .from("agents")
       .update(updates)
       .eq("id", id)
+      .eq("workspace_id", auth.workspaceId)
       .select()
       .single();
 

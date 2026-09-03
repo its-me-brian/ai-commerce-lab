@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bootstrap, getAgentRegistry } from "@/lib/ai/bootstrap";
 import { AgentEngine } from "@/lib/agents/core/engine";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // POST /api/agents/run
 // Generic agent execution endpoint.
@@ -9,7 +9,7 @@ import { requireAuth } from "@/lib/auth/api-auth";
 export async function POST(request: NextRequest) {
   try {
     // Auth check
-    const auth = await requireAuth(request);
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const body = await request.json();

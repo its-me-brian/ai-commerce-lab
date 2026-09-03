@@ -4,17 +4,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCatalogService, type CatalogStatus } from "@/lib/catalog/service";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
-    // Auth check
-    const auth = await requireAuth(request);
+    // Auth + workspace check
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") as CatalogStatus | null;
-    const workspaceId = searchParams.get("workspaceId");
     const limit = parseInt(searchParams.get("limit") || "50", 10);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
     const search = searchParams.get("search");
@@ -23,9 +22,9 @@ export async function GET(request: NextRequest) {
 
     let products;
     if (search) {
-      products = await catalog.search(search, { workspaceId: workspaceId || undefined });
+      products = await catalog.search(search, { workspaceId: auth.workspaceId });
     } else {
-      products = await catalog.list({ status: status || undefined, limit, offset, workspaceId: workspaceId || undefined });
+      products = await catalog.list({ status: status || undefined, limit, offset, workspaceId: auth.workspaceId });
     }
 
     const counts = await catalog.getCountsByStatus();
@@ -46,14 +45,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Auth check
-    const auth = await requireAuth(request);
+    // Auth + workspace check
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const body = await request.json();
     const catalog = getCatalogService();
 
-    const product = await catalog.create(body);
+    const product = await catalog.create({ ...body, workspace_id: auth.workspaceId });
 
     if (!product) {
       return NextResponse.json(
