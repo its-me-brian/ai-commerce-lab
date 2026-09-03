@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { supabase } from "@/lib/database/supabase";
-import { createShopifyClient, type ShopifyProduct } from "@/lib/integrations/shopify/client";
+import { createShopifyClient } from "@/lib/integrations/shopify/client";
 
 export async function POST(request: NextRequest) {
   const auth = await requireWorkspaceAccess(request);

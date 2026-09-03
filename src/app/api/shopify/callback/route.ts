@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const shop = searchParams.get("shop");
   const code = searchParams.get("code");
-  const hmac = searchParams.get("hmac");
 
   if (!shop || !code) {
     return NextResponse.redirect(

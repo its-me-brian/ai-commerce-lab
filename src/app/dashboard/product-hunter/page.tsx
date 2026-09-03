@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { ProductClassifier } from "@/components/ai/ProductClassifier";
 
 type Mode = "analyze" | "discover";
@@ -329,7 +330,7 @@ export default function ProductHunterPage() {
                 borderRadius: "var(--r-md)", background: "var(--bg-sunken)",
               }}>
                 {p.imageUrl && (
-                  <img src={p.imageUrl} alt="" style={{ width: 40, height: 40, borderRadius: "var(--r-sm)", objectFit: "cover" }} />
+                  <Image src={p.imageUrl} alt="" width={40} height={40} style={{ borderRadius: "var(--r-sm)", objectFit: "cover" }} />
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--text-primary)" }}>{p.name}</div>
