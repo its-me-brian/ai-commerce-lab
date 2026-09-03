@@ -1,51 +1,68 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { AgentEngine } from "@/lib/agents/core/engine";
+import { bootstrap, getAgentRegistry } from "@/lib/ai/bootstrap";
 
 // POST /api/ceo/orchestrate
-// Send a goal to the CEO agent for orchestration
+// Direct CEO orchestration — uses AgentEngine for budget enforcement and task tracking.
+// Accepts { goal, workflow? } — CEO creates plan and coordinates agents.
 export async function POST(request: NextRequest) {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   try {
     const body = await request.json();
-    const { goal } = body as { goal?: string };
+    const { goal, workflow } = body as { goal?: string; workflow?: string };
 
-    if (!goal) {
+    if (!goal && !workflow) {
       return NextResponse.json(
-        { success: false, error: "Goal is required" },
+        { success: false, error: "Goal or workflow is required" },
         { status: 400 }
       );
     }
 
-    // Call the CEO agent via chat endpoint
-    const chatRes = await fetch(`${request.url.replace("/ceo/orchestrate", "/agents/chat")}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        agentId: "ceo",
-        message: `Goal: ${goal}\n\nPlease create an execution plan and coordinate the appropriate agents to achieve this goal.`,
-      }),
-    });
+    // Ensure providers + agents are registered
+    bootstrap();
 
-    const chatData = await chatRes.json();
-
-    if (!chatData.success) {
-      throw new Error(chatData.error || "Failed to communicate with CEO agent");
+    // Verify CEO agent exists
+    const registry = getAgentRegistry();
+    if (!registry.has("ceo")) {
+      return NextResponse.json(
+        { success: false, error: "CEO agent not found in registry" },
+        { status: 500 }
+      );
     }
 
+    // Build input for CEO
+    const input: Record<string, unknown> = {};
+    if (goal) input.goal = goal;
+    if (workflow) input.workflow = workflow;
+
+    // Execute via engine (budget checks + task tracking + cost recording)
+    const engine = new AgentEngine();
+    const { taskId, result } = await engine.executeTask("ceo", input, {
+      taskType: workflow || "orchestration",
+      workspaceId: auth.workspaceId,
+    });
+
     return NextResponse.json({
-      success: true,
-      conversationId: chatData.conversationId,
-      response: chatData.assistantMessage,
+      success: result.success,
+      taskId,
+      plan: result.structuredData,
+      output: result.output,
+      reasoningSummary: result.reasoningSummary,
+      errors: result.errors,
+      metadata: result.metadata,
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        error: message.startsWith("Budget exceeded") ? message : "An unexpected error occurred",
       },
-      { status: 500 }
+      { status: message.startsWith("Budget exceeded") ? 429 : 500 }
     );
   }
 }
