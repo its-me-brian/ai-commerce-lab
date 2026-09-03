@@ -41,7 +41,7 @@ export default function LoginPage() {
       }
 
       if (data?.session) {
-        // Success — navigate to workspace
+        // Session persisted in cookies via createBrowserClient — safe to reload
         window.location.href = "/workspace";
       } else {
         setError("Login failed. Please try again.");

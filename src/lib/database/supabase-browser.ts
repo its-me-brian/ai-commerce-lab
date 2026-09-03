@@ -1,17 +1,17 @@
 // Supabase Browser Client
-// Client-side Supabase client for Realtime subscriptions.
-// Uses NEXT_PUBLIC env vars (safe for browser).
+// Client-side Supabase client with cookie-based session persistence.
+// Uses @supabase/ssr createBrowserClient so sessions survive full page reloads.
 
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+import { createBrowserClient } from "@supabase/ssr";
 
 // Lazy singleton — only created when first accessed
-let browserClient: ReturnType<typeof createClient> | null = null;
+let browserClient: ReturnType<typeof createBrowserClient> | null = null;
 
 export function getBrowserClient() {
   if (browserClient) return browserClient;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     // Gracefully degrade — realtime won't work but app still functions
@@ -21,6 +21,6 @@ export function getBrowserClient() {
     return null;
   }
 
-  browserClient = createClient(supabaseUrl, supabaseAnonKey);
+  browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey);
   return browserClient;
 }
