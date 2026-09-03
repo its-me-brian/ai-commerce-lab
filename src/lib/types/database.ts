@@ -1,11 +1,14 @@
 // Database Types
-// Reflects the actual schema after all migrations (001-031).
+// Reflects the actual schema after all migrations (001-038).
 // Generated manually — replace with `supabase gen types` when ready.
 //
-// Fixes applied in FASE B:
+// Fixes applied:
 // - Added conversation_type to conversations (migration 031)
 // - Added conversation_participants table (migration 031)
 // - Added tools_used to agent_runs (migration 029)
+// - Added workspace_members table (migration 037)
+// - Added union types for CHECK-constrained columns (FASE B)
+// - Fixed workflow_definitions.entry_nodes Insert/Update type
 
 export interface Database {
   public: {
@@ -100,7 +103,7 @@ export interface Database {
           agent_rules: string[] | null;
           output_instructions: Record<string, unknown> | null;
           parent_agent_id: string | null;
-          agent_type: string;
+          agent_type: 'executive' | 'department' | 'specialist';
           department: string | null;
           workspace_id: string | null;
           created_at: string;
@@ -121,7 +124,7 @@ export interface Database {
           agent_rules?: string[] | null;
           output_instructions?: Record<string, unknown> | null;
           parent_agent_id?: string | null;
-          agent_type?: string;
+          agent_type?: 'executive' | 'department' | 'specialist';
           department?: string | null;
           workspace_id?: string | null;
           created_at?: string;
@@ -191,7 +194,7 @@ export interface Database {
           agent_id: string;
           model_id: string;
           priority: number;
-          policy: string;
+          policy: 'priority' | 'cheapest' | 'fastest';
           enabled: boolean;
           created_at: string;
           updated_at: string;
@@ -201,14 +204,14 @@ export interface Database {
           agent_id: string;
           model_id: string;
           priority?: number;
-          policy?: string;
+          policy?: 'priority' | 'cheapest' | 'fastest';
           enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           priority?: number;
-          policy?: string;
+          policy?: 'priority' | 'cheapest' | 'fastest';
           enabled?: boolean;
           updated_at?: string;
         };
@@ -423,7 +426,7 @@ export interface Database {
           key_hint: string | null;
           iv: string;
           auth_tag: string;
-          environment: string;
+          environment: 'production' | 'staging' | 'development';
           is_active: boolean;
           expires_at: string | null;
           created_at: string;
@@ -438,7 +441,7 @@ export interface Database {
           key_hint?: string | null;
           iv: string;
           auth_tag: string;
-          environment?: string;
+          environment?: 'production' | 'staging' | 'development';
           is_active?: boolean;
           expires_at?: string | null;
           created_at?: string;
@@ -451,7 +454,7 @@ export interface Database {
           key_hint?: string | null;
           iv?: string;
           auth_tag?: string;
-          environment?: string;
+          environment?: 'production' | 'staging' | 'development';
           is_active?: boolean;
           expires_at?: string | null;
           updated_at?: string;
@@ -463,10 +466,10 @@ export interface Database {
           agent_id: string | null;
           workspace_id: string | null;
           title: string | null;
-          status: string;
+          status: 'active' | 'archived' | 'deleted';
           message_count: number;
           last_message_at: string | null;
-          conversation_type: string;
+          conversation_type: 'direct' | 'room';
           created_at: string;
           updated_at: string;
         };
@@ -475,19 +478,19 @@ export interface Database {
           agent_id?: string | null;
           workspace_id?: string | null;
           title?: string | null;
-          status?: string;
+          status?: 'active' | 'archived' | 'deleted';
           message_count?: number;
           last_message_at?: string | null;
-          conversation_type?: string;
+          conversation_type?: 'direct' | 'room';
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           title?: string | null;
-          status?: string;
+          status?: 'active' | 'archived' | 'deleted';
           message_count?: number;
           last_message_at?: string | null;
-          conversation_type?: string;
+          conversation_type?: 'direct' | 'room';
           updated_at?: string;
         };
       };
@@ -496,20 +499,20 @@ export interface Database {
           id: string;
           conversation_id: string;
           agent_id: string;
-          role: string;
+          role: 'owner' | 'participant' | 'observer';
           joined_at: string;
         };
         Insert: {
           id?: string;
           conversation_id: string;
           agent_id: string;
-          role?: string;
+          role?: 'owner' | 'participant' | 'observer';
           joined_at?: string;
         };
         Update: {
           conversation_id?: string;
           agent_id?: string;
-          role?: string;
+          role?: 'owner' | 'participant' | 'observer';
         };
       };
       conversation_messages: {
@@ -555,7 +558,7 @@ export interface Database {
           id: string;
           agent_id: string;
           workspace_id: string | null;
-          memory_type: string;
+          memory_type: 'fact' | 'preference' | 'pattern' | 'decision' | 'context';
           content: string;
           source: string | null;
           confidence: number;
@@ -568,7 +571,7 @@ export interface Database {
           id?: string;
           agent_id: string;
           workspace_id?: string | null;
-          memory_type: string;
+          memory_type: 'fact' | 'preference' | 'pattern' | 'decision' | 'context';
           content: string;
           source?: string | null;
           confidence?: number;
@@ -578,7 +581,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: {
-          memory_type?: string;
+          memory_type?: 'fact' | 'preference' | 'pattern' | 'decision' | 'context';
           content?: string;
           source?: string | null;
           confidence?: number;
@@ -591,7 +594,7 @@ export interface Database {
         Row: {
           id: string;
           task_id: string;
-          event_type: string;
+          event_type: 'status_change' | 'progress_update' | 'error' | 'retry' | 'cancel' | 'delegate';
           from_status: string | null;
           to_status: string | null;
           message: string | null;
@@ -601,7 +604,7 @@ export interface Database {
         Insert: {
           id?: string;
           task_id: string;
-          event_type: string;
+          event_type: 'status_change' | 'progress_update' | 'error' | 'retry' | 'cancel' | 'delegate';
           from_status?: string | null;
           to_status?: string | null;
           message?: string | null;
@@ -609,7 +612,7 @@ export interface Database {
           created_at?: string;
         };
         Update: {
-          event_type?: string;
+          event_type?: 'status_change' | 'progress_update' | 'error' | 'retry' | 'cancel' | 'delegate';
           from_status?: string | null;
           to_status?: string | null;
           message?: string | null;
@@ -624,8 +627,8 @@ export interface Database {
           action_type: string;
           action_summary: string;
           action_details: Record<string, unknown>;
-          risk_level: string;
-          status: string;
+          risk_level: 'low' | 'medium' | 'high' | 'critical';
+          status: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
           reviewer_notes: string | null;
           reviewed_at: string | null;
           expires_at: string | null;
@@ -638,8 +641,8 @@ export interface Database {
           action_type: string;
           action_summary: string;
           action_details?: Record<string, unknown>;
-          risk_level?: string;
-          status?: string;
+          risk_level?: 'low' | 'medium' | 'high' | 'critical';
+          status?: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
           reviewer_notes?: string | null;
           reviewed_at?: string | null;
           expires_at?: string | null;
@@ -649,8 +652,8 @@ export interface Database {
           action_type?: string;
           action_summary?: string;
           action_details?: Record<string, unknown>;
-          risk_level?: string;
-          status?: string;
+          risk_level?: 'low' | 'medium' | 'high' | 'critical';
+          status?: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
           reviewer_notes?: string | null;
           reviewed_at?: string | null;
           expires_at?: string | null;
@@ -660,7 +663,7 @@ export interface Database {
         Row: {
           id: string;
           event_type: string;
-          severity: string;
+          severity: 'debug' | 'info' | 'warning' | 'error' | 'critical';
           source: string | null;
           agent_id: string | null;
           message: string;
@@ -670,7 +673,7 @@ export interface Database {
         Insert: {
           id?: string;
           event_type: string;
-          severity?: string;
+          severity?: 'debug' | 'info' | 'warning' | 'error' | 'critical';
           source?: string | null;
           agent_id?: string | null;
           message: string;
@@ -679,7 +682,7 @@ export interface Database {
         };
         Update: {
           event_type?: string;
-          severity?: string;
+          severity?: 'debug' | 'info' | 'warning' | 'error' | 'critical';
           source?: string | null;
           agent_id?: string | null;
           message?: string;
@@ -691,7 +694,7 @@ export interface Database {
           id: string;
           slug: string;
           version: string;
-          status: string;
+          status: 'draft' | 'active' | 'disabled' | 'archived';
           enabled: boolean;
           identity_name: string;
           identity_role: string;
@@ -709,7 +712,7 @@ export interface Database {
           id?: string;
           slug: string;
           version?: string;
-          status?: string;
+          status?: 'draft' | 'active' | 'disabled' | 'archived';
           enabled?: boolean;
           identity_name: string;
           identity_role: string;
@@ -726,7 +729,7 @@ export interface Database {
         Update: {
           slug?: string;
           version?: string;
-          status?: string;
+          status?: 'draft' | 'active' | 'disabled' | 'archived';
           enabled?: boolean;
           identity_name?: string;
           identity_role?: string;
@@ -755,9 +758,9 @@ export interface Database {
           source_id: string | null;
           source_url: string | null;
           overall_score: number | null;
-          decision: string | null;
-          risk_level: string | null;
-          status: string;
+          decision: 'GO' | 'CONDITIONAL_GO' | 'NO_GO' | 'NEEDS_MORE_DATA' | null;
+          risk_level: 'low' | 'medium' | 'high' | null;
+          status: 'discovered' | 'evaluating' | 'approved' | 'listed' | 'rejected' | 'archived';
           store_content: Record<string, unknown> | null;
           seo: Record<string, unknown> | null;
           marketing_content: Record<string, unknown> | null;
@@ -781,9 +784,9 @@ export interface Database {
           source_id?: string | null;
           source_url?: string | null;
           overall_score?: number | null;
-          decision?: string | null;
-          risk_level?: string | null;
-          status?: string;
+          decision?: 'GO' | 'CONDITIONAL_GO' | 'NO_GO' | 'NEEDS_MORE_DATA' | null;
+          risk_level?: 'low' | 'medium' | 'high' | null;
+          status?: 'discovered' | 'evaluating' | 'approved' | 'listed' | 'rejected' | 'archived';
           store_content?: Record<string, unknown> | null;
           seo?: Record<string, unknown> | null;
           marketing_content?: Record<string, unknown> | null;
@@ -838,7 +841,7 @@ export interface Database {
           version?: string;
           enabled?: boolean;
           nodes?: Record<string, unknown>[];
-          entry_nodes?: string | null;
+          entry_nodes?: string[] | null;
           config?: Record<string, unknown>;
           tags?: string[];
           created_at?: string;
@@ -850,7 +853,7 @@ export interface Database {
           version?: string;
           enabled?: boolean;
           nodes?: Record<string, unknown>[];
-          entry_nodes?: string | null;
+          entry_nodes?: string[] | null;
           config?: Record<string, unknown>;
           tags?: string[];
           updated_at?: string;
@@ -862,7 +865,7 @@ export interface Database {
           workspace_id: string;
           title: string;
           content: string;
-          source_type: string;
+          source_type: 'manual' | 'scraped' | 'imported' | 'generated';
           source_url: string | null;
           category: string;
           tags: string[];
@@ -876,7 +879,7 @@ export interface Database {
           workspace_id: string;
           title: string;
           content: string;
-          source_type?: string;
+          source_type?: 'manual' | 'scraped' | 'imported' | 'generated';
           source_url?: string | null;
           category?: string;
           tags?: string[];
@@ -888,7 +891,7 @@ export interface Database {
         Update: {
           title?: string;
           content?: string;
-          source_type?: string;
+          source_type?: 'manual' | 'scraped' | 'imported' | 'generated';
           source_url?: string | null;
           category?: string;
           tags?: string[];
@@ -903,7 +906,7 @@ export interface Database {
       structured_logs: {
         Row: {
           id: string;
-          severity: string;
+          severity: 'debug' | 'info' | 'warn' | 'error' | 'critical';
           component: string;
           message: string;
           context: Record<string, unknown>;
@@ -914,7 +917,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          severity: string;
+          severity: 'debug' | 'info' | 'warn' | 'error' | 'critical';
           component: string;
           message: string;
           context?: Record<string, unknown>;
@@ -922,6 +925,15 @@ export interface Database {
           duration_ms?: number | null;
           success?: boolean | null;
           created_at?: string;
+        };
+        Update: {
+          severity?: 'debug' | 'info' | 'warn' | 'error' | 'critical';
+          component?: string;
+          message?: string;
+          context?: Record<string, unknown>;
+          trace_id?: string | null;
+          duration_ms?: number | null;
+          success?: boolean | null;
         };
       };
       metrics: {
@@ -941,6 +953,12 @@ export interface Database {
           tags?: Record<string, unknown>;
           created_at?: string;
         };
+        Update: {
+          name?: string;
+          value?: number;
+          unit?: string | null;
+          tags?: Record<string, unknown>;
+        };
       };
       traces: {
         Row: {
@@ -948,7 +966,7 @@ export interface Database {
           root_span_id: string;
           operation: string;
           agent_id: string | null;
-          status: string;
+          status: 'running' | 'completed' | 'failed' | 'timeout';
           started_at: string;
           completed_at: string | null;
           duration_ms: number | null;
@@ -959,8 +977,17 @@ export interface Database {
           root_span_id: string;
           operation: string;
           agent_id?: string | null;
-          status: string;
+          status: 'running' | 'completed' | 'failed' | 'timeout';
           started_at?: string;
+          completed_at?: string | null;
+          duration_ms?: number | null;
+          metadata?: Record<string, unknown>;
+        };
+        Update: {
+          root_span_id?: string;
+          operation?: string;
+          agent_id?: string | null;
+          status?: 'running' | 'completed' | 'failed' | 'timeout';
           completed_at?: string | null;
           duration_ms?: number | null;
           metadata?: Record<string, unknown>;
@@ -973,7 +1000,7 @@ export interface Database {
           parent_span_id: string | null;
           operation: string;
           component: string | null;
-          status: string;
+          status: 'running' | 'completed' | 'failed' | 'timeout';
           started_at: string;
           completed_at: string | null;
           duration_ms: number | null;
@@ -988,8 +1015,21 @@ export interface Database {
           parent_span_id?: string | null;
           operation: string;
           component?: string | null;
-          status: string;
+          status: 'running' | 'completed' | 'failed' | 'timeout';
           started_at?: string;
+          completed_at?: string | null;
+          duration_ms?: number | null;
+          input?: Record<string, unknown> | null;
+          output?: Record<string, unknown> | null;
+          error?: string | null;
+          metadata?: Record<string, unknown>;
+        };
+        Update: {
+          trace_id?: string;
+          parent_span_id?: string | null;
+          operation?: string;
+          component?: string | null;
+          status?: 'running' | 'completed' | 'failed' | 'timeout';
           completed_at?: string | null;
           duration_ms?: number | null;
           input?: Record<string, unknown> | null;
@@ -1002,7 +1042,7 @@ export interface Database {
         Row: {
           id: string;
           entity_id: string;
-          entity_type: string;
+          entity_type: 'agent' | 'workflow' | 'mini-ai' | 'global';
           max_dollars: number;
           time_window: string;
           description: string | null;
@@ -1014,7 +1054,7 @@ export interface Database {
         Insert: {
           id: string;
           entity_id: string;
-          entity_type: string;
+          entity_type: 'agent' | 'workflow' | 'mini-ai' | 'global';
           max_dollars: number;
           time_window?: string;
           description?: string | null;
@@ -1022,6 +1062,15 @@ export interface Database {
           active?: boolean;
           created_at?: string;
           updated_at?: string;
+        };
+        Update: {
+          entity_id?: string;
+          entity_type?: 'agent' | 'workflow' | 'mini-ai' | 'global';
+          max_dollars?: number;
+          time_window?: string;
+          description?: string | null;
+          alert_thresholds?: number[];
+          active?: boolean;
         };
       };
       cost_records: {
@@ -1050,6 +1099,40 @@ export interface Database {
           task_id?: string | null;
           run_id?: string | null;
           created_at?: string;
+        };
+        Update: {
+          entity_id?: string;
+          entity_type?: string;
+          cost_dollars?: number;
+          provider?: string | null;
+          model?: string | null;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          task_id?: string | null;
+          run_id?: string | null;
+        };
+      };
+      workspace_members: {
+        Row: {
+          id: string;
+          workspace_id: string;
+          user_id: string;
+          role: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          workspace_id: string;
+          user_id: string;
+          role?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          workspace_id?: string;
+          user_id?: string;
+          role?: string;
         };
       };
     };
