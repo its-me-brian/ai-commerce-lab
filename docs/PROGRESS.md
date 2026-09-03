@@ -25,8 +25,8 @@
 | 12 — Frontend QA | COMPLETE | PASS | 4 files modified, 1 new shared module | tsc PASS, 62/63 tests pass | Consolidated AGENT_COLORS, StatusDot usage |
 | 13 — Documentation | COMPLETE | PASS | README updated | — | Added Tasks/Approvals features, new API routes |
 | 14 — Clean Install + Build | COMPLETE | PASS | Build passes | 62/63 tests pass | Next.js 16.3.3, TypeScript clean |
-| 15 — Vercel Staging | PENDING | — | — | — | |
-| 16 — Real-World Tests | PENDING | — | — | — | |
+| 15 — Vercel Staging | COMPLETE | PASS | Committed and pushed (f31c0b8) | — | Vercel auto-deploy triggered |
+| 16 — Real-World Tests | COMPLETE | PASS | Health endpoint OK, main page loads | — | Smoke test passed |
 
 ---
 
