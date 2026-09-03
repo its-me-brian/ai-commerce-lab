@@ -35,11 +35,43 @@ const AGENT_PRESETS: Record<string, string> = {
     shippingCost: 3.20,
     estimatedSalePrice: 49.90,
   }, null, 2),
-  "pricing-agent": JSON.stringify({
-    product: "Wireless Earbuds",
-    cost: 15.00,
-    competitorPrice: 39.99,
-    targetMargin: 0.30,
+  "market-research": JSON.stringify({
+    productOrCategory: "wireless earbuds",
+    targetMarket: "Europe",
+    priceRange: "USD 15-50",
+  }, null, 2),
+  "supplier-research": JSON.stringify({
+    productName: "Wireless Earbuds",
+    category: "electronics",
+    targetMarket: "Europe",
+    orderVolume: "small (dropshipping)",
+  }, null, 2),
+  "opportunity-scoring": JSON.stringify({
+    productAnalysis: { name: "LED Lamp", price: 49.90, category: "lighting" },
+    supplierResearch: {},
+    marketResearch: {},
+  }, null, 2),
+  "store-builder": JSON.stringify({
+    goal: "Build a product page for LED Portable Lamp",
+    productName: "LED Portable Lamp",
+  }, null, 2),
+  "marketing": JSON.stringify({
+    product: "LED Portable Lamp",
+    targetAudience: "EU consumers",
+    channels: ["instagram", "tiktok"],
+  }, null, 2),
+  "secretary": JSON.stringify({
+    task: "Summarize recent agent activity",
+    scope: "last 24 hours",
+  }, null, 2),
+  "finance": JSON.stringify({
+    task: "Calculate projected margins",
+    product: "LED Portable Lamp",
+    cost: 15.60,
+    price: 49.90,
+  }, null, 2),
+  "ceo": JSON.stringify({
+    goal: "Review product portfolio and recommend next steps",
   }, null, 2),
 };
 
