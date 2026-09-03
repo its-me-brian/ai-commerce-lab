@@ -61,7 +61,7 @@ export class ApprovalManager {
   /**
    * Create an approval request. Agent should await this before proceeding.
    */
-  async createApproval(input: CreateApprovalInput): Promise<Approval> {
+  async createApproval(input: CreateApprovalInput, workspaceId: string = "ws-default"): Promise<Approval> {
     const now = new Date().toISOString();
     const expiresAt = input.expires_in_ms
       ? new Date(Date.now() + input.expires_in_ms).toISOString()
@@ -79,6 +79,7 @@ export class ApprovalManager {
         status: "pending",
         expires_at: expiresAt,
         created_at: now,
+        workspace_id: workspaceId,
       })
       .select()
       .single();

@@ -53,6 +53,7 @@ export class TaskPersistence {
       toStatus?: TaskStatus;
       message?: string;
       metadata?: Record<string, unknown>;
+      workspaceId?: string;
     }
   ): Promise<TaskEvent | null> {
     const now = new Date().toISOString();
@@ -66,6 +67,7 @@ export class TaskPersistence {
         message: options?.message || null,
         metadata: options?.metadata || {},
         created_at: now,
+        workspace_id: options?.workspaceId || "ws-default",
       })
       .select()
       .single();

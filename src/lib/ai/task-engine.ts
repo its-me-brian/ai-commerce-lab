@@ -43,7 +43,7 @@ export class TaskEngine {
   /**
    * Create a new task.
    */
-  async create(input: TaskCreateInput): Promise<Task | null> {
+  async create(input: TaskCreateInput, workspaceId: string = "ws-default"): Promise<Task | null> {
     const now = new Date().toISOString();
     const { data, error } = await supabase
       .from("agent_tasks")
@@ -56,6 +56,7 @@ export class TaskEngine {
         parent_task_id: input.parent_task_id ?? null,
         status: "pending",
         created_at: now,
+        workspace_id: workspaceId,
       })
       .select()
       .single();

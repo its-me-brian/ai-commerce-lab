@@ -442,7 +442,7 @@ export class CostBudgetTracker {
    * Persist a budget to Supabase cost_budgets table.
    * Fire-and-forget with error logging.
    */
-  async persistBudgetToSupabase(budget: CostBudget): Promise<void> {
+  async persistBudgetToSupabase(budget: CostBudget, workspaceId: string = "ws-default"): Promise<void> {
     try {
       const { supabase } = await import("@/lib/database/supabase");
 
@@ -456,6 +456,7 @@ export class CostBudgetTracker {
           description: budget.description ?? null,
           alert_thresholds: budget.alertThresholds ?? [0.8, 0.95],
           active: budget.active,
+          workspace_id: workspaceId,
         },
         { onConflict: "id" }
       );
@@ -468,7 +469,7 @@ export class CostBudgetTracker {
    * Persist a cost record to Supabase cost_records table.
    * Fire-and-forget with error logging.
    */
-  async persistCostRecordToSupabase(record: CostRecord): Promise<void> {
+  async persistCostRecordToSupabase(record: CostRecord, workspaceId: string = "ws-default"): Promise<void> {
     try {
       const { supabase } = await import("@/lib/database/supabase");
 
@@ -482,6 +483,7 @@ export class CostBudgetTracker {
         output_tokens: record.outputTokens ?? null,
         task_id: record.taskId ?? null,
         run_id: record.runId ?? null,
+        workspace_id: workspaceId,
       });
     } catch (error) {
       console.error("[CostBudget] Failed to persist cost record to Supabase:", error);

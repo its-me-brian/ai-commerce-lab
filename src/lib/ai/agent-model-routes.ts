@@ -124,7 +124,7 @@ export class AgentModelRoutes {
   /**
    * Create a new route.
    */
-  async create(input: RouteCreateInput): Promise<AgentModelRoute | null> {
+  async create(input: RouteCreateInput, workspaceId: string = "ws-default"): Promise<AgentModelRoute | null> {
     const { data, error } = await supabase
       .from("agent_model_routes")
       .insert({
@@ -135,6 +135,7 @@ export class AgentModelRoutes {
         enabled: input.enabled !== false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        workspace_id: workspaceId,
       })
       .select()
       .single();
