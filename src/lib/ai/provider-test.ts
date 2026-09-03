@@ -52,6 +52,8 @@ export async function getProviderStatuses(): Promise<ProviderStatus[]> {
   const providers = await providerManager.listWithStatus();
 
   return providers.map((p) => {
+    // resolveApiKey is async, but we're in a map — use getApiKey for sync check
+    // The detailed source is determined per-provider in testProviderConnection
     const apiKey = providerManager.getApiKey(p);
     let credentialSource: "env" | "database" | "none" = "none";
     if (apiKey) {

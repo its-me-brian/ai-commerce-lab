@@ -72,13 +72,16 @@ export async function bootstrap(): Promise<void> {
     const dbProviders = await providerManager.listEnabled();
 
     for (const dbProvider of dbProviders) {
-      const apiKey = providerManager.getApiKey(dbProvider);
+      // Resolve API key: env var → CredentialManager (DB-stored)
+      const { key: apiKey, source } = await providerManager.resolveApiKey(dbProvider);
       if (!apiKey) {
         console.log(
-          `[Bootstrap] Skipping provider ${dbProvider.slug} — no API key in ${dbProvider.api_key_env_var}`
+          `[Bootstrap] Skipping provider ${dbProvider.slug} — no API key configured (env or DB)`
         );
         continue;
       }
+
+      console.log(`[Bootstrap] Resolved API key for ${dbProvider.slug} from ${source}`);
 
       // Check if we have a concrete class for this provider
       const ProviderClass = providerClasses[dbProvider.slug];

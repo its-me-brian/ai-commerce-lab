@@ -175,26 +175,56 @@ export class ProviderManager {
   }
 
   /**
-   * Check if a provider has its API key configured.
+   * Get the API key for a provider, checking env vars first, then CredentialManager.
+   * This is the primary resolution method — use this instead of getApiKey().
+   */
+  async resolveApiKey(provider: ProviderRecord): Promise<{ key: string | null; source: "env" | "database" | "none" }> {
+    // 1. Try environment variable first
+    const envKey = this.getApiKey(provider);
+    if (envKey) return { key: envKey, source: "env" };
+
+    // 2. Try CredentialManager (DB-stored credential)
+    try {
+      const { getCredentialManager } = await import("./credential-manager");
+      const credentialManager = getCredentialManager();
+      const dbKey = await credentialManager.getActiveKey(provider.id);
+      if (dbKey) return { key: dbKey, source: "database" };
+    } catch {
+      // CredentialManager unavailable — that's fine
+    }
+
+    return { key: null, source: "none" };
+  }
+
+  /**
+   * Check if a provider has its API key configured (env or DB).
    */
   async isConfigured(slug: string): Promise<boolean> {
     const provider = await this.getBySlug(slug);
     if (!provider || !provider.enabled) return false;
-    const apiKey = this.getApiKey(provider);
-    return !!apiKey;
+    const { key } = await this.resolveApiKey(provider);
+    return !!key;
   }
 
   /**
    * Get all providers with their configuration status.
    */
   async listWithStatus(): Promise<
-    Array<ProviderRecord & { configured: boolean }>
+    Array<ProviderRecord & { configured: boolean; credentialSource: "env" | "database" | "none" }>
   > {
     const providers = await this.list();
-    return providers.map((p) => ({
-      ...p,
-      configured: !!(p.api_key_env_var && process.env[p.api_key_env_var]),
-    }));
+    const results: Array<ProviderRecord & { configured: boolean; credentialSource: "env" | "database" | "none" }> = [];
+
+    for (const p of providers) {
+      const { key, source } = await this.resolveApiKey(p);
+      results.push({
+        ...p,
+        configured: !!key,
+        credentialSource: source,
+      });
+    }
+
+    return results;
   }
 }
 

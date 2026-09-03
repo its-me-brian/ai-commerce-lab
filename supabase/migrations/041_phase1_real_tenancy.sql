@@ -9,6 +9,10 @@
 -- Used by ALL RLS policies to verify the user belongs to the workspace.
 -- Returns TRUE if the authenticated user has a membership in the given workspace.
 
+-- Drop old signatures from migration 037 (parameter was named "ws_id")
+DROP FUNCTION IF EXISTS public.is_workspace_member(text);
+DROP FUNCTION IF EXISTS public.has_workspace_role(text, text);
+
 CREATE OR REPLACE FUNCTION public.is_workspace_member(workspace_id TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
