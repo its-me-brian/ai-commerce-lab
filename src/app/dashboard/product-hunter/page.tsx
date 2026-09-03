@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ProductClassifier } from "@/components/ai/ProductClassifier";
 
 type Mode = "analyze" | "discover";
 
@@ -365,6 +366,11 @@ export default function ProductHunterPage() {
           </pre>
         </div>
       )}
+
+      {/* Browser ML Classifier */}
+      <div style={{ marginTop: 20 }}>
+        <ProductClassifier />
+      </div>
 
       {/* Empty State */}
       {!loading && !error && !analysisResult && discoverResults.length === 0 && !rawResponse && (
