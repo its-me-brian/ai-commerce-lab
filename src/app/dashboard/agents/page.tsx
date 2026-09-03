@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/database/supabase";
+import { getWorkspaceId } from "@/lib/database/supabase-server";
 import { OrgChart } from "@/components/agents/OrgChart";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +16,7 @@ interface AgentRow {
 }
 
 export default async function AgentsPage() {
-  // TODO: Get workspace_id from auth context (cookies/session)
-  const workspaceId = "ws-default";
+  const workspaceId = await getWorkspaceId();
 
   const { data: agents, error: agentsError } = await supabase
     .from("agents")

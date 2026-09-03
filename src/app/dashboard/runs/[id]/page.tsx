@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/database/supabase";
+import { getWorkspaceId } from "@/lib/database/supabase-server";
 import { notFound } from "next/navigation";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -8,13 +9,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const workspaceId = await getWorkspaceId();
 
   // Fetch run (verify workspace ownership)
   const { data: run, error: runError } = await supabase
     .from("agent_runs")
     .select("*")
     .eq("id", id)
-    .eq("workspace_id", "ws-default")
+    .eq("workspace_id", workspaceId)
     .single();
 
   if (runError || !run) {
@@ -26,7 +28,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
     .from("agent_tasks")
     .select("*")
     .eq("id", run.task_id)
-    .eq("workspace_id", "ws-default")
+    .eq("workspace_id", workspaceId)
     .single();
 
   return (

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/database/supabase";
+import { getWorkspaceId } from "@/lib/database/supabase-server";
 import { Card, CardHeader, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
@@ -172,7 +173,7 @@ export default async function DashboardPage({
 }: {
   searchParams?: { workspaceId?: string };
 }) {
-  const workspaceId = searchParams?.workspaceId || "ws-default";
+  const workspaceId = searchParams?.workspaceId || await getWorkspaceId();
 
   // ── Fetch all data in parallel (filtered by workspace) ───────────
   const base = { workspace_id: workspaceId };

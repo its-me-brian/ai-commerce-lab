@@ -1,10 +1,10 @@
 import { supabase } from "@/lib/database/supabase";
+import { getWorkspaceId } from "@/lib/database/supabase-server";
 
 export const metadata = { title: "Run History — AI Commerce Lab" };
 
 export default async function RunsPage() {
-  // TODO: Get workspace_id from auth context (cookies/session)
-  const workspaceId = "ws-default";
+  const workspaceId = await getWorkspaceId();
   const { data: runs } = await supabase
     .from("agent_runs")
     .select("id, agent_id, provider, model, input_tokens, output_tokens, total_tokens, duration_ms, cost, status, error, created_at")
