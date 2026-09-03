@@ -186,6 +186,26 @@ export async function requireWorkspaceAccess(
     .single();
 
   if (membershipError || !membership) {
+    // AUTO-ONBOARDING: If user is not a member, add them as owner of ws-default
+    // This handles: (a) users created before the trigger, (b) trigger failures
+    if (workspaceId === "ws-default") {
+      const { error: insertError } = await supabase
+        .from("workspace_members")
+        .insert({
+          workspace_id: "ws-default",
+          user_id: user.id,
+          role: "owner",
+        })
+        .select()
+        .single();
+
+      if (!insertError) {
+        // Success — user was auto-added, return owner access
+        return { user, workspaceId, role: "owner" };
+      }
+      console.error("[Auth] Auto-onboarding failed:", insertError);
+    }
+
     return {
       error: NextResponse.json(
         { success: false, error: "Access denied: not a member of this workspace" },
