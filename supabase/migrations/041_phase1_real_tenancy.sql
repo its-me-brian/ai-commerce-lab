@@ -135,6 +135,16 @@ ALTER TABLE cost_records ADD COLUMN IF NOT EXISTS workspace_id TEXT DEFAULT 'ws-
 -- 2. SET NOT NULL WHERE SAFE
 -- ============================================
 -- After backfill, set NOT NULL on columns that should always have a value.
+-- First: assign any remaining NULLs to ws-default (orphaned rows with no matching agent)
+
+UPDATE agent_configs SET workspace_id = 'ws-default' WHERE workspace_id IS NULL;
+UPDATE agent_model_routes SET workspace_id = 'ws-default' WHERE workspace_id IS NULL;
+UPDATE agent_tasks SET workspace_id = 'ws-default' WHERE workspace_id IS NULL;
+UPDATE agent_runs SET workspace_id = 'ws-default' WHERE workspace_id IS NULL;
+UPDATE agent_permissions SET workspace_id = 'ws-default' WHERE workspace_id IS NULL;
+UPDATE approvals SET workspace_id = 'ws-default' WHERE workspace_id IS NULL;
+UPDATE task_events SET workspace_id = 'ws-default' WHERE workspace_id IS NULL;
+UPDATE spans SET workspace_id = 'ws-default' WHERE workspace_id IS NULL;
 
 ALTER TABLE agent_configs ALTER COLUMN workspace_id SET NOT NULL;
 ALTER TABLE agent_model_routes ALTER COLUMN workspace_id SET NOT NULL;
