@@ -18,7 +18,7 @@ export async function GET(
     const engine = getConversationEngine();
 
     // Verify conversation exists and belongs to this workspace
-    const conversation = await engine.getById(id);
+    const conversation = await engine.getById(id, auth.workspaceId);
     if (!conversation) {
       return NextResponse.json(
         { success: false, error: "Conversation not found" },

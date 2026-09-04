@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       products = await catalog.list({ status: status || undefined, limit, offset, workspaceId: auth.workspaceId });
     }
 
-    const counts = await catalog.getCountsByStatus();
+    const counts = await catalog.getCountsByStatus(auth.workspaceId);
 
     return NextResponse.json({
       success: true,

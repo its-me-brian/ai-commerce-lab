@@ -85,12 +85,14 @@ export class CredentialManager {
    * Retrieve and decrypt an API key.
    * Returns null if not found or expired.
    * USE WITH CAUTION — this exposes the raw key.
+   * Requires workspaceId for tenant isolation.
    */
-  async retrieve(credentialId: string): Promise<string | null> {
+  async retrieve(credentialId: string, workspaceId: string): Promise<string | null> {
     const { data, error } = await supabase
       .from("ai_provider_credentials")
       .select("*")
       .eq("id", credentialId)
+      .eq("workspace_id", workspaceId)
       .eq("is_active", true)
       .single();
 

@@ -267,7 +267,7 @@ export class OrchestratorV2 {
             workingMemory[`${step.id}_approval`] = approval;
 
             // Wait for human decision
-            const decision = await approvalManager.waitForApproval(approval.id, 300000);
+            const decision = await approvalManager.waitForApproval(approval.id, plan.workspaceId || "", 300000);
             if (!decision || decision.status !== "approved") {
               stepSuccess = false;
               lastError = `Approval ${decision?.status || "timeout"} for step ${step.id}`;

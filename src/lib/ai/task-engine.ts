@@ -69,13 +69,14 @@ export class TaskEngine {
   }
 
   /**
-   * Get a task by ID.
+   * Get a task by ID. Requires workspaceId for tenant isolation.
    */
-  async getById(id: string): Promise<Task | null> {
+  async getById(id: string, workspaceId: string): Promise<Task | null> {
     const { data, error } = await supabase
       .from("agent_tasks")
       .select("*")
       .eq("id", id)
+      .eq("workspace_id", workspaceId)
       .single();
 
     if (error || !data) return null;
@@ -83,13 +84,14 @@ export class TaskEngine {
   }
 
   /**
-   * List all tasks for an agent.
+   * List all tasks for an agent within a workspace.
    */
-  async listByAgent(agentId: string): Promise<Task[]> {
+  async listByAgent(agentId: string, workspaceId: string): Promise<Task[]> {
     const { data, error } = await supabase
       .from("agent_tasks")
       .select("*")
       .eq("agent_id", agentId)
+      .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false });
 
     if (error || !data) return [];
@@ -97,13 +99,14 @@ export class TaskEngine {
   }
 
   /**
-   * List tasks by status.
+   * List tasks by status within a workspace.
    */
-  async listByStatus(status: TaskStatus): Promise<Task[]> {
+  async listByStatus(status: TaskStatus, workspaceId: string): Promise<Task[]> {
     const { data, error } = await supabase
       .from("agent_tasks")
       .select("*")
       .eq("status", status)
+      .eq("workspace_id", workspaceId)
       .order("priority");
 
     if (error || !data) return [];
@@ -111,13 +114,14 @@ export class TaskEngine {
   }
 
   /**
-   * Get subtasks of a parent task.
+   * Get subtasks of a parent task within a workspace.
    */
-  async getSubtasks(parentTaskId: string): Promise<Task[]> {
+  async getSubtasks(parentTaskId: string, workspaceId: string): Promise<Task[]> {
     const { data, error } = await supabase
       .from("agent_tasks")
       .select("*")
       .eq("parent_task_id", parentTaskId)
+      .eq("workspace_id", workspaceId)
       .order("created_at");
 
     if (error || !data) return [];
@@ -127,13 +131,13 @@ export class TaskEngine {
   /**
    * Check if all dependencies of a task are completed.
    */
-  async areDependenciesMet(taskId: string): Promise<boolean> {
-    const task = await this.getById(taskId);
+  async areDependenciesMet(taskId: string, workspaceId: string): Promise<boolean> {
+    const task = await this.getById(taskId, workspaceId);
     if (!task) return false;
     if (task.depends_on.length === 0) return true;
 
     for (const depId of task.depends_on) {
-      const dep = await this.getById(depId);
+      const dep = await this.getById(depId, workspaceId);
       if (!dep || dep.status !== "completed") return false;
     }
 
@@ -141,14 +145,14 @@ export class TaskEngine {
   }
 
   /**
-   * Get tasks that are ready to run (pending + all deps met).
+   * Get tasks that are ready to run (pending + all deps met) within a workspace.
    */
-  async getReadyTasks(): Promise<Task[]> {
-    const pending = await this.listByStatus("pending");
+  async getReadyTasks(workspaceId: string): Promise<Task[]> {
+    const pending = await this.listByStatus("pending", workspaceId);
     const ready: Task[] = [];
 
     for (const task of pending) {
-      const depsMet = await this.areDependenciesMet(task.id);
+      const depsMet = await this.areDependenciesMet(task.id, workspaceId);
       if (depsMet) {
         ready.push(task);
       }
@@ -158,13 +162,14 @@ export class TaskEngine {
   }
 
   /**
-   * Update a task.
+   * Update a task. Requires workspaceId for tenant isolation.
    */
-  async update(id: string, input: TaskUpdateInput): Promise<Task | null> {
+  async update(id: string, input: TaskUpdateInput, workspaceId: string): Promise<Task | null> {
     const { data, error } = await supabase
       .from("agent_tasks")
       .update(input)
       .eq("id", id)
+      .eq("workspace_id", workspaceId)
       .select()
       .single();
 
@@ -175,49 +180,50 @@ export class TaskEngine {
   /**
    * Mark a task as started.
    */
-  async start(id: string): Promise<Task | null> {
+  async start(id: string, workspaceId: string): Promise<Task | null> {
     return this.update(id, {
       status: "running",
-    });
+    }, workspaceId);
   }
 
   /**
    * Mark a task as completed with output.
    */
-  async complete(id: string, output: Record<string, unknown>): Promise<Task | null> {
+  async complete(id: string, output: Record<string, unknown>, workspaceId: string): Promise<Task | null> {
     return this.update(id, {
       status: "completed",
       output,
-    });
+    }, workspaceId);
   }
 
   /**
    * Mark a task as failed with error.
    */
-  async fail(id: string, error: string): Promise<Task | null> {
+  async fail(id: string, error: string, workspaceId: string): Promise<Task | null> {
     return this.update(id, {
       status: "failed",
       error,
-    });
+    }, workspaceId);
   }
 
   /**
    * Cancel a task.
    */
-  async cancel(id: string): Promise<Task | null> {
+  async cancel(id: string, workspaceId: string): Promise<Task | null> {
     return this.update(id, {
       status: "cancelled",
-    });
+    }, workspaceId);
   }
 
   /**
-   * Delete a task.
+   * Delete a task. Requires workspaceId for tenant isolation.
    */
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, workspaceId: string): Promise<boolean> {
     const { error } = await supabase
       .from("agent_tasks")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("workspace_id", workspaceId);
 
     return !error;
   }

@@ -67,9 +67,9 @@ export async function delegateTask(input: DelegationInput): Promise<DelegationRe
 /**
  * Get all tasks delegated to a specific agent.
  */
-export async function getDelegatedTasks(agentId: string): Promise<Task[]> {
+export async function getDelegatedTasks(agentId: string, workspaceId: string): Promise<Task[]> {
   const taskEngine = getTaskEngine();
-  const tasks = await taskEngine.listByAgent(agentId);
+  const tasks = await taskEngine.listByAgent(agentId, workspaceId);
 
   // Filter tasks that were delegated (have _delegatedBy in input)
   return tasks.filter(
@@ -80,9 +80,9 @@ export async function getDelegatedTasks(agentId: string): Promise<Task[]> {
 /**
  * Get all tasks that an agent has delegated to others.
  */
-export async function getOutgoingDelegations(agentId: string): Promise<Task[]> {
+export async function getOutgoingDelegations(agentId: string, workspaceId: string): Promise<Task[]> {
   const taskEngine = getTaskEngine();
-  const tasks = await taskEngine.listByAgent(agentId);
+  const tasks = await taskEngine.listByAgent(agentId, workspaceId);
 
   // This agent is the delegator — check tasks where this agent is the source
   // Actually, we need to search across all agents for tasks delegated BY this agent
@@ -96,7 +96,7 @@ export async function getOutgoingDelegations(agentId: string): Promise<Task[]> {
 /**
  * Check if an agent has any pending delegated tasks.
  */
-export async function hasPendingDelegations(agentId: string): Promise<boolean> {
-  const tasks = await getDelegatedTasks(agentId);
+export async function hasPendingDelegations(agentId: string, workspaceId: string): Promise<boolean> {
+  const tasks = await getDelegatedTasks(agentId, workspaceId);
   return tasks.some((t) => t.status === "pending" || t.status === "ready");
 }

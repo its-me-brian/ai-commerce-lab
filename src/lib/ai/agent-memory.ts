@@ -68,13 +68,14 @@ export class AgentMemoryService {
   }
 
   /**
-   * Get a memory by ID.
+   * Get a memory by ID within a workspace.
    */
-  async getById(id: string): Promise<AgentMemory | null> {
+  async getById(id: string, workspaceId: string): Promise<AgentMemory | null> {
     const { data, error } = await supabase
       .from("agent_memory")
       .select("*")
       .eq("id", id)
+      .eq("workspace_id", workspaceId)
       .single();
 
     if (error || !data) return null;
@@ -140,13 +141,14 @@ export class AgentMemoryService {
   }
 
   /**
-   * Update a memory.
+   * Update a memory within a workspace.
    */
-  async update(id: string, updates: Partial<Pick<AgentMemory, "content" | "confidence" | "metadata">>): Promise<AgentMemory | null> {
+  async update(id: string, updates: Partial<Pick<AgentMemory, "content" | "confidence" | "metadata">>, workspaceId: string): Promise<AgentMemory | null> {
     const { data, error } = await supabase
       .from("agent_memory")
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq("id", id)
+      .eq("workspace_id", workspaceId)
       .select()
       .single();
 

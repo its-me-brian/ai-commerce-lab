@@ -104,13 +104,14 @@ export class CatalogService {
   }
 
   /**
-   * Get a single catalog product by ID.
+   * Get a single catalog product by ID within a workspace.
    */
-  async getById(id: string): Promise<CatalogProduct | null> {
+  async getById(id: string, workspaceId: string): Promise<CatalogProduct | null> {
     const { data, error } = await supabase
       .from("product_catalog")
       .select("*")
       .eq("id", id)
+      .eq("workspace_id", workspaceId)
       .single();
 
     if (error || !data) return null;
@@ -139,13 +140,14 @@ export class CatalogService {
   }
 
   /**
-   * Update a catalog product.
+   * Update a catalog product within a workspace.
    */
-  async update(id: string, input: CatalogUpdateInput): Promise<CatalogProduct | null> {
+  async update(id: string, input: CatalogUpdateInput, workspaceId: string): Promise<CatalogProduct | null> {
     const { data, error } = await supabase
       .from("product_catalog")
       .update({ ...input, updated_at: new Date().toISOString() })
       .eq("id", id)
+      .eq("workspace_id", workspaceId)
       .select()
       .single();
 
@@ -154,36 +156,39 @@ export class CatalogService {
   }
 
   /**
-   * Change product status in the pipeline.
+   * Change product status in the pipeline within a workspace.
    */
-  async setStatus(id: string, status: CatalogStatus): Promise<boolean> {
+  async setStatus(id: string, status: CatalogStatus, workspaceId: string): Promise<boolean> {
     const { error } = await supabase
       .from("product_catalog")
       .update({ status, updated_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("workspace_id", workspaceId);
 
     return !error;
   }
 
   /**
-   * Delete a catalog product.
+   * Delete a catalog product within a workspace.
    */
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, workspaceId: string): Promise<boolean> {
     const { error } = await supabase
       .from("product_catalog")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("workspace_id", workspaceId);
 
     return !error;
   }
 
   /**
-   * Get counts by status for dashboard KPIs.
+   * Get counts by status for dashboard KPIs within a workspace.
    */
-  async getCountsByStatus(): Promise<Record<CatalogStatus, number>> {
+  async getCountsByStatus(workspaceId: string): Promise<Record<CatalogStatus, number>> {
     const { data, error } = await supabase
       .from("product_catalog")
-      .select("status");
+      .select("status")
+      .eq("workspace_id", workspaceId);
 
     const counts: Record<CatalogStatus, number> = {
       discovered: 0,

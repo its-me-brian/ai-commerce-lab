@@ -193,7 +193,7 @@ describe("AgentChat", () => {
 
     expect(result.conversation.id).toBe("conv-existing");
     expect(mockCreate).not.toHaveBeenCalled();
-    expect(mockGetById).toHaveBeenCalledWith("conv-existing");
+    expect(mockGetById).toHaveBeenCalledWith("conv-existing", expect.any(String));
   });
 
   it("should throw for non-active conversation", async () => {

@@ -43,7 +43,7 @@ export async function multiAgentChat(input: MultiAgentChatInput): Promise<MultiA
   const workspaceService = getWorkspaceService();
 
   // 1. Validate conversation exists
-  const conversation = await conversationEngine.getById(input.conversationId);
+  const conversation = await conversationEngine.getById(input.conversationId, input.workspaceId || "");
   if (!conversation) {
     throw new Error(`Conversation not found: ${input.conversationId}`);
   }

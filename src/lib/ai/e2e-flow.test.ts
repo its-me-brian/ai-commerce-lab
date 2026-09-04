@@ -112,7 +112,7 @@ describeE2E("§48 E2E: Full chat lifecycle", () => {
     expect(assistantMessage!.content).toBe(result.content);
 
     // Verify message count updated
-    const updatedConversation = await conversationEngine.getById(conversation!.id);
+    const updatedConversation = await conversationEngine.getById(conversation!.id, "ws-test");
     expect(updatedConversation!.message_count).toBe(2);
   }, 30000);
 

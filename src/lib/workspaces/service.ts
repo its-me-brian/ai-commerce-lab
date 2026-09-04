@@ -125,21 +125,23 @@ export class WorkspaceService {
   async buildEnhancedContext(workspaceId?: string): Promise<EnhancedCompanyContext> {
     const baseContext = await this.buildCompanyContext(workspaceId);
 
-    // Get active agents
+    // Get active agents (workspace-scoped)
     const { data: agents } = await supabase
       .from("agents")
       .select("id, name, status, department")
+      .eq("workspace_id", baseContext.workspace.id)
       .eq("enabled", true);
 
-    // Get configured providers
+    // Get configured providers (GLOBAL — not workspace-scoped)
     const { data: providers } = await supabase
       .from("ai_providers")
       .select("slug, name, api_key_env_var, enabled");
 
-    // Get recent tasks
+    // Get recent tasks (workspace-scoped)
     const { data: tasks } = await supabase
       .from("agent_tasks")
       .select("id, agent_id, status, created_at")
+      .eq("workspace_id", baseContext.workspace.id)
       .order("created_at", { ascending: false })
       .limit(10);
 
@@ -232,10 +234,11 @@ export class WorkspaceService {
     return 0;
   }
 
-  private async getPendingTaskCount(_workspaceId: string): Promise<number> {
+  private async getPendingTaskCount(workspaceId: string): Promise<number> {
     const { count } = await supabase
       .from("agent_tasks")
       .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
       .eq("status", "pending");
 
     return count || 0;

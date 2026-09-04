@@ -22,7 +22,8 @@ export type TaskExecutor = (
  */
 export async function executeDAG(
   taskIds: string[],
-  executor: TaskExecutor
+  executor: TaskExecutor,
+  workspaceId: string
 ): Promise<DAGExecutionResult> {
   const engine = getTaskEngine();
   const results = new Map<string, { status: TaskStatus; output?: Record<string, unknown>; error?: string }>();
@@ -43,7 +44,7 @@ export async function executeDAG(
     for (const taskId of allTaskIds) {
       if (results.has(taskId)) continue; // Already processed
 
-      const task = await engine.getById(taskId);
+      const task = await engine.getById(taskId, workspaceId);
       if (!task) {
         results.set(taskId, { status: "failed", error: "Task not found" });
         failed++;
@@ -60,7 +61,7 @@ export async function executeDAG(
       }
 
       // Check if dependencies are met
-      const depsMet = await engine.areDependenciesMet(taskId);
+      const depsMet = await engine.areDependenciesMet(taskId, workspaceId);
       if (depsMet) {
         pendingTasks.push(task);
       }
@@ -74,14 +75,14 @@ export async function executeDAG(
     // Execute ready tasks in parallel
     const executions = pendingTasks.map(async (task) => {
       try {
-        await engine.start(task.id);
+        await engine.start(task.id, workspaceId);
         const output = await executor(task);
-        await engine.complete(task.id, output);
+        await engine.complete(task.id, output, workspaceId);
         results.set(task.id, { status: "completed", output });
         completed++;
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        await engine.fail(task.id, errorMsg);
+        await engine.fail(task.id, errorMsg, workspaceId);
         results.set(task.id, { status: "failed", error: errorMsg });
         failed++;
       }
@@ -90,7 +91,7 @@ export async function executeDAG(
     await Promise.all(executions);
 
     // Check if we made progress
-    const newReady = await engine.getReadyTasks();
+    const newReady = await engine.getReadyTasks(workspaceId);
     const anyNew = newReady.some((t) => !results.has(t.id));
     if (!anyNew) {
       hasMore = false;

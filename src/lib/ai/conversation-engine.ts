@@ -86,13 +86,14 @@ export class ConversationEngine {
   }
 
   /**
-   * Get a conversation by ID.
+   * Get a conversation by ID within a workspace.
    */
-  async getById(id: string): Promise<Conversation | null> {
+  async getById(id: string, workspaceId: string): Promise<Conversation | null> {
     const { data, error } = await supabase
       .from("conversations")
       .select("*")
       .eq("id", id)
+      .eq("workspace_id", workspaceId)
       .single();
 
     if (error || !data) return null;
@@ -100,13 +101,14 @@ export class ConversationEngine {
   }
 
   /**
-   * List all conversations for an agent.
+   * List all conversations for an agent within a workspace.
    */
-  async listByAgent(agentId: string): Promise<Conversation[]> {
+  async listByAgent(agentId: string, workspaceId: string): Promise<Conversation[]> {
     const { data, error } = await supabase
       .from("conversations")
       .select("*")
       .eq("agent_id", agentId)
+      .eq("workspace_id", workspaceId)
       .order("last_message_at", { ascending: false });
 
     if (error || !data) return [];
@@ -114,13 +116,14 @@ export class ConversationEngine {
   }
 
   /**
-   * List active conversations.
+   * List active conversations for a workspace.
    */
-  async listActive(): Promise<Conversation[]> {
+  async listActive(workspaceId: string): Promise<Conversation[]> {
     const { data, error } = await supabase
       .from("conversations")
       .select("*")
       .eq("status", "active")
+      .eq("workspace_id", workspaceId)
       .order("last_message_at", { ascending: false });
 
     if (error || !data) return [];
@@ -128,25 +131,27 @@ export class ConversationEngine {
   }
 
   /**
-   * Archive a conversation.
+   * Archive a conversation within a workspace.
    */
-  async archive(id: string): Promise<boolean> {
+  async archive(id: string, workspaceId: string): Promise<boolean> {
     const { error } = await supabase
       .from("conversations")
       .update({ status: "archived", updated_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("workspace_id", workspaceId);
 
     return !error;
   }
 
   /**
-   * Delete a conversation (soft delete).
+   * Delete a conversation (soft delete) within a workspace.
    */
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, workspaceId: string): Promise<boolean> {
     const { error } = await supabase
       .from("conversations")
       .update({ status: "deleted", updated_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("workspace_id", workspaceId);
 
     return !error;
   }

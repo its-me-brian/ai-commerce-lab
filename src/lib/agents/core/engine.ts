@@ -105,7 +105,7 @@ export class AgentEngine {
 
     if (!permissionCheck.allowed) {
       const errorMsg = `Permission denied: ${permissionCheck.denied.join(", ")}`;
-      await this.failTask(taskId, errorMsg);
+      await this.failTask(taskId, errorMsg, workspaceId);
       throw new Error(errorMsg);
     }
 
@@ -294,7 +294,8 @@ export class AgentEngine {
           total_cost: cost,
           completed_at: new Date().toISOString(),
         })
-        .eq("id", taskId);
+        .eq("id", taskId)
+        .eq("workspace_id", workspaceId);
 
       if (updateError) {
         console.error(`[AgentEngine] Failed to update task: ${updateError.message}`);
@@ -384,7 +385,7 @@ export class AgentEngine {
       }
 
       // Fail task
-      await this.failTask(taskId, errorMsg);
+      await this.failTask(taskId, errorMsg, workspaceId);
 
       throw error;
     }
@@ -476,7 +477,7 @@ export class AgentEngine {
     });
   }
 
-  private async failTask(taskId: string, error: string): Promise<void> {
+  private async failTask(taskId: string, error: string, workspaceId: string): Promise<void> {
     const { error: updateError } = await supabase
       .from("agent_tasks")
       .update({
@@ -484,7 +485,8 @@ export class AgentEngine {
         error,
         completed_at: new Date().toISOString(),
       })
-      .eq("id", taskId);
+      .eq("id", taskId)
+      .eq("workspace_id", workspaceId);
 
     if (updateError) {
       console.error(`[AgentEngine] Failed to mark task as failed: ${updateError.message}`);

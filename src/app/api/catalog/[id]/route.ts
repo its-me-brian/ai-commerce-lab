@@ -17,7 +17,7 @@ export async function GET(
   try {
     const { id } = await params;
     const catalog = getCatalogService();
-    const product = await catalog.getById(id);
+    const product = await catalog.getById(id, auth.workspaceId);
 
     if (!product) {
       return NextResponse.json(
@@ -47,7 +47,7 @@ export async function PATCH(
     const body = await request.json();
     const catalog = getCatalogService();
 
-    const product = await catalog.update(id, body);
+    const product = await catalog.update(id, body, auth.workspaceId);
 
     if (!product) {
       return NextResponse.json(
@@ -75,7 +75,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     const catalog = getCatalogService();
-    const deleted = await catalog.delete(id);
+    const deleted = await catalog.delete(id, auth.workspaceId);
 
     if (!deleted) {
       return NextResponse.json(

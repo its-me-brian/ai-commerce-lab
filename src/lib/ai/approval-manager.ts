@@ -94,11 +94,12 @@ export class ApprovalManager {
   /**
    * Review an approval (approve or reject).
    */
-  async reviewApproval(input: ReviewApprovalInput): Promise<Approval> {
+  async reviewApproval(input: ReviewApprovalInput, workspaceId: string): Promise<Approval> {
     const { data: existing, error: fetchError } = await supabase
       .from("approvals")
       .select("status")
       .eq("id", input.approval_id)
+      .eq("workspace_id", workspaceId)
       .single();
 
     if (fetchError || !existing) throw new Error("Approval not found");
@@ -119,6 +120,7 @@ export class ApprovalManager {
         ...(details ? { action_details: details } : {}),
       })
       .eq("id", input.approval_id)
+      .eq("workspace_id", workspaceId)
       .select()
       .single();
 
@@ -129,11 +131,12 @@ export class ApprovalManager {
   /**
    * Check if an approval has been approved.
    */
-  async isApproved(approvalId: string): Promise<boolean> {
+  async isApproved(approvalId: string, workspaceId: string): Promise<boolean> {
     const { data } = await supabase
       .from("approvals")
       .select("status")
       .eq("id", approvalId)
+      .eq("workspace_id", workspaceId)
       .single();
 
     return (data as Approval)?.status === "approved";
@@ -145,6 +148,7 @@ export class ApprovalManager {
    */
   async waitForApproval(
     approvalId: string,
+    workspaceId: string,
     timeoutMs: number = 300000 // 5 minutes default
   ): Promise<Approval | null> {
     const start = Date.now();
@@ -154,6 +158,7 @@ export class ApprovalManager {
         .from("approvals")
         .select("*")
         .eq("id", approvalId)
+        .eq("workspace_id", workspaceId)
         .single();
 
       if (!data) return null;
@@ -163,7 +168,7 @@ export class ApprovalManager {
 
       // Check expiry
       if (approval.expires_at && new Date(approval.expires_at) < new Date()) {
-        await this.expireApproval(approvalId);
+        await this.expireApproval(approvalId, workspaceId);
         return { ...approval, status: "expired" };
       }
 
@@ -176,11 +181,12 @@ export class ApprovalManager {
   /**
    * Expire an approval that has passed its deadline.
    */
-  async expireApproval(approvalId: string): Promise<Approval | null> {
+  async expireApproval(approvalId: string, workspaceId: string): Promise<Approval | null> {
     const { data, error } = await supabase
       .from("approvals")
       .update({ status: "expired", reviewed_at: new Date().toISOString() })
       .eq("id", approvalId)
+      .eq("workspace_id", workspaceId)
       .eq("status", "pending")
       .select()
       .single();
@@ -192,11 +198,12 @@ export class ApprovalManager {
   /**
    * Cancel an approval request (e.g., task was cancelled).
    */
-  async cancelApproval(approvalId: string): Promise<Approval | null> {
+  async cancelApproval(approvalId: string, workspaceId: string): Promise<Approval | null> {
     const { data, error } = await supabase
       .from("approvals")
       .update({ status: "cancelled", reviewed_at: new Date().toISOString() })
       .eq("id", approvalId)
+      .eq("workspace_id", workspaceId)
       .eq("status", "pending")
       .select()
       .single();
@@ -206,13 +213,14 @@ export class ApprovalManager {
   }
 
   /**
-   * Get all pending approvals.
+   * Get all pending approvals for a workspace.
    */
-  async getPendingApprovals(): Promise<Approval[]> {
+  async getPendingApprovals(workspaceId: string): Promise<Approval[]> {
     const { data, error } = await supabase
       .from("approvals")
       .select("*")
       .eq("status", "pending")
+      .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false });
 
     if (error || !data) return [];
@@ -220,13 +228,14 @@ export class ApprovalManager {
   }
 
   /**
-   * Get approvals for a specific agent.
+   * Get approvals for a specific agent within a workspace.
    */
-  async getApprovalsByAgent(agentId: string): Promise<Approval[]> {
+  async getApprovalsByAgent(agentId: string, workspaceId: string): Promise<Approval[]> {
     const { data, error } = await supabase
       .from("approvals")
       .select("*")
       .eq("agent_id", agentId)
+      .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false });
 
     if (error || !data) return [];
@@ -234,13 +243,14 @@ export class ApprovalManager {
   }
 
   /**
-   * Get approval by ID.
+   * Get approval by ID within a workspace.
    */
-  async getApproval(approvalId: string): Promise<Approval | null> {
+  async getApproval(approvalId: string, workspaceId: string): Promise<Approval | null> {
     const { data, error } = await supabase
       .from("approvals")
       .select("*")
       .eq("id", approvalId)
+      .eq("workspace_id", workspaceId)
       .single();
 
     if (error || !data) return null;
@@ -248,13 +258,14 @@ export class ApprovalManager {
   }
 
   /**
-   * Get pending approvals count by risk level.
+   * Get pending approvals count by risk level for a workspace.
    */
-  async getPendingCounts(): Promise<Record<ApprovalRiskLevel, number>> {
+  async getPendingCounts(workspaceId: string): Promise<Record<ApprovalRiskLevel, number>> {
     const { data } = await supabase
       .from("approvals")
       .select("risk_level")
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .eq("workspace_id", workspaceId);
 
     const counts: Record<ApprovalRiskLevel, number> = {
       low: 0,
@@ -273,20 +284,21 @@ export class ApprovalManager {
   }
 
   /**
-   * Expire all overdue approvals.
+   * Expire all overdue approvals for a workspace.
    */
-  async expireOverdue(): Promise<number> {
+  async expireOverdue(workspaceId: string): Promise<number> {
     const { data } = await supabase
       .from("approvals")
       .select("id")
       .eq("status", "pending")
+      .eq("workspace_id", workspaceId)
       .lt("expires_at", new Date().toISOString());
 
     if (!data || data.length === 0) return 0;
 
     let expired = 0;
     for (const row of data as { id: string }[]) {
-      const result = await this.expireApproval(row.id);
+      const result = await this.expireApproval(row.id, workspaceId);
       if (result) expired++;
     }
 
@@ -294,9 +306,9 @@ export class ApprovalManager {
   }
 
   /**
-   * Get approval statistics.
+   * Get approval statistics for a workspace.
    */
-  async getStats(): Promise<{
+  async getStats(workspaceId: string): Promise<{
     total: number;
     pending: number;
     approved: number;
@@ -304,7 +316,10 @@ export class ApprovalManager {
     expired: number;
     avgResponseTimeMs: number;
   }> {
-    const { data } = await supabase.from("approvals").select("*");
+    const { data } = await supabase
+      .from("approvals")
+      .select("*")
+      .eq("workspace_id", workspaceId);
 
     if (!data || data.length === 0) {
       return {

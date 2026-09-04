@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/database/supabase-server";
 import { supabase } from "@/lib/database/supabase";
+import { encrypt } from "@/lib/ai/encryption";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -119,14 +120,15 @@ export async function GET(request: NextRequest) {
 
     const workspaceId = state;
 
-    // 5. Upsert store connection
+    // 5. Upsert store connection (encrypt access_token)
+    const encryptedToken = encrypt(accessToken);
     const { error: upsertError } = await supabase
       .from("shopify_stores")
       .upsert(
         {
           workspace_id: workspaceId,
           shop_domain: shop,
-          access_token: accessToken,
+          access_token: JSON.stringify(encryptedToken),
           scope,
           store_name: storeName,
           store_email: storeEmail,

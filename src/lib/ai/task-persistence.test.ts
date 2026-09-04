@@ -337,7 +337,7 @@ describe("TaskPersistence", () => {
         createMockQuery(mockEvents)
       );
 
-      const progress = await persistence.getTaskProgress("task-1");
+      const progress = await persistence.getTaskProgress("task-1", "ws-test");
 
       expect(progress).toBeDefined();
       expect(progress?.taskId).toBe("task-1");

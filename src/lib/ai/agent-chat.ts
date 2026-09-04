@@ -59,7 +59,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   let conversation: Conversation | null = null;
 
   if (input.conversationId) {
-    conversation = await conversationEngine.getById(input.conversationId);
+    conversation = await conversationEngine.getById(input.conversationId, input.workspaceId || "");
     if (!conversation) {
       throw new Error(`Conversation not found: ${input.conversationId}`);
     }
@@ -110,7 +110,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   // FASE 27: Agent continuity — include recent task results for reference resolution
   let taskHistorySection = "";
   try {
-      const recentTasks = await taskEngine.listByAgent(input.agentId);
+      const recentTasks = await taskEngine.listByAgent(input.agentId, input.workspaceId || "");
       const completedTasks = recentTasks
         .filter((t) => t.status === "completed" && t.output)
         .slice(0, 5);
@@ -242,12 +242,12 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
 
           if (targetAgent) {
             // Query specific agent's tasks
-            tasks = await taskEngine.listByAgent(targetAgent);
+            tasks = await taskEngine.listByAgent(targetAgent, input.workspaceId || "");
           } else {
             // Query all agents' recent tasks
             const agentIds = ["product-hunter", "market-research", "supplier-research", "opportunity-scoring", "store-builder"];
             for (const agent of agentIds) {
-              const agentTasks = await taskEngine.listByAgent(agent);
+              const agentTasks = await taskEngine.listByAgent(agent, input.workspaceId || "");
               tasks.push(...agentTasks);
             }
             // Sort by created_at descending, take most recent

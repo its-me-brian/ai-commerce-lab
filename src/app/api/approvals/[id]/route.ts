@@ -36,6 +36,7 @@ export async function PATCH(
       .from("approvals")
       .select("status, workspace_id")
       .eq("id", id)
+      .eq("workspace_id", auth.workspaceId)
       .single();
 
     if (fetchError || !existing) {
@@ -70,6 +71,7 @@ export async function PATCH(
         reviewed_at: new Date().toISOString(),
       })
       .eq("id", id)
+      .eq("workspace_id", auth.workspaceId)
       .select()
       .single();
 

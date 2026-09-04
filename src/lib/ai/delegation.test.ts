@@ -152,7 +152,7 @@ describe("Agent Delegation", () => {
         },
       ]);
 
-      const tasks = await getDelegatedTasks("agent-b");
+      const tasks = await getDelegatedTasks("agent-b", "ws-test");
       expect(tasks).toHaveLength(1);
       expect(tasks[0].id).toBe("task-1");
     });
@@ -169,7 +169,7 @@ describe("Agent Delegation", () => {
         },
       ]);
 
-      expect(await hasPendingDelegations("agent-b")).toBe(true);
+      expect(await hasPendingDelegations("agent-b", "ws-test")).toBe(true);
     });
 
     it("should return false when no pending delegations", async () => {
@@ -182,7 +182,7 @@ describe("Agent Delegation", () => {
         },
       ]);
 
-      expect(await hasPendingDelegations("agent-b")).toBe(false);
+      expect(await hasPendingDelegations("agent-b", "ws-test")).toBe(false);
     });
   });
 });

@@ -205,9 +205,9 @@ export class TaskPersistence {
   /**
    * Get task progress summary (aggregated from events).
    */
-  async getTaskProgress(taskId: string): Promise<TaskProgress | null> {
+  async getTaskProgress(taskId: string, workspaceId: string): Promise<TaskProgress | null> {
     const taskEngine = getTaskEngine();
-    const task = await taskEngine.getById(taskId);
+    const task = await taskEngine.getById(taskId, workspaceId);
     if (!task) return null;
 
     const events = await this.getEventsByTask(taskId);

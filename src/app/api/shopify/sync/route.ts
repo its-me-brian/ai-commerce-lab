@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { supabase } from "@/lib/database/supabase";
 import { createShopifyClient } from "@/lib/integrations/shopify/client";
+import { decrypt, type EncryptedData } from "@/lib/ai/encryption";
 
 export async function POST(request: NextRequest) {
   const auth = await requireWorkspaceAccess(request);
@@ -26,10 +27,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Create Shopify client
+    // 2. Create Shopify client (decrypt access token)
+    const encryptedData: EncryptedData = JSON.parse(store.access_token);
+    const accessToken = decrypt(encryptedData);
     const shopify = createShopifyClient({
       shopDomain: store.shop_domain,
-      accessToken: store.access_token,
+      accessToken,
     });
 
     // 3. Fetch all products from Shopify

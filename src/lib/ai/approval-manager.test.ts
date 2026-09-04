@@ -106,17 +106,21 @@ describe("ApprovalManager", () => {
         .mockReturnValueOnce({
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: { status: "pending" }, error: null }),
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({ data: { status: "pending" }, error: null }),
+              }),
             }),
           }),
         })
         .mockReturnValueOnce({
           update: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              select: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: { ...mockApproval, status: "approved", reviewed_at: new Date().toISOString() },
-                  error: null,
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: { ...mockApproval, status: "approved", reviewed_at: new Date().toISOString() },
+                    error: null,
+                  }),
                 }),
               }),
             }),
@@ -128,7 +132,7 @@ describe("ApprovalManager", () => {
         approval_id: "ap-1",
         decision: "approved",
         notes: "Looks good",
-      });
+      }, "ws-test");
 
       expect(result.status).toBe("approved");
     });
@@ -139,17 +143,21 @@ describe("ApprovalManager", () => {
         .mockReturnValueOnce({
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: { status: "pending" }, error: null }),
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({ data: { status: "pending" }, error: null }),
+              }),
             }),
           }),
         })
         .mockReturnValueOnce({
           update: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              select: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: { ...mockApproval, status: "rejected", reviewed_at: new Date().toISOString() },
-                  error: null,
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: { ...mockApproval, status: "rejected", reviewed_at: new Date().toISOString() },
+                    error: null,
+                  }),
                 }),
               }),
             }),
@@ -161,7 +169,7 @@ describe("ApprovalManager", () => {
         approval_id: "ap-1",
         decision: "rejected",
         notes: "Price too low",
-      });
+      }, "ws-test");
 
       expect(result.status).toBe("rejected");
     });
@@ -173,7 +181,7 @@ describe("ApprovalManager", () => {
       );
 
       await expect(
-        manager.reviewApproval({ approval_id: "nonexistent", decision: "approved" })
+        manager.reviewApproval({ approval_id: "nonexistent", decision: "approved" }, "ws-test")
       ).rejects.toThrow("Approval not found");
     });
 
@@ -184,7 +192,7 @@ describe("ApprovalManager", () => {
       );
 
       await expect(
-        manager.reviewApproval({ approval_id: "ap-1", decision: "approved" })
+        manager.reviewApproval({ approval_id: "ap-1", decision: "approved" }, "ws-test")
       ).rejects.toThrow("Approval already approved");
     });
   });
@@ -196,7 +204,7 @@ describe("ApprovalManager", () => {
         createMockQuery({ status: "approved" })
       );
 
-      expect(await manager.isApproved("ap-1")).toBe(true);
+      expect(await manager.isApproved("ap-1", "ws-test")).toBe(true);
     });
 
     it("should return false for pending", async () => {
@@ -205,7 +213,7 @@ describe("ApprovalManager", () => {
         createMockQuery({ status: "pending" })
       );
 
-      expect(await manager.isApproved("ap-1")).toBe(false);
+      expect(await manager.isApproved("ap-1", "ws-test")).toBe(false);
     });
   });
 
@@ -216,7 +224,7 @@ describe("ApprovalManager", () => {
         createMockQuery({ ...mockApproval, status: "expired" })
       );
 
-      const result = await manager.expireApproval("ap-1");
+      const result = await manager.expireApproval("ap-1", "ws-test");
       expect(result?.status).toBe("expired");
     });
 
@@ -226,7 +234,7 @@ describe("ApprovalManager", () => {
         createMockQuery(null) // No rows matched (status != pending)
       );
 
-      const result = await manager.expireApproval("ap-1");
+      const result = await manager.expireApproval("ap-1", "ws-test");
       expect(result).toBeNull();
     });
   });
@@ -238,7 +246,7 @@ describe("ApprovalManager", () => {
         createMockQuery({ ...mockApproval, status: "cancelled" })
       );
 
-      const result = await manager.cancelApproval("ap-1");
+      const result = await manager.cancelApproval("ap-1", "ws-test");
       expect(result?.status).toBe("cancelled");
     });
   });
@@ -250,7 +258,7 @@ describe("ApprovalManager", () => {
         createMockQuery([mockApproval])
       );
 
-      const approvals = await manager.getPendingApprovals();
+      const approvals = await manager.getPendingApprovals("ws-test");
       expect(approvals.length).toBe(1);
       expect(approvals[0].status).toBe("pending");
     });
@@ -261,7 +269,7 @@ describe("ApprovalManager", () => {
         createMockQuery(null, { message: "fail" })
       );
 
-      const approvals = await manager.getPendingApprovals();
+      const approvals = await manager.getPendingApprovals("ws-test");
       expect(approvals).toEqual([]);
     });
   });
@@ -273,7 +281,7 @@ describe("ApprovalManager", () => {
         createMockQuery([mockApproval])
       );
 
-      const approvals = await manager.getApprovalsByAgent("product-hunter");
+      const approvals = await manager.getApprovalsByAgent("product-hunter", "ws-test");
       expect(approvals.length).toBe(1);
     });
   });
@@ -285,7 +293,7 @@ describe("ApprovalManager", () => {
         createMockQuery(mockApproval)
       );
 
-      const approval = await manager.getApproval("ap-1");
+      const approval = await manager.getApproval("ap-1", "ws-test");
       expect(approval?.id).toBe("ap-1");
     });
 
@@ -295,7 +303,7 @@ describe("ApprovalManager", () => {
         createMockQuery(null, { message: "not found" })
       );
 
-      const approval = await manager.getApproval("nonexistent");
+      const approval = await manager.getApproval("nonexistent", "ws-test");
       expect(approval).toBeNull();
     });
   });
@@ -312,7 +320,7 @@ describe("ApprovalManager", () => {
         ])
       );
 
-      const counts = await manager.getPendingCounts();
+      const counts = await manager.getPendingCounts("ws-test");
       expect(counts.high).toBe(2);
       expect(counts.critical).toBe(1);
       expect(counts.low).toBe(1);
@@ -327,7 +335,7 @@ describe("ApprovalManager", () => {
         createMockQuery([])
       );
 
-      const count = await manager.expireOverdue();
+      const count = await manager.expireOverdue("ws-test");
       expect(count).toBe(0);
     });
   });
@@ -343,7 +351,7 @@ describe("ApprovalManager", () => {
         ])
       );
 
-      const stats = await manager.getStats();
+      const stats = await manager.getStats("ws-test");
       expect(stats.total).toBe(3);
       expect(stats.pending).toBe(1);
       expect(stats.approved).toBe(1);
@@ -356,7 +364,7 @@ describe("ApprovalManager", () => {
         createMockQuery([])
       );
 
-      const stats = await manager.getStats();
+      const stats = await manager.getStats("ws-test");
       expect(stats.total).toBe(0);
     });
   });

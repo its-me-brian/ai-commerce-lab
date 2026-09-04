@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const engine = getConversationEngine();
 
     // Find existing active direct conversation for this agent in this workspace
-    const conversations = await engine.listByAgent(agentId);
+    const conversations = await engine.listByAgent(agentId, auth.workspaceId);
     const direct = conversations.find(
       (c) => c.conversation_type === "direct" && c.status === "active" && c.workspace_id === auth.workspaceId
     );
