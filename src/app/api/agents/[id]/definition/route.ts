@@ -3,15 +3,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth check
-    const auth = await requireAuth(request);
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const { id } = await params;
@@ -44,8 +43,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth check
-    const auth = await requireAuth(request);
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const { id } = await params;
@@ -104,7 +102,8 @@ export async function PATCH(
       await supabase
         .from("agents")
         .update({ name: updates.identity_name, updated_at: new Date().toISOString() })
-        .eq("id", id);
+        .eq("id", id)
+        .or(`workspace_id.eq.${auth.workspaceId},workspace_id.is.null`);
     }
 
     // Also update agents.description if identity_description changed
@@ -112,7 +111,8 @@ export async function PATCH(
       await supabase
         .from("agents")
         .update({ description: updates.identity_description, updated_at: new Date().toISOString() })
-        .eq("id", id);
+        .eq("id", id)
+        .or(`workspace_id.eq.${auth.workspaceId},workspace_id.is.null`);
     }
 
     return NextResponse.json({ success: true, definition: data });

@@ -199,6 +199,44 @@ function ProvidersTab({
   onRefresh: () => void;
 }) {
   const providerEnv = envStatus.filter((v) => v.category === "providers");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newCredential, setNewCredential] = useState({ provider_id: "gemini", name: "", api_key: "" });
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  const handleAddCredential = async () => {
+    if (!newCredential.name || !newCredential.api_key) return;
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      const res = await fetch("/api/settings/credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCredential),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSaveMsg("Credential stored securely");
+        setNewCredential({ provider_id: "gemini", name: "", api_key: "" });
+        setShowAddForm(false);
+        onRefresh();
+      } else {
+        setSaveMsg(data.error || "Failed to store credential");
+      }
+    } catch {
+      setSaveMsg("Failed to store credential");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteCredential = async (id: string) => {
+    if (!confirm("Delete this credential?")) return;
+    try {
+      await fetch(`/api/settings/credentials?id=${id}`, { method: "DELETE" });
+      onRefresh();
+    } catch { /* ignore */ }
+  };
 
   return (
     <div>
@@ -232,12 +270,90 @@ function ProvidersTab({
         </div>
       </div>
 
-      {/* DB providers */}
+      {/* DB-stored credentials */}
       <div>
-        <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 8 }}>Registered Providers</h3>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <h3 style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Stored Credentials</h3>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            style={{
+              padding: "5px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+              fontSize: "0.75rem", cursor: "pointer", background: "var(--bg-card)", color: "var(--text-primary)",
+            }}
+          >
+            {showAddForm ? "Cancel" : "+ Add API Key"}
+          </button>
+        </div>
+
+        {showAddForm && (
+          <div style={{
+            padding: 14, marginBottom: 12, background: "var(--bg-sunken)", border: "1px solid var(--border)",
+            borderRadius: "var(--r-md)",
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div>
+                <label style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", display: "block", marginBottom: 4 }}>Provider</label>
+                <select
+                  value={newCredential.provider_id}
+                  onChange={(e) => setNewCredential({ ...newCredential, provider_id: e.target.value })}
+                  style={{
+                    width: "100%", padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+                    fontSize: "0.75rem", background: "var(--bg-card)",
+                  }}
+                >
+                  {providers.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", display: "block", marginBottom: 4 }}>Name</label>
+                <input
+                  type="text"
+                  value={newCredential.name}
+                  onChange={(e) => setNewCredential({ ...newCredential, name: e.target.value })}
+                  placeholder="e.g. Production Gemini Key"
+                  style={{
+                    width: "100%", padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+                    fontSize: "0.75rem", background: "var(--bg-card)",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", display: "block", marginBottom: 4 }}>API Key</label>
+                <input
+                  type="password"
+                  value={newCredential.api_key}
+                  onChange={(e) => setNewCredential({ ...newCredential, api_key: e.target.value })}
+                  placeholder="AIza..."
+                  style={{
+                    width: "100%", padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
+                    fontSize: "0.75rem", background: "var(--bg-card)",
+                  }}
+                />
+              </div>
+              <button
+                onClick={handleAddCredential}
+                disabled={saving || !newCredential.name || !newCredential.api_key}
+                style={{
+                  padding: "6px 14px", border: "none", borderRadius: "var(--r-md)", cursor: "pointer",
+                  background: "var(--accent)", color: "white", fontSize: "0.75rem", fontWeight: 500,
+                  opacity: saving || !newCredential.name || !newCredential.api_key ? 0.5 : 1,
+                  alignSelf: "flex-end",
+                }}
+              >
+                {saving ? "Storing..." : "Store Securely"}
+              </button>
+            </div>
+            {saveMsg && (
+              <p style={{ fontSize: "0.6875rem", color: "var(--accent)", marginTop: 6 }}>{saveMsg}</p>
+            )}
+          </div>
+        )}
+
         {providers.length === 0 ? (
           <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", padding: 20, textAlign: "center" }}>
-            No providers registered. Providers are auto-registered from environment variables.
+            No credentials stored. Add your first API key above.
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -257,13 +373,16 @@ function ProvidersTab({
                   }}>
                     {p.capabilities?.join(", ")}
                   </span>
-                  <span style={{
-                    fontSize: "0.6875rem", fontWeight: 500, padding: "2px 8px", borderRadius: 9999,
-                    background: p.enabled ? "var(--success-bg)" : "var(--bg-hover)",
-                    color: p.enabled ? "var(--success)" : "var(--text-tertiary)",
-                  }}>
-                    {p.enabled ? "Enabled" : "Disabled"}
-                  </span>
+                  <button
+                    onClick={() => handleDeleteCredential(p.id)}
+                    style={{
+                      fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 4,
+                      border: "1px solid var(--error)", background: "transparent",
+                      color: "var(--error)", cursor: "pointer",
+                    }}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}

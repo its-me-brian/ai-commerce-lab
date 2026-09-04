@@ -43,30 +43,28 @@ export async function createClient() {
  * Get the workspace_id for the current user from cookies.
  * Used by Server Components to scope queries by workspace.
  *
- * Resolution chain:
- * 1. Supabase not configured → "ws-default" (dev mode)
- * 2. No session → "ws-default" (dev mode)
- * 3. local-dev user → "ws-default" (dev shortcut)
- * 4. Real user → look up workspace_members → return first workspace_id
- * 5. No membership → "ws-default" (fallback)
+ * V1: Auto-resolves user's single workspace.
+ * Creates a personal workspace if user has none (onboarding).
+ * No fallback to ws-default in production.
  */
 export async function getWorkspaceId(): Promise<string> {
   const client = await createClient();
 
-  // Supabase not configured — dev mode
+  // Supabase not configured — dev mode only
   if (!client) {
     if (process.env.NODE_ENV === "production") {
-      console.error("[WorkspaceId] Supabase not configured in production — check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+      console.error("[WorkspaceId] Supabase not configured in production");
+      throw new Error("Supabase not configured");
     }
     return "ws-default";
   }
 
   const { data: { user } } = await client.auth.getUser();
 
-  // No session — dev mode
+  // No session — dev mode only
   if (!user) {
     if (process.env.NODE_ENV === "production") {
-      console.warn("[WorkspaceId] No session in production — check auth middleware");
+      throw new Error("No authenticated session");
     }
     return "ws-default";
   }
@@ -81,13 +79,14 @@ export async function getWorkspaceId(): Promise<string> {
 
   if (!serviceUrl || !serviceKey) {
     if (process.env.NODE_ENV === "production") {
-      console.error("[WorkspaceId] Missing Supabase credentials in production");
+      throw new Error("Missing Supabase service credentials");
     }
     return "ws-default";
   }
 
   const serviceClient = createServiceClient(serviceUrl, serviceKey);
 
+  // Check existing membership
   const { data: membership } = await serviceClient
     .from("workspace_members")
     .select("workspace_id")
@@ -96,12 +95,47 @@ export async function getWorkspaceId(): Promise<string> {
     .limit(1)
     .single();
 
-  if (!membership?.workspace_id) {
-    if (process.env.NODE_ENV === "production") {
-      console.warn(`[WorkspaceId] No workspace membership for user ${user.id} — falling back to default`);
-    }
-    return "ws-default";
+  if (membership?.workspace_id) {
+    return membership.workspace_id;
   }
 
-  return membership.workspace_id;
+  // V1 onboarding: create personal workspace if user has none
+  const workspaceId = `ws-${user.id.slice(0, 8)}-${Date.now()}`;
+
+  const { error: wsError } = await serviceClient
+    .from("workspaces")
+    .insert({
+      id: workspaceId,
+      name: "My Workspace",
+      description: "Personal workspace",
+      target_country: "US",
+      currency: "USD",
+      target_margin: 3.0,
+      supplier_countries: [],
+      business_rules: {},
+      approval_rules: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+  if (wsError) {
+    console.error("[WorkspaceId] Failed to create workspace:", wsError.message);
+    throw new Error("Failed to create workspace");
+  }
+
+  const { error: memError } = await serviceClient
+    .from("workspace_members")
+    .insert({
+      workspace_id: workspaceId,
+      user_id: user.id,
+      role: "owner",
+    });
+
+  if (memError) {
+    console.error("[WorkspaceId] Failed to create membership:", memError.message);
+    throw new Error("Failed to create workspace membership");
+  }
+
+  console.log(`[WorkspaceId] Created personal workspace ${workspaceId} for user ${user.id}`);
+  return workspaceId;
 }

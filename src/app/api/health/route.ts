@@ -86,21 +86,19 @@ export async function GET(): Promise<NextResponse<HealthCheck>> {
     };
   }
 
-  // 4. Agents check
+  // 4. Agents check — no workspace filter: system-wide running task count for health monitoring
   const agentStart = Date.now();
   try {
-    const { data, error } = await supabase
+    const { count, error } = await supabase
       .from("agent_tasks")
-      .select("id")
+      .select("id", { count: "exact", head: true })
       .eq("status", "running");
     checks.agents = {
       status: error ? "error" : "ok",
       latencyMs: Date.now() - agentStart,
       error: error?.message,
     };
-    if (data) {
-      checks.agents.details = `${data.length} running`;
-    }
+    checks.agents.details = `${count || 0} running`;
   } catch (e) {
     checks.agents = {
       status: "error",

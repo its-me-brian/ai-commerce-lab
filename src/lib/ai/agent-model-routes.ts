@@ -35,6 +35,7 @@ export interface RouteUpdateInput {
 export class AgentModelRoutes {
   /**
    * Get all routes, ordered by agent_id and priority.
+   * V1: Falls back to ws-default routes when workspace has none.
    */
   async list(workspaceId: string): Promise<AgentModelRoute[]> {
     if (!workspaceId) return [];
@@ -46,11 +47,28 @@ export class AgentModelRoutes {
       .order("priority");
 
     if (error || !data) return [];
-    return data as AgentModelRoute[];
+    const routes = data as AgentModelRoute[];
+
+    // V1 fallback: if no routes for this workspace, use ws-default routes
+    if (routes.length === 0 && workspaceId !== "ws-default") {
+      const { data: fallbackData } = await supabase
+        .from("agent_model_routes")
+        .select("*")
+        .eq("workspace_id", "ws-default")
+        .order("agent_id")
+        .order("priority");
+
+      if (fallbackData && fallbackData.length > 0) {
+        return fallbackData as AgentModelRoute[];
+      }
+    }
+
+    return routes;
   }
 
   /**
    * Get all routes for an agent, ordered by priority.
+   * V1: Falls back to ws-default routes when workspace has none.
    */
   async listByAgent(agentId: string, workspaceId: string): Promise<AgentModelRoute[]> {
     if (!workspaceId) return [];
@@ -62,11 +80,27 @@ export class AgentModelRoutes {
       .order("priority");
 
     if (error || !data) return [];
-    return data as AgentModelRoute[];
+    const routes = data as AgentModelRoute[];
+
+    if (routes.length === 0 && workspaceId !== "ws-default") {
+      const { data: fallbackData } = await supabase
+        .from("agent_model_routes")
+        .select("*")
+        .eq("agent_id", agentId)
+        .eq("workspace_id", "ws-default")
+        .order("priority");
+
+      if (fallbackData && fallbackData.length > 0) {
+        return fallbackData as AgentModelRoute[];
+      }
+    }
+
+    return routes;
   }
 
   /**
    * Get only enabled routes for an agent.
+   * V1: Falls back to ws-default routes when workspace has none (new workspace onboarding).
    */
   async listEnabledByAgent(agentId: string, workspaceId: string): Promise<AgentModelRoute[]> {
     if (!workspaceId) return [];
@@ -79,7 +113,24 @@ export class AgentModelRoutes {
       .order("priority");
 
     if (error || !data) return [];
-    return data as AgentModelRoute[];
+    const routes = data as AgentModelRoute[];
+
+    // V1 fallback: if no routes for this workspace, use ws-default routes
+    if (routes.length === 0 && workspaceId !== "ws-default") {
+      const { data: fallbackData } = await supabase
+        .from("agent_model_routes")
+        .select("*")
+        .eq("agent_id", agentId)
+        .eq("workspace_id", "ws-default")
+        .eq("enabled", true)
+        .order("priority");
+
+      if (fallbackData && fallbackData.length > 0) {
+        return fallbackData as AgentModelRoute[];
+      }
+    }
+
+    return routes;
   }
 
   /**

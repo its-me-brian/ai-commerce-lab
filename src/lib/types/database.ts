@@ -260,7 +260,7 @@ export interface Database {
       agent_runs: {
         Row: {
           id: string;
-          task_id: string;
+          task_id: string | null;
           agent_id: string;
           provider: string;
           model: string;
@@ -272,11 +272,12 @@ export interface Database {
           status: string;
           error: string | null;
           tools_used: unknown[];
+          workspace_id: string;
           created_at: string;
         };
         Insert: {
           id?: string;
-          task_id: string;
+          task_id?: string | null;
           agent_id: string;
           provider: string;
           model: string;
@@ -288,6 +289,7 @@ export interface Database {
           status?: string;
           error?: string | null;
           tools_used?: unknown[];
+          workspace_id?: string;
           created_at?: string;
         };
         Update: {

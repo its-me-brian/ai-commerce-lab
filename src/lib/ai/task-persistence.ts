@@ -262,6 +262,7 @@ export class TaskPersistence {
    * Get event summary statistics for a time range.
    */
   async getStats(
+    workspaceId: string,
     startTime?: string,
     endTime?: string
   ): Promise<{
@@ -270,7 +271,10 @@ export class TaskPersistence {
     errorRate: number;
     avgEventsPerTask: number;
   }> {
-    let query = supabase.from("task_events").select("*");
+    let query = supabase
+      .from("task_events")
+      .select("*")
+      .eq("workspace_id", workspaceId);
 
     if (startTime) {
       query = query.gte("created_at", startTime);
@@ -318,9 +322,9 @@ export class TaskPersistence {
   }
 
   /**
-   * Clean up old events (keep last N days).
+   * Clean up old events for a workspace (keep last N days).
    */
-  async cleanupOldEvents(keepDays: number = 30): Promise<number> {
+  async cleanupOldEvents(workspaceId: string, keepDays: number = 30): Promise<number> {
     const cutoff = new Date(
       Date.now() - keepDays * 24 * 60 * 60 * 1000
     ).toISOString();
@@ -328,6 +332,7 @@ export class TaskPersistence {
     const { data, error } = await supabase
       .from("task_events")
       .delete()
+      .eq("workspace_id", workspaceId)
       .lt("created_at", cutoff)
       .select("id");
 

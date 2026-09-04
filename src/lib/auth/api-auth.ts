@@ -114,16 +114,82 @@ export async function requireAuth(request: NextRequest): Promise<
 }
 
 /**
+ * Get or create the user's personal workspace.
+ * For V1: single user → single workspace → auto-resolved.
+ * Creates a workspace + membership if user has none.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getOrCreatePersonalWorkspace(
+  serviceClient: any,
+  userId: string
+): Promise<{ workspaceId: string; role: WorkspaceRole } | null> {
+  // 1. Check existing membership
+  const { data: membership } = await serviceClient
+    .from("workspace_members")
+    .select("workspace_id, role")
+    .eq("user_id", userId)
+    .order("workspace_id")
+    .limit(1)
+    .single();
+
+  if (membership?.workspace_id) {
+    return { workspaceId: membership.workspace_id, role: membership.role as WorkspaceRole };
+  }
+
+  // 2. No workspace — create personal workspace (V1 onboarding)
+  const workspaceId = `ws-${userId.slice(0, 8)}-${Date.now()}`;
+
+  // Create workspace
+  const { error: wsError } = await serviceClient
+    .from("workspaces")
+    .insert({
+      id: workspaceId,
+      name: "My Workspace",
+      description: "Personal workspace",
+      target_country: "US",
+      currency: "USD",
+      target_margin: 3.0,
+      supplier_countries: [],
+      business_rules: {},
+      approval_rules: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+  if (wsError) {
+    console.error("[Auth] Failed to create workspace:", wsError.message);
+    return null;
+  }
+
+  // Create owner membership
+  const { error: memError } = await serviceClient
+    .from("workspace_members")
+    .insert({
+      workspace_id: workspaceId,
+      user_id: userId,
+      role: "owner",
+    });
+
+  if (memError) {
+    console.error("[Auth] Failed to create membership:", memError.message);
+    return null;
+  }
+
+  console.log(`[Auth] Created personal workspace ${workspaceId} for user ${userId}`);
+  return { workspaceId, role: "owner" };
+}
+
+/**
  * Require workspace access with minimum role.
  * Returns 403 if user doesn't have access to the workspace.
  *
- * PHASE 1: This is the CORE authorization helper.
- * Every API route that accesses workspace-scoped data must call this.
+ * V1: Auto-resolves user's single workspace if not provided.
+ * The browser does NOT need to supply workspaceId.
  */
 export async function requireWorkspaceAccess(
   request: NextRequest,
   options: {
-    workspaceId?: string;    // From request body/query — if not provided, uses default
+    workspaceId?: string;    // Optional: if provided, validates access to that specific workspace
     minimumRole?: WorkspaceRole;  // Minimum role required
   } = {}
 ): Promise<
@@ -136,48 +202,19 @@ export async function requireWorkspaceAccess(
   const { user } = auth;
   const minimumRole = options.minimumRole || "viewer";
 
-  // Get workspace ID from query params or request body
-  let workspaceId = options.workspaceId;
-
-  if (!workspaceId) {
-    // Try to get from query params
-    const url = new URL(request.url);
-    workspaceId = url.searchParams.get("workspaceId") || undefined;
-
-    // Try to get from request body (for POST/PUT)
-    if (!workspaceId && ["POST", "PUT", "PATCH"].includes(request.method)) {
-      try {
-        const body = await request.clone().json();
-        workspaceId = body.workspaceId;
-      } catch {
-        // No body or invalid JSON
-      }
-    }
-  }
-
-  // If no workspaceId provided, require it explicitly — no silent fallback
-  if (!workspaceId) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: "workspaceId is required" },
-        { status: 400 }
-      ),
-    };
-  }
-
   // If Supabase not configured, allow access (dev mode)
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    return { user, workspaceId, role: "owner" };
+    const wsId = options.workspaceId || "ws-default";
+    return { user, workspaceId: wsId, role: "owner" };
   }
 
-  // Dev synthetic user: skip DB membership check (not a real Supabase auth user)
-  // This allows local-dev to work without creating a real auth.users record
+  // Dev synthetic user: skip DB membership check
   if (user.id === "local-dev") {
-    return { user, workspaceId, role: "owner" };
+    const wsId = options.workspaceId || "ws-default";
+    return { user, workspaceId: wsId, role: "owner" };
   }
 
-  // Check workspace membership via service role client
-  // (We use service role here because we're checking authorization, not reading data)
+  // Create service-role client for workspace resolution
   const { createClient } = await import("@supabase/supabase-js");
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -191,25 +228,46 @@ export async function requireWorkspaceAccess(
     };
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-  const { data: membership, error: membershipError } = await supabase
-    .from("workspace_members")
-    .select("role")
-    .eq("workspace_id", workspaceId)
-    .eq("user_id", user.id)
-    .single();
+  let workspaceId: string;
+  let role: WorkspaceRole;
 
-  if (membershipError || !membership) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: "Access denied: not a member of this workspace" },
-        { status: 403 }
-      ),
-    };
+  if (options.workspaceId) {
+    // Specific workspace requested — validate membership
+    workspaceId = options.workspaceId;
+
+    const { data: membership, error: membershipError } = await serviceClient
+      .from("workspace_members")
+      .select("role")
+      .eq("workspace_id", workspaceId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (membershipError || !membership) {
+      return {
+        error: NextResponse.json(
+          { success: false, error: "Access denied: not a member of this workspace" },
+          { status: 403 }
+        ),
+      };
+    }
+
+    role = membership.role as WorkspaceRole;
+  } else {
+    // V1: Auto-resolve user's single workspace
+    const result = await getOrCreatePersonalWorkspace(serviceClient, user.id);
+    if (!result) {
+      return {
+        error: NextResponse.json(
+          { success: false, error: "Failed to resolve workspace" },
+          { status: 500 }
+        ),
+      };
+    }
+    workspaceId = result.workspaceId;
+    role = result.role;
   }
-
-  const role = membership.role as WorkspaceRole;
 
   // Check minimum role
   const roleHierarchy: Record<WorkspaceRole, number> = {

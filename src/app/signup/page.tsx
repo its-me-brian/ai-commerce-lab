@@ -44,7 +44,7 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${redirectUrl}/workspace`,
+        emailRedirectTo: `${redirectUrl}/dashboard`,
       },
     });
 

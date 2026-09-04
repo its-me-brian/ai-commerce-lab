@@ -378,7 +378,7 @@ describe("TaskPersistence", () => {
         createMockQuery(mockEvents)
       );
 
-      const stats = await persistence.getStats();
+      const stats = await persistence.getStats("ws-test");
 
       expect(stats.total).toBe(2);
       expect(stats.byType.created).toBe(1);
@@ -392,7 +392,7 @@ describe("TaskPersistence", () => {
         createMockQuery(null, { message: "fail" })
       );
 
-      const stats = await persistence.getStats();
+      const stats = await persistence.getStats("ws-test");
 
       expect(stats.total).toBe(0);
       expect(stats.errorRate).toBe(0);
@@ -406,7 +406,7 @@ describe("TaskPersistence", () => {
         createMockQuery([{ id: "1" }, { id: "2" }])
       );
 
-      const count = await persistence.cleanupOldEvents(30);
+      const count = await persistence.cleanupOldEvents("ws-test", 30);
 
       expect(count).toBe(2);
     });
@@ -417,7 +417,7 @@ describe("TaskPersistence", () => {
         createMockQuery(null, { message: "fail" })
       );
 
-      const count = await persistence.cleanupOldEvents(30);
+      const count = await persistence.cleanupOldEvents("ws-test", 30);
 
       expect(count).toBe(0);
     });

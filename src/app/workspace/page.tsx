@@ -13,6 +13,7 @@ export default function WorkspacePage() {
   const [loading, setLoading] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   // Mobile: panels are mutually exclusive
   const toggleSidebar = () => {
@@ -29,8 +30,16 @@ export default function WorkspacePage() {
   };
 
   useEffect(() => {
-    async function fetchAgents() {
+    async function fetchData() {
       try {
+        // Fetch workspace first
+        const wsRes = await fetch("/api/workspaces");
+        const wsData = await wsRes.json();
+        if (wsData.success && wsData.workspace) {
+          setWorkspaceId(wsData.workspace.id);
+        }
+
+        // Then fetch agents
         const res = await fetch("/api/agents/list");
         const data = await res.json();
         if (data.success) {
@@ -42,7 +51,7 @@ export default function WorkspacePage() {
         setLoading(false);
       }
     }
-    fetchAgents();
+    fetchData();
   }, []);
 
   const handleSendMessage = useCallback(
@@ -213,7 +222,7 @@ export default function WorkspacePage() {
         </div>
 
         {isRoom ? (
-          <CompanyRoom workspaceId="default" agents={agents} onTogglePanel={toggleRightPanel} panelOpen={rightPanelOpen} />
+          <CompanyRoom workspaceId={workspaceId || ""} agents={agents} onTogglePanel={toggleRightPanel} panelOpen={rightPanelOpen} />
         ) : selectedAgent ? (
           <ChatContainer
             agents={agents}
@@ -298,7 +307,7 @@ export default function WorkspacePage() {
               </h3>
               <div className="flex flex-col gap-1.5">
                 <a
-                  href="/workspace/settings"
+                  href="/dashboard/settings"
                   className="flex items-center gap-2 px-2.5 py-2 rounded-[var(--r-md)] text-[12px] font-medium transition-colors hover:bg-[var(--bg-hover)]"
                   style={{ color: "var(--text-secondary)", textDecoration: "none" }}
                 >

@@ -24,14 +24,23 @@ export async function GET(request: NextRequest) {
       throw agentsError;
     }
 
-    // Get all configs for this workspace
-    const { data: configs, error: configsError } = await supabase
+    // Get all configs for this workspace (fallback to ws-default for new workspaces)
+    let { data: configs, error: configsError } = await supabase
       .from("agent_configs")
       .select("*")
       .eq("workspace_id", workspaceId);
 
     if (configsError) {
       console.error("[API] Failed to load configs:", configsError.message);
+    }
+
+    // V1 fallback: new workspaces have no configs — use ws-default
+    if ((!configs || configs.length === 0) && workspaceId !== "ws-default") {
+      const { data: fallbackConfigs } = await supabase
+        .from("agent_configs")
+        .select("*")
+        .eq("workspace_id", "ws-default");
+      configs = fallbackConfigs || [];
     }
 
     // Get agent definitions for identity merge

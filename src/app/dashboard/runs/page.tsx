@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/database/supabase";
 import { getWorkspaceId } from "@/lib/database/supabase-server";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Run History — AI Commerce Lab" };
 
 export default async function RunsPage() {

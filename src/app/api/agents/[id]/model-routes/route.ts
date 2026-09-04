@@ -13,12 +13,23 @@ export async function GET(
 
   const { id } = await params;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("agent_model_routes")
     .select("*, ai_models!inner(name, model_id, provider_id, context_window, input_price, output_price, capabilities, ai_providers(name, slug))")
     .eq("agent_id", id)
     .eq("workspace_id", auth.workspaceId)
     .order("priority", { ascending: true });
+
+  // V1 fallback: use ws-default routes for new workspaces
+  if (!error && (!data || data.length === 0) && auth.workspaceId !== "ws-default") {
+    const { data: fallback } = await supabase
+      .from("agent_model_routes")
+      .select("*, ai_models!inner(name, model_id, provider_id, context_window, input_price, output_price, capabilities, ai_providers(name, slug))")
+      .eq("agent_id", id)
+      .eq("workspace_id", "ws-default")
+      .order("priority", { ascending: true });
+    data = fallback || [];
+  }
 
   if (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

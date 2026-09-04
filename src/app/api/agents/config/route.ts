@@ -19,12 +19,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get agent
+    // Get agent (global agents have workspace_id IS NULL)
     const { data: agent, error: agentError } = await supabase
       .from("agents")
       .select("*")
       .eq("id", agentId)
-      .eq("workspace_id", auth.workspaceId)
+      .or(`workspace_id.eq.${auth.workspaceId},workspace_id.is.null`)
       .single();
 
     if (agentError || !agent) {
@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get config
-    const { data: config, error: configError } = await supabase
+    // Get config (fallback to ws-default for new workspaces)
+    let { data: config, error: configError } = await supabase
       .from("agent_configs")
       .select("*")
       .eq("agent_id", agentId)
@@ -43,26 +43,34 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (configError && configError.code !== "PGRST116") {
-      // PGRST116 = no rows returned, which is OK (agent might not have config yet)
       console.error(`[API] Failed to load config for ${agentId}:`, configError.message);
     }
 
-    // Get providers
+    // V1 fallback: use ws-default config if workspace has none
+    if (!config && auth.workspaceId !== "ws-default") {
+      const { data: fallbackConfig } = await supabase
+        .from("agent_configs")
+        .select("*")
+        .eq("agent_id", agentId)
+        .eq("workspace_id", "ws-default")
+        .single();
+      config = fallbackConfig || null;
+    }
+
+    // Get providers (global table — no workspace_id filter)
     const { data: providers, error: providersError } = await supabase
       .from("ai_providers")
       .select("*")
-      .eq("workspace_id", auth.workspaceId)
       .order("name");
 
     if (providersError) {
       console.error("[API] Failed to load providers:", providersError.message);
     }
 
-    // Get models
+    // Get models (global table — no workspace_id filter)
     const { data: models, error: modelsError } = await supabase
       .from("ai_models")
       .select("*")
-      .eq("workspace_id", auth.workspaceId)
       .order("name");
 
     if (modelsError) {

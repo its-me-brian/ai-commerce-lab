@@ -42,7 +42,7 @@ export default function LoginPage() {
 
       if (data?.session) {
         // Session persisted in cookies via createBrowserClient — safe to reload
-        window.location.href = "/workspace";
+        window.location.href = "/dashboard";
       } else {
         setError("Login failed. Please try again.");
         setLoading(false);

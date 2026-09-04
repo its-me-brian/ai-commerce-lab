@@ -7,6 +7,7 @@ import { bootstrap, getAgentRegistry } from "./bootstrap";
 import { getRouter } from "./router";
 import { getConversationEngine, type Conversation, type ConversationMessage } from "./conversation-engine";
 import { getWorkspaceService } from "../workspaces/service";
+import { supabase } from "../database/supabase";
 import type { AgentDefinition } from "../agents/core/types-agent-definition";
 import { preprocessMessage, buildEnrichedPrompt } from "./prompt-pipeline";
 
@@ -261,6 +262,23 @@ async function invokeAgent(
 
   if (!message) {
     throw new Error(`Failed to save message for agent ${agentId}`);
+  }
+
+  // Log run to agent_runs for dashboard KPIs
+  try {
+    await supabase.from("agent_runs").insert({
+      agent_id: agentId,
+      workspace_id: workspaceId || "ws-default",
+      provider: log.provider,
+      model: log.model,
+      input_tokens: log.inputTokens,
+      output_tokens: log.outputTokens,
+      total_tokens: log.inputTokens + log.outputTokens,
+      duration_ms: log.durationMs,
+      status: "completed",
+    });
+  } catch {
+    // Non-critical — don't fail the chat if run logging fails
   }
 
   return { agentId, message };

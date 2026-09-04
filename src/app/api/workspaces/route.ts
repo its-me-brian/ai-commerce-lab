@@ -3,36 +3,28 @@ import { getWorkspaceService } from "@/lib/workspaces/service";
 import { requireAuth, requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // GET /api/workspaces
-// Returns the current workspace (or default).
+// V1: Returns the user's current workspace (auto-resolved).
 export async function GET(request: NextRequest) {
   try {
-    // Auth check
-    const auth = await requireAuth(request);
+    // V1: Use requireWorkspaceAccess to auto-resolve user's workspace
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id") || undefined;
-
     const service = getWorkspaceService();
+    const workspace = await service.get(auth.workspaceId);
 
-    if (id) {
-      const workspace = await service.get(id);
-      if (!workspace) {
-        return NextResponse.json(
-          { error: { code: "NOT_FOUND", message: "Workspace not found" } },
-          { status: 404 }
-        );
-      }
-      return NextResponse.json({ success: true, workspace });
+    if (!workspace) {
+      return NextResponse.json(
+        { success: false, error: "Workspace not found" },
+        { status: 404 }
+      );
     }
 
-    // Return all workspaces
-    const workspaces = await service.list();
-    return NextResponse.json({ success: true, workspaces });
+    return NextResponse.json({ success: true, workspace, workspaces: [workspace] });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Failed to load workspaces" } },
+      { success: false, error: message },
       { status: 500 }
     );
   }

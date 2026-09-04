@@ -13,6 +13,30 @@ import { getModelRegistry, type ModelRecord } from "./model-registry";
 import { calculateModelCost } from "./model-pricing";
 import { getMetricsCollector, getStructuredLogger, getExecutionTracer } from "./observability";
 import { getResponseCache } from "./response-cache";
+import { getProviderManager } from "./provider-manager";
+
+// Provider class registry — maps slug to constructor (lazy-loaded from bootstrap)
+let _providerClasses: Record<string, new (apiKey: string) => AIProvider> | null = null;
+async function getProviderClasses(): Promise<Record<string, new (apiKey: string) => AIProvider>> {
+  if (_providerClasses) return _providerClasses;
+  try {
+    const { GeminiProvider } = await import("./providers/gemini");
+    const { ClaudeProvider } = await import("./providers/claude");
+    const { GrokProvider } = await import("./providers/grok");
+    const { WorkersAIProvider } = await import("./providers/workers-ai");
+    const { OpenAICompatibleProvider } = await import("./providers/openai-compatible");
+    _providerClasses = {
+      gemini: GeminiProvider,
+      anthropic: ClaudeProvider,
+      xai: GrokProvider,
+      "workers-ai": WorkersAIProvider,
+      "openai-compatible": OpenAICompatibleProvider as unknown as new (apiKey: string) => AIProvider,
+    };
+  } catch {
+    _providerClasses = {};
+  }
+  return _providerClasses;
+}
 
 export interface RouterConfig {
   agentId: string;
@@ -246,7 +270,18 @@ export class AIModelRouter {
       if (!model) continue;
 
       const provider = this.providers.get(model.provider_id);
-      if (!provider) {
+
+      // PHASE 5: If provider not registered at startup, try dynamic resolution from workspace credentials
+      let resolvedProvider: AIProvider | undefined | null = provider;
+      if (!resolvedProvider && overrides?.workspaceId) {
+        resolvedProvider = await this.resolveWorkspaceProvider(model.provider_id, overrides.workspaceId);
+        if (!resolvedProvider) {
+          console.warn(
+            `[AI Router] Provider ${model.provider_id} not registered and no workspace credential found, skipping route ${route.id}`
+          );
+          continue;
+        }
+      } else if (!resolvedProvider) {
         console.warn(
           `[AI Router] Provider ${model.provider_id} not registered, skipping route ${route.id}`
         );
@@ -263,7 +298,7 @@ export class AIModelRouter {
           { provider: model.provider_id, model: model.model_id, priority: route.priority }
         );
 
-        const result = await provider.generate({
+        const result = await resolvedProvider.generate({
           ...options,
           model: options.model ?? model.model_id,
           temperature: options.temperature ?? overrides?.temperature,
@@ -385,6 +420,51 @@ export class AIModelRouter {
 
   getExecutionLogsByAgent(agentId: string): RouterExecutionLog[] {
     return this.executionLogs.filter((log) => log.agentId === agentId);
+  }
+
+  /**
+   * PHASE 5: Dynamically resolve a provider using workspace credentials from DB.
+   * Checks env var first, then looks up ai_provider_credentials for the workspace.
+   * Returns a provider instance ready to generate, or null if no credential found.
+   */
+  private async resolveWorkspaceProvider(
+    providerId: string,
+    workspaceId: string
+  ): Promise<AIProvider | null> {
+    const providerManager = getProviderManager();
+    const providerRecord = await providerManager.getById(providerId);
+    if (!providerRecord) return null;
+
+    const { key } = await providerManager.resolveApiKey(providerRecord, workspaceId);
+    if (!key) return null;
+
+    // Instantiate the correct provider class
+    const classes = await getProviderClasses();
+    const ProviderClass = classes[providerRecord.slug];
+
+    if (ProviderClass) {
+      console.log(`[AI Router] Resolved provider ${providerRecord.slug} from workspace credential (env: ${providerRecord.api_key_env_var})`);
+      return new ProviderClass(key);
+    }
+
+    // Fallback: OpenAI-compatible provider if base_url is set
+    if (providerRecord.base_url) {
+      try {
+        const { OpenAICompatibleProvider } = await import("./providers/openai-compatible");
+        console.log(`[AI Router] Resolved OpenAI-compatible provider ${providerRecord.slug} from workspace credential`);
+        return new OpenAICompatibleProvider(
+          providerRecord.slug,
+          key,
+          providerRecord.base_url,
+          providerRecord.name,
+          (providerRecord.config as Record<string, unknown>)?.defaultModel as string | undefined
+        );
+      } catch {
+        // Import failed
+      }
+    }
+
+    return null;
   }
 }
 

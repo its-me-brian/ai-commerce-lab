@@ -91,7 +91,7 @@ export class AgentEngine {
     }
 
     // 4. Load config from Supabase with proper provider/model resolution
-    const config = await this.loadAgentConfig(agentId);
+    const config = await this.loadAgentConfig(agentId, workspaceId);
 
     // 5. Check permissions
     const permissionChecker = getPermissionChecker();
@@ -394,10 +394,11 @@ export class AgentEngine {
   /**
    * Load agent configuration from Supabase.
    * Resolves provider/model IDs → slugs via JOIN with ai_providers/ai_models.
+   * V1: Falls back to ws-default config when workspace has none.
    */
-  private async loadAgentConfig(agentId: string): Promise<AgentConfiguration> {
+  private async loadAgentConfig(agentId: string, workspaceId?: string): Promise<AgentConfiguration> {
     // Load config + resolve provider slug + model pricing in one query
-    const { data: configRow, error: configError } = await supabase
+    let { data: configRow, error: configError } = await supabase
       .from("agent_configs")
       .select(`
         *,
@@ -407,7 +408,26 @@ export class AgentEngine {
         fallback_model:ai_models!agent_configs_fallback_model_id_fkey(model_id)
       `)
       .eq("agent_id", agentId)
+      .eq("workspace_id", workspaceId || "ws-default")
       .single();
+
+    // V1 fallback: use ws-default config if workspace has none
+    if ((configError || !configRow) && workspaceId && workspaceId !== "ws-default") {
+      const { data: fallback } = await supabase
+        .from("agent_configs")
+        .select(`
+          *,
+          primary_provider:ai_providers!agent_configs_primary_provider_id_fkey(slug),
+          primary_model:ai_models!agent_configs_primary_model_id_fkey(model_id, input_price, output_price),
+          fallback_provider:ai_providers!agent_configs_fallback_provider_id_fkey(slug),
+          fallback_model:ai_models!agent_configs_fallback_model_id_fkey(model_id)
+        `)
+        .eq("agent_id", agentId)
+        .eq("workspace_id", "ws-default")
+        .single();
+      configRow = fallback;
+      configError = null;
+    }
 
     if (configError || !configRow) {
       throw new Error(`Agent config not found for: ${agentId}`);

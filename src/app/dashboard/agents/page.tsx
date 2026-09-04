@@ -21,27 +21,33 @@ export default async function AgentsPage() {
   const { data: agents, error: agentsError } = await supabase
     .from("agents")
     .select("*")
-    .eq("workspace_id", workspaceId)
+    .or(`workspace_id.eq.${workspaceId},workspace_id.is.null`)
     .order("name");
 
   if (agentsError) {
     console.error("[AgentsPage] Failed to load agents:", agentsError.message);
   }
 
-  const { data: configs } = await supabase
+  let { data: configs } = await supabase
     .from("agent_configs")
     .select("agent_id, primary_provider_id, primary_model_id")
     .eq("workspace_id", workspaceId);
 
+  if (!configs || configs.length === 0) {
+    const { data: fallbackConfigs } = await supabase
+      .from("agent_configs")
+      .select("agent_id, primary_provider_id, primary_model_id")
+      .eq("workspace_id", "ws-default");
+    configs = fallbackConfigs || [];
+  }
+
   const { data: models } = await supabase
     .from("ai_models")
-    .select("id, name")
-    .eq("workspace_id", workspaceId);
+    .select("id, name");
 
   const { data: providers } = await supabase
     .from("ai_providers")
-    .select("id, name")
-    .eq("workspace_id", workspaceId);
+    .select("id, name");
 
   const configMap = new Map((configs || []).map((c) => [c.agent_id, c]));
   const modelMap = new Map((models || []).map((m) => [m.id, m.name]));

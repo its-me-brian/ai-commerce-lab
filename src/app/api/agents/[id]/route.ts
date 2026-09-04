@@ -20,7 +20,7 @@ export async function GET(
       .from("agents")
       .select("*")
       .eq("id", id)
-      .eq("workspace_id", auth.workspaceId)
+      .or(`workspace_id.eq.${auth.workspaceId},workspace_id.is.null`)
       .single();
 
     if (error || !agent) {
@@ -75,7 +75,7 @@ export async function PATCH(
       .from("agents")
       .update(updates)
       .eq("id", id)
-      .eq("workspace_id", auth.workspaceId)
+      .or(`workspace_id.eq.${auth.workspaceId},workspace_id.is.null`)
       .select()
       .single();
 

@@ -192,8 +192,8 @@ export default async function DashboardPage({
     recentEventsResult,
     allTasksResult,
   ] = await Promise.all([
-    supabase.from("agents").select("*", { count: "exact", head: true }).eq("workspace_id", workspaceId),
-    supabase.from("agents").select("*", { count: "exact", head: true }).eq("workspace_id", workspaceId).eq("enabled", true).eq("status", "ready"),
+    supabase.from("agents").select("*", { count: "exact", head: true }).or(`workspace_id.eq.${workspaceId},workspace_id.is.null`),
+    supabase.from("agents").select("*", { count: "exact", head: true }).or(`workspace_id.eq.${workspaceId},workspace_id.is.null`).eq("enabled", true).eq("status", "ready"),
     supabase.from("agent_tasks").select("*", { count: "exact", head: true }).eq("workspace_id", workspaceId),
     supabase.from("agent_tasks").select("*", { count: "exact", head: true }).eq("workspace_id", workspaceId).eq("status", "completed"),
     supabase.from("agent_tasks").select("*", { count: "exact", head: true }).eq("workspace_id", workspaceId).eq("status", "failed"),
@@ -244,7 +244,7 @@ export default async function DashboardPage({
   const { data: agentStatuses } = await supabase
     .from("agents")
     .select("status, enabled")
-    .eq("workspace_id", workspaceId);
+    .or(`workspace_id.eq.${workspaceId},workspace_id.is.null`);
 
   const agentHealth: AgentHealthData = { ready: 0, error: 0, disabled: 0, other: 0 };
   for (const a of agentStatuses || []) {

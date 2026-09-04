@@ -125,11 +125,11 @@ export class WorkspaceService {
   async buildEnhancedContext(workspaceId?: string): Promise<EnhancedCompanyContext> {
     const baseContext = await this.buildCompanyContext(workspaceId);
 
-    // Get active agents (workspace-scoped)
+    // Get active agents (workspace-scoped + global agents)
     const { data: agents } = await supabase
       .from("agents")
       .select("id, name, status, department")
-      .eq("workspace_id", baseContext.workspace.id)
+      .or(`workspace_id.eq.${baseContext.workspace.id},workspace_id.is.null`)
       .eq("enabled", true);
 
     // Get configured providers (GLOBAL — not workspace-scoped)
