@@ -17,7 +17,7 @@ export const GET = withSecurity(async (request: NextRequest) => {
     if ("error" in access) return access.error;
 
     const vault = getCredentialManager();
-    const credentials = await vault.listAll();
+    const credentials = await vault.listAll(access.workspaceId);
 
     return NextResponse.json({
       success: true,
@@ -75,6 +75,7 @@ export const POST = withSecurity(async (request: NextRequest) => {
     const vault = getCredentialManager();
     const credential = await vault.store({
       provider_id,
+      workspace_id: access.workspaceId,
       name,
       api_key,
       environment: environment || "production",
@@ -127,7 +128,7 @@ export const DELETE = withSecurity(async (request: NextRequest) => {
     }
 
     const vault = getCredentialManager();
-    const deleted = await vault.delete(credentialId);
+    const deleted = await vault.delete(credentialId, access.workspaceId);
 
     if (!deleted) {
       return NextResponse.json(

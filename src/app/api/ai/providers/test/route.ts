@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { testProviderConnection } from "@/lib/ai/provider-test";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // POST /api/ai/providers/test
 // Tests connection to a specific AI provider.
 // Body: { provider: string, model?: string }
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request);
-  if ("error" in auth) return auth.error;
+  const access = await requireWorkspaceAccess(request);
+  if ("error" in access) return access.error;
 
   try {
     const body = await request.json();
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await testProviderConnection({ provider, model });
+    const result = await testProviderConnection({ provider, model }, access.workspaceId);
 
     return NextResponse.json(result, {
       status: result.success ? 200 : 422,

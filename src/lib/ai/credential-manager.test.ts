@@ -27,6 +27,7 @@ vi.mock("../database/supabase", () => ({
 const mockCredential: CredentialRecord = {
   id: "cred-1",
   provider_id: "gemini",
+  workspace_id: "ws-default",
   name: "Production Key",
   encrypted_key: "encrypted-data",
   key_hint: "...1234",

@@ -91,9 +91,14 @@ export async function GET(request: NextRequest) {
       planName = shopData.shop?.plan_name || "";
     }
 
-    // 4. Determine workspace_id
-    // For now, use ws-default (same as auth system)
-    const workspaceId = "ws-default";
+    // 4. Determine workspace_id from OAuth state (set by /api/shopify/install)
+    const state = searchParams.get("state");
+    if (!state) {
+      return NextResponse.redirect(
+        new URL("/dashboard/settings?tab=integrations&error=missing_state", request.url)
+      );
+    }
+    const workspaceId = state;
 
     // 5. Upsert store connection
     const { error: upsertError } = await supabase

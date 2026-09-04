@@ -182,7 +182,7 @@ export class AgentEngine {
     // FASE 19: Inject agent memory — facts, preferences, patterns from past executions
     try {
       const memoryService = getAgentMemoryService();
-      const memories = await memoryService.getRecent(agentId, 10);
+      const memories = await memoryService.getRecent(agentId, workspaceId, 10);
       if (memories.length > 0) {
         const memoryLines = [`## Agent Memory (learned from past executions)`];
         for (const mem of memories) {
@@ -328,6 +328,7 @@ export class AgentEngine {
             const summary = output.summary || output.explanation || JSON.stringify(output).slice(0, 500);
             await memoryService.store({
               agent_id: agentId,
+              workspace_id: workspaceId,
               memory_type: "decision",
               content: `Task ${taskType}: ${decision} — ${summary}`,
               source: `task:${taskId}`,
@@ -341,6 +342,7 @@ export class AgentEngine {
             for (const finding of output.keyFindings.slice(0, 3)) {
               await memoryService.store({
                 agent_id: agentId,
+                workspace_id: workspaceId,
                 memory_type: "fact",
                 content: String(finding),
                 source: `task:${taskId}`,

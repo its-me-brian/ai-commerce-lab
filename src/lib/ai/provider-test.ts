@@ -42,14 +42,14 @@ const DEFAULT_TEST_MODELS: Record<string, string> = {
  * Get the list of all providers with their configuration status.
  * FASE 6: GET /api/ai/providers
  */
-export async function getProviderStatuses(): Promise<ProviderStatus[]> {
+export async function getProviderStatuses(workspaceId: string): Promise<ProviderStatus[]> {
   const providerManager = getProviderManager();
   const router = getRouter();
 
   // Ensure providers are loaded
   await bootstrap();
 
-  const providers = await providerManager.listWithStatus();
+  const providers = await providerManager.listWithStatus(workspaceId);
 
   return providers.map((p) => {
     // resolveApiKey is async, but we're in a map — use getApiKey for sync check
@@ -82,7 +82,8 @@ export async function getProviderStatuses(): Promise<ProviderStatus[]> {
  * 4. Test connection via provider.testConnection()
  */
 export async function testProviderConnection(
-  input: ProviderTestInput
+  input: ProviderTestInput,
+  workspaceId: string
 ): Promise<ProviderTestResult> {
   const startTime = Date.now();
   const { provider: slug, model: requestedModel } = input;
@@ -131,7 +132,7 @@ export async function testProviderConnection(
     credentialSource = envKey ? "env" : "database";
   } else {
     // Not registered — try CredentialManager
-    const dbKey = await credentialManager.getActiveKey(dbProvider.id);
+    const dbKey = await credentialManager.getActiveKey(dbProvider.id, workspaceId);
     if (dbKey) {
       credentialSource = "database";
 

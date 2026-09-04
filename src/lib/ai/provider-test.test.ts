@@ -65,7 +65,7 @@ describe("ProviderTestService", () => {
       mockGetApiKey.mockReturnValue("test-key-123");
       mockGetProvider.mockReturnValue({ slug: "gemini" });
 
-      const result = await getProviderStatuses();
+      const result = await getProviderStatuses("ws-default");
 
       expect(result).toHaveLength(1);
       expect(result[0].slug).toBe("gemini");
@@ -87,7 +87,7 @@ describe("ProviderTestService", () => {
       mockGetApiKey.mockReturnValue(null);
       mockGetProvider.mockReturnValue(undefined);
 
-      const result = await getProviderStatuses();
+      const result = await getProviderStatuses("ws-default");
 
       expect(result).toHaveLength(1);
       expect(result[0].slug).toBe("anthropic");
@@ -99,7 +99,7 @@ describe("ProviderTestService", () => {
     it("should return empty array when no providers exist", async () => {
       mockListWithStatus.mockResolvedValue([]);
 
-      const result = await getProviderStatuses();
+      const result = await getProviderStatuses("ws-default");
 
       expect(result).toHaveLength(0);
     });
@@ -131,7 +131,7 @@ describe("ProviderTestService", () => {
       mockGetApiKey.mockReturnValueOnce("key-1").mockReturnValueOnce(null).mockReturnValueOnce(null);
       mockGetProvider.mockReturnValueOnce({ slug: "gemini" }).mockReturnValueOnce(undefined).mockReturnValueOnce(undefined);
 
-      const result = await getProviderStatuses();
+      const result = await getProviderStatuses("ws-default");
 
       expect(result).toHaveLength(3);
       expect(result[0].slug).toBe("gemini");
@@ -147,7 +147,7 @@ describe("ProviderTestService", () => {
     it("should return error for unknown provider", async () => {
       mockGetBySlug.mockResolvedValue(null);
 
-      const result = await testProviderConnection({ provider: "unknown" });
+      const result = await testProviderConnection({ provider: "unknown" }, "ws-default");
 
       expect(result.success).toBe(false);
       expect(result.provider).toBe("unknown");
@@ -161,7 +161,7 @@ describe("ProviderTestService", () => {
         api_key_env_var: "GEMINI_API_KEY",
       });
 
-      const result = await testProviderConnection({ provider: "gemini" });
+      const result = await testProviderConnection({ provider: "gemini" }, "ws-default");
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("disabled");
@@ -188,7 +188,7 @@ describe("ProviderTestService", () => {
       const result = await testProviderConnection({
         provider: "gemini",
         model: "gemini-2.0-flash",
-      });
+      }, "ws-default");
 
       expect(result.success).toBe(true);
       expect(result.provider).toBe("gemini");
@@ -214,7 +214,7 @@ describe("ProviderTestService", () => {
         testConnection: vi.fn().mockResolvedValue(mockTestResult),
       });
 
-      const result = await testProviderConnection({ provider: "gemini" });
+      const result = await testProviderConnection({ provider: "gemini" }, "ws-default");
 
       expect(result.success).toBe(true);
       expect(result.model).toBe("gemini-2.0-flash");
@@ -231,7 +231,7 @@ describe("ProviderTestService", () => {
       mockGetProvider.mockReturnValue(undefined);
       mockGetActiveKey.mockResolvedValue(null);
 
-      const result = await testProviderConnection({ provider: "anthropic" });
+      const result = await testProviderConnection({ provider: "anthropic" }, "ws-default");
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("No API key configured");
@@ -248,7 +248,7 @@ describe("ProviderTestService", () => {
       mockGetProvider.mockReturnValue(undefined);
       mockGetActiveKey.mockResolvedValue("db-decrypted-key");
 
-      const result = await testProviderConnection({ provider: "anthropic" });
+      const result = await testProviderConnection({ provider: "anthropic" }, "ws-default");
 
       expect(result.success).toBe(false);
       expect(result.credentialSource).toBe("database");
@@ -269,7 +269,7 @@ describe("ProviderTestService", () => {
       const result = await testProviderConnection({
         provider: "gemini",
         model: "gemini-2.0-flash",
-      });
+      }, "ws-default");
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Network error");
@@ -296,7 +296,7 @@ describe("ProviderTestService", () => {
       const result = await testProviderConnection({
         provider: "gemini",
         model: "gemini-2.0-flash",
-      });
+      }, "ws-default");
 
       expect(result.latencyMs).toBe(350);
     });
@@ -323,7 +323,7 @@ describe("ProviderTestService", () => {
       const result = await testProviderConnection({
         provider: "gemini",
         model: "gemini-2.0-flash",
-      });
+      }, "ws-default");
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Invalid API key");

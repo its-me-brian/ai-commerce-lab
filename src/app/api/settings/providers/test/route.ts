@@ -32,7 +32,7 @@ export const POST = withSecurity(async (request: NextRequest) => {
       );
     }
 
-    const result = await testProviderConnection({ provider, model });
+    const result = await testProviderConnection({ provider, model }, access.workspaceId);
 
     return NextResponse.json(result, {
       status: result.success ? 200 : 422,

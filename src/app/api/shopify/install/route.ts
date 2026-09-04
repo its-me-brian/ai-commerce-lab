@@ -4,6 +4,7 @@
 // Usage: GET /api/shopify/install?shop=my-store.myshopify.com
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -15,6 +16,10 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  // Resolve workspace from auth
+  const access = await requireWorkspaceAccess(request);
+  if ("error" in access) return access.error;
 
   // Normalize shop domain
   const shopDomain = shop.includes(".myshopify.com") ? shop : `${shop}.myshopify.com`;
@@ -30,11 +35,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Build Shopify OAuth URL
+  // Build Shopify OAuth URL — pass workspace_id as state for callback
   const authUrl = new URL(`https://${shopDomain}/admin/oauth/authorize`);
   authUrl.searchParams.set("client_id", apiKey);
   authUrl.searchParams.set("scope", scopes);
   authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("state", access.workspaceId);
 
   return NextResponse.redirect(authUrl.toString());
 }

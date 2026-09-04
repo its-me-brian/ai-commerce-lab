@@ -178,7 +178,7 @@ export class ProviderManager {
    * Get the API key for a provider, checking env vars first, then CredentialManager.
    * This is the primary resolution method — use this instead of getApiKey().
    */
-  async resolveApiKey(provider: ProviderRecord): Promise<{ key: string | null; source: "env" | "database" | "none" }> {
+  async resolveApiKey(provider: ProviderRecord, workspaceId: string): Promise<{ key: string | null; source: "env" | "database" | "none" }> {
     // 1. Try environment variable first
     const envKey = this.getApiKey(provider);
     if (envKey) return { key: envKey, source: "env" };
@@ -187,7 +187,7 @@ export class ProviderManager {
     try {
       const { getCredentialManager } = await import("./credential-manager");
       const credentialManager = getCredentialManager();
-      const dbKey = await credentialManager.getActiveKey(provider.id);
+      const dbKey = await credentialManager.getActiveKey(provider.id, workspaceId);
       if (dbKey) return { key: dbKey, source: "database" };
     } catch {
       // CredentialManager unavailable — that's fine
@@ -199,24 +199,24 @@ export class ProviderManager {
   /**
    * Check if a provider has its API key configured (env or DB).
    */
-  async isConfigured(slug: string): Promise<boolean> {
+  async isConfigured(slug: string, workspaceId: string): Promise<boolean> {
     const provider = await this.getBySlug(slug);
     if (!provider || !provider.enabled) return false;
-    const { key } = await this.resolveApiKey(provider);
+    const { key } = await this.resolveApiKey(provider, workspaceId);
     return !!key;
   }
 
   /**
    * Get all providers with their configuration status.
    */
-  async listWithStatus(): Promise<
+  async listWithStatus(workspaceId: string): Promise<
     Array<ProviderRecord & { configured: boolean; credentialSource: "env" | "database" | "none" }>
   > {
     const providers = await this.list();
     const results: Array<ProviderRecord & { configured: boolean; credentialSource: "env" | "database" | "none" }> = [];
 
     for (const p of providers) {
-      const { key, source } = await this.resolveApiKey(p);
+      const { key, source } = await this.resolveApiKey(p, workspaceId);
       results.push({
         ...p,
         configured: !!key,

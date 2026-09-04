@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProviderStatuses } from "@/lib/ai/provider-test";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // GET /api/ai/providers
 // Lists all registered providers with their configuration status.
 export async function GET(request: NextRequest) {
   try {
     // Auth check
-    const auth = await requireAuth(request);
-    if ("error" in auth) return auth.error;
+    const access = await requireWorkspaceAccess(request);
+    if ("error" in access) return access.error;
 
-    const providers = await getProviderStatuses();
+    const providers = await getProviderStatuses(access.workspaceId);
     return NextResponse.json({ success: true, providers });
   } catch (error) {
     return NextResponse.json(
@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     // Auth check
-    const auth = await requireAuth(request);
-    if ("error" in auth) return auth.error;
+    const access = await requireWorkspaceAccess(request);
+    if ("error" in access) return access.error;
 
     const body = await request.json();
     const { id, slug, enabled } = body as { id?: string; slug?: string; enabled?: boolean };

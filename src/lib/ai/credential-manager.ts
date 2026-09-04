@@ -10,6 +10,7 @@ import type { EncryptedData } from "./encryption";
 export interface CredentialRecord {
   id: string;
   provider_id: string;
+  workspace_id: string;
   name: string;
   encrypted_key: string;
   key_hint: string | null;
@@ -25,6 +26,7 @@ export interface CredentialRecord {
 
 export interface CredentialCreateInput {
   provider_id: string;
+  workspace_id: string;
   name: string;
   api_key: string;          // Raw key — will be encrypted before storage
   environment?: string;
@@ -59,6 +61,7 @@ export class CredentialManager {
       .from("ai_provider_credentials")
       .insert({
         provider_id: input.provider_id,
+        workspace_id: input.workspace_id,
         name: input.name,
         encrypted_key: encrypted.encrypted,
         key_hint: keyHint,
@@ -123,12 +126,14 @@ export class CredentialManager {
    */
   async getActiveKey(
     providerId: string,
+    workspaceId: string,
     environment: string = "production"
   ): Promise<string | null> {
     const { data, error } = await supabase
       .from("ai_provider_credentials")
       .select("*")
       .eq("provider_id", providerId)
+      .eq("workspace_id", workspaceId)
       .eq("environment", environment)
       .eq("is_active", true)
       .single();
@@ -156,11 +161,12 @@ export class CredentialManager {
   /**
    * List all credentials for a provider (safe — no keys).
    */
-  async listByProvider(providerId: string): Promise<CredentialSafe[]> {
+  async listByProvider(providerId: string, workspaceId: string): Promise<CredentialSafe[]> {
     const { data, error } = await supabase
       .from("ai_provider_credentials")
       .select("*")
       .eq("provider_id", providerId)
+      .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false });
 
     if (error || !data) return [];
@@ -170,10 +176,11 @@ export class CredentialManager {
   /**
    * List all credentials across all providers (safe — no keys).
    */
-  async listAll(): Promise<CredentialSafe[]> {
+  async listAll(workspaceId: string): Promise<CredentialSafe[]> {
     const { data, error } = await supabase
       .from("ai_provider_credentials")
       .select("*")
+      .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false });
 
     if (error || !data) return [];
@@ -183,11 +190,12 @@ export class CredentialManager {
   /**
    * Deactivate a credential.
    */
-  async deactivate(credentialId: string): Promise<boolean> {
+  async deactivate(credentialId: string, workspaceId: string): Promise<boolean> {
     const { error } = await supabase
       .from("ai_provider_credentials")
       .update({ is_active: false, updated_at: new Date().toISOString() })
-      .eq("id", credentialId);
+      .eq("id", credentialId)
+      .eq("workspace_id", workspaceId);
 
     return !error;
   }
@@ -195,11 +203,12 @@ export class CredentialManager {
   /**
    * Delete a credential permanently.
    */
-  async delete(credentialId: string): Promise<boolean> {
+  async delete(credentialId: string, workspaceId: string): Promise<boolean> {
     const { error } = await supabase
       .from("ai_provider_credentials")
       .delete()
-      .eq("id", credentialId);
+      .eq("id", credentialId)
+      .eq("workspace_id", workspaceId);
 
     return !error;
   }
@@ -209,9 +218,10 @@ export class CredentialManager {
    */
   async hasActiveCredential(
     providerId: string,
+    workspaceId: string,
     environment: string = "production"
   ): Promise<boolean> {
-    const key = await this.getActiveKey(providerId, environment);
+    const key = await this.getActiveKey(providerId, workspaceId, environment);
     return key !== null;
   }
 
