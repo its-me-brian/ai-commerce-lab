@@ -60,7 +60,7 @@ describe("ApprovalManager", () => {
         action_type: "product_listing",
         action_summary: "List new product: Wireless Mouse",
         action_details: { price: 29.99 },
-      });
+      }, "test-ws");
 
       expect(approval.id).toBe("ap-1");
       expect(approval.status).toBe("pending");
@@ -78,7 +78,7 @@ describe("ApprovalManager", () => {
         action_type: "price_change",
         action_summary: "Change price",
         expires_in_ms: 3600000, // 1 hour
-      });
+      }, "test-ws");
 
       expect(approval.expires_at).toBeDefined();
     });
@@ -93,7 +93,7 @@ describe("ApprovalManager", () => {
         agent_id: "a",
         action_type: "custom",
         action_summary: "test",
-      });
+      }, "test-ws");
 
       expect(approval.risk_level).toBe("medium");
     });

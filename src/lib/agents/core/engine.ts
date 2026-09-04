@@ -50,7 +50,10 @@ export class AgentEngine {
     const taskId = randomUUID();
     const startTime = Date.now();
     const taskType = options?.taskType || "general";
-    const workspaceId = options?.workspaceId || "ws-default";
+    const workspaceId = options?.workspaceId;
+    if (!workspaceId) {
+      throw new Error("workspaceId is required for agent execution");
+    }
 
     // 1. Resolve agent from Registry (source of truth)
     const registry = getAgentRegistry();
@@ -158,6 +161,7 @@ export class AgentEngine {
           .from("agent_tasks")
           .select("id, task_type, input, output, status")
           .eq("agent_id", agentId)
+          .eq("workspace_id", workspaceId)
           .eq("status", "completed")
           .not("output", "is", null)
           .order("created_at", { ascending: false })
@@ -251,6 +255,7 @@ export class AgentEngine {
         const alerts = budgetTracker.recordCost({
           entityId: agentId,
           entityType: "agent",
+          workspaceId,
           costDollars: cost,
           provider: result.metadata.providerUsed,
           model: result.metadata.modelUsed,
@@ -461,7 +466,7 @@ export class AgentEngine {
     await supabase.from("agent_tasks").insert({
       id: taskId,
       agent_id: agentId,
-      workspace_id: workspaceId || "ws-default",
+      workspace_id: workspaceId,
       status: "failed",
       task_type: taskType,
       input,

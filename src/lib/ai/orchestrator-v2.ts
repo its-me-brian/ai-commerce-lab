@@ -82,6 +82,9 @@ export interface ExecutionPlan {
 
   /** Confidence in the plan (0-1) */
   confidence: number;
+
+  /** Workspace ID for multi-tenancy */
+  workspaceId?: string;
 }
 
 /**
@@ -192,7 +195,7 @@ export class OrchestratorV2 {
             const { result } = await this.agentEngine.executeTask(
               step.agentId!,
               input as Record<string, unknown>,
-              { taskType: plan.intent || "general" }
+              { taskType: plan.intent || "general", workspaceId: plan.workspaceId || "" }
             );
 
             stepSuccess = result.success;
@@ -258,7 +261,7 @@ export class OrchestratorV2 {
               action_details: { stepId: step.id, output: stepOutput },
               risk_level: approvalNeeded.riskLevel,
               expires_in_ms: 300000, // 5 minutes
-            });
+            }, plan.workspaceId || "");
 
             // Store approval in working memory for downstream steps
             workingMemory[`${step.id}_approval`] = approval;

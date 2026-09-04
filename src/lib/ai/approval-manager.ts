@@ -61,7 +61,10 @@ export class ApprovalManager {
   /**
    * Create an approval request. Agent should await this before proceeding.
    */
-  async createApproval(input: CreateApprovalInput, workspaceId: string = "ws-default"): Promise<Approval> {
+  async createApproval(input: CreateApprovalInput, workspaceId: string): Promise<Approval> {
+    if (!workspaceId) {
+      throw new Error("workspaceId is required for approval creation");
+    }
     const now = new Date().toISOString();
     const expiresAt = input.expires_in_ms
       ? new Date(Date.now() + input.expires_in_ms).toISOString()

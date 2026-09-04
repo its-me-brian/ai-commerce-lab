@@ -72,7 +72,7 @@ describe("WorkflowExecutor", () => {
   describe("validation", () => {
     it("rejects empty workflow", async () => {
       const wf = makeWorkflow([]);
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.status).toBe("failed");
       expect(result.state.errors[0]).toContain("no nodes");
@@ -83,7 +83,7 @@ describe("WorkflowExecutor", () => {
         { id: "a", name: "A", type: "mini-ai", miniAIId: "classifier" },
         { id: "a", name: "A2", type: "mini-ai", miniAIId: "classifier" },
       ]);
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.status).toBe("failed");
       expect(result.state.errors[0]).toContain("Duplicate node ID");
@@ -93,7 +93,7 @@ describe("WorkflowExecutor", () => {
       const wf = makeWorkflow([
         { id: "a", name: "A", type: "agent" },
       ]);
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.status).toBe("failed");
       expect(result.state.errors[0]).toContain("agentId");
@@ -103,7 +103,7 @@ describe("WorkflowExecutor", () => {
       const wf = makeWorkflow([
         { id: "a", name: "A", type: "mini-ai" },
       ]);
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.status).toBe("failed");
       expect(result.state.errors[0]).toContain("miniAIId");
@@ -113,7 +113,7 @@ describe("WorkflowExecutor", () => {
       const wf = makeWorkflow([
         { id: "a", name: "A", type: "condition", condition: { source: "x", operator: "equals", branches: {} as { true: string } } },
       ]);
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.status).toBe("failed");
       expect(result.state.errors[0]).toContain("branches.true");
@@ -132,7 +132,7 @@ describe("WorkflowExecutor", () => {
         },
       ]);
 
-      const result = await executor.execute(wf, { input: { text: "test" } });
+      const result = await executor.execute(wf, { input: { text: "test" }, workspaceId: "test-ws" });
 
       expect(result.status).toBe("completed");
       expect(result.summary.completed).toBe(1);
@@ -145,7 +145,7 @@ describe("WorkflowExecutor", () => {
         { id: "hunt", name: "Product Hunt", type: "agent", agentId: "product-hunter" },
       ]);
 
-      const result = await executor.execute(wf, { input: { query: "test" } });
+      const result = await executor.execute(wf, { input: { query: "test" }, workspaceId: "test-ws" });
 
       expect(result.status).toBe("completed");
       expect(result.summary.completed).toBe(1);
@@ -184,7 +184,7 @@ describe("WorkflowExecutor", () => {
         },
       ]);
 
-      const result = await executor.execute(wf, { input: { text: "test" } });
+      const result = await executor.execute(wf, { input: { text: "test" }, workspaceId: "test-ws" });
 
       expect(result.status).toBe("completed");
       expect(result.summary.completed).toBe(3);
@@ -220,7 +220,7 @@ describe("WorkflowExecutor", () => {
         },
       ]);
 
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.status).toBe("completed");
       // The second node should have received the classified category
@@ -252,7 +252,7 @@ describe("WorkflowExecutor", () => {
         { id: "c", name: "C", type: "mini-ai", miniAIId: "summarizer" },
       ]);
 
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.status).toBe("completed");
       expect(result.summary.completed).toBe(3);
@@ -287,7 +287,7 @@ describe("WorkflowExecutor", () => {
         },
       ]);
 
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.summary.completed).toBeGreaterThanOrEqual(2);
       expect(result.summary.failed).toBe(1);
@@ -306,7 +306,7 @@ describe("WorkflowExecutor", () => {
         { id: "b", name: "B", type: "mini-ai", miniAIId: "classifier" },
       ]);
 
-      const result = await executor.execute(wf, { input: {}, stopOnError: true });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws", stopOnError: true });
 
       expect(result.status).toBe("failed");
     });
@@ -325,7 +325,7 @@ describe("WorkflowExecutor", () => {
         { id: "a", name: "A", type: "mini-ai", miniAIId: "classifier", maxRetries: 3, retryDelayMs: 10 },
       ]);
 
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.status).toBe("completed");
       expect(attempts).toBe(3);
@@ -364,7 +364,7 @@ describe("WorkflowExecutor", () => {
         { id: "handle-other", name: "Handle Other", type: "mini-ai", miniAIId: "extractor" },
       ]);
 
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.status).toBe("completed");
       // Marketing branch should be taken
@@ -392,7 +392,7 @@ describe("WorkflowExecutor", () => {
         },
       ]);
 
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.status).toBe("completed");
       expect(result.summary.completed).toBe(3);
@@ -416,7 +416,7 @@ describe("WorkflowExecutor", () => {
         },
       ]);
 
-      const result = await executor.execute(wf, { input: { topic: "AI trends" } });
+      const result = await executor.execute(wf, { input: { topic: "AI trends" }, workspaceId: "test-ws" });
 
       expect(result.status).toBe("completed");
       expect(result.summary.completed).toBe(1);
@@ -433,6 +433,7 @@ describe("WorkflowExecutor", () => {
 
       await executor.execute(wf, {
         input: {},
+        workspaceId: "test-ws",
         onNodeStateChange: (nodeId, state) => {
           stateChanges.push({ nodeId, status: state.status });
         },
@@ -458,7 +459,7 @@ describe("WorkflowExecutor", () => {
         { id: "b", name: "B", type: "mini-ai", miniAIId: "summarizer" },
       ]);
 
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.output).toEqual({ summary: "final result" });
     });
@@ -482,7 +483,7 @@ describe("WorkflowExecutor", () => {
         { id: "slow", name: "Slow", type: "mini-ai", miniAIId: "slow" },
       ]);
 
-      const result = await executor.execute(wf, { input: {}, timeoutMs: 50 });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws", timeoutMs: 50 });
 
       expect(result.status).toBe("timed_out");
     });
@@ -495,7 +496,7 @@ describe("WorkflowExecutor", () => {
         { id: "b", name: "B", type: "mini-ai", miniAIId: "extractor" },
       ]);
 
-      const result = await executor.execute(wf, { input: {} });
+      const result = await executor.execute(wf, { input: {}, workspaceId: "test-ws" });
 
       expect(result.summary).toEqual({
         totalNodes: 2,

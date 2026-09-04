@@ -294,7 +294,7 @@ describe("AgentEngine", () => {
 
       const { taskId, result } = await engine.executeTask("mock-agent", {
         query: "test product",
-      });
+      }, { workspaceId: "test-ws" });
 
       expect(taskId).toBeDefined();
       expect(typeof taskId).toBe("string");
@@ -307,7 +307,7 @@ describe("AgentEngine", () => {
       mockRegistry.has.mockReturnValue(false);
 
       await expect(
-        engine.executeTask("unknown-agent", { query: "test" })
+        engine.executeTask("unknown-agent", { query: "test" }, { workspaceId: "test-ws" })
       ).rejects.toThrow("Agent not found in registry: unknown-agent");
     });
 
@@ -317,7 +317,7 @@ describe("AgentEngine", () => {
       mockRegistry.has.mockReturnValue(true);
 
       await expect(
-        engine.executeTask("disabled-agent", { query: "test" })
+        engine.executeTask("disabled-agent", { query: "test" }, { workspaceId: "test-ws" })
       ).rejects.toThrow("Agent is not enabled: disabled-agent");
     });
 
@@ -328,7 +328,7 @@ describe("AgentEngine", () => {
       mockQuery({ data: null, error: null });
 
       await expect(
-        engine.executeTask("mock-agent", {})
+        engine.executeTask("mock-agent", {}, { workspaceId: "test-ws" })
       ).rejects.toThrow("Input validation failed: query is required");
     });
 
@@ -338,7 +338,7 @@ describe("AgentEngine", () => {
       // Config query
       mockQuery({ data: VALID_CONFIG_ROW, error: null });
 
-      await engine.executeTask("mock-agent", { query: "test" });
+      await engine.executeTask("mock-agent", { query: "test" }, { workspaceId: "test-ws" });
 
       // First .from() call is the task insert
       expect(mockFrom).toHaveBeenCalledWith("agent_tasks");
@@ -350,7 +350,7 @@ describe("AgentEngine", () => {
       // Config query
       mockQuery({ data: VALID_CONFIG_ROW, error: null });
 
-      await engine.executeTask("mock-agent", { query: "test" });
+      await engine.executeTask("mock-agent", { query: "test" }, { workspaceId: "test-ws" });
 
       // agent_runs insert was called
       expect(mockFrom).toHaveBeenCalledWith("agent_runs");
@@ -362,7 +362,7 @@ describe("AgentEngine", () => {
       // Config query
       mockQuery({ data: VALID_CONFIG_ROW, error: null });
 
-      await engine.executeTask("mock-agent", { query: "test" });
+      await engine.executeTask("mock-agent", { query: "test" }, { workspaceId: "test-ws" });
 
       // agent_tasks update was called
       expect(mockFrom).toHaveBeenCalledWith("agent_tasks");
@@ -375,7 +375,7 @@ describe("AgentEngine", () => {
       mockQuery({ data: VALID_CONFIG_ROW, error: null });
 
       await expect(
-        engine.executeTask("failing-agent", { query: "test" })
+        engine.executeTask("failing-agent", { query: "test" }, { workspaceId: "test-ws" })
       ).rejects.toThrow("Agent execution failed");
 
       // Should have attempted to persist error run
@@ -391,7 +391,7 @@ describe("AgentEngine", () => {
       });
 
       await expect(
-        engine.executeTask("mock-agent", { query: "test" })
+        engine.executeTask("mock-agent", { query: "test" }, { workspaceId: "test-ws" })
       ).rejects.toThrow("Permission denied");
     });
   });
@@ -404,7 +404,7 @@ describe("AgentEngine", () => {
       mockQuery({ data: null, error: { code: "PGRST116" } });
 
       await expect(
-        engine.executeTask("mock-agent", { query: "test" })
+        engine.executeTask("mock-agent", { query: "test" }, { workspaceId: "test-ws" })
       ).rejects.toThrow("Agent config not found");
     });
   });

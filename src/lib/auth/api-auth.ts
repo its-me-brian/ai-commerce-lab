@@ -86,12 +86,16 @@ export async function requireAuth(request: NextRequest): Promise<
       };
     }
 
-    // Development: allow synthetic user only if explicitly enabled
-    if (isDevAuthAllowed()) {
-      return { user: { id: "local-dev", email: "dev@localhost" } };
+    // Development: allow synthetic user ONLY if explicitly enabled via ALLOW_DEV_AUTH=true
+    if (!isDevAuthAllowed()) {
+      return {
+        error: NextResponse.json(
+          { success: false, error: "Authentication not configured. Set ALLOW_DEV_AUTH=true for development." },
+          { status: 401 }
+        ),
+      };
     }
 
-    // Development without ALLOW_DEV_AUTH: still allow (backward compatible)
     return { user: { id: "local-dev", email: "dev@localhost" } };
   }
 
@@ -151,9 +155,14 @@ export async function requireWorkspaceAccess(
     }
   }
 
-  // If still no workspaceId, use default for backward compatibility
+  // If no workspaceId provided, require it explicitly — no silent fallback
   if (!workspaceId) {
-    workspaceId = "ws-default";
+    return {
+      error: NextResponse.json(
+        { success: false, error: "workspaceId is required" },
+        { status: 400 }
+      ),
+    };
   }
 
   // If Supabase not configured, allow access (dev mode)
@@ -192,28 +201,6 @@ export async function requireWorkspaceAccess(
     .single();
 
   if (membershipError || !membership) {
-    // AUTO-ONBOARDING: If user is not a member, add them as owner of ws-default
-    // This handles: (a) users created before the trigger, (b) trigger failures
-    if (workspaceId === "ws-default") {
-      // Use upsert to handle both cases: user not in DB, or trigger already added them
-      const { error: insertError } = await supabase
-        .from("workspace_members")
-        .upsert(
-          {
-            workspace_id: "ws-default",
-            user_id: user.id,
-            role: "owner",
-          },
-          { onConflict: "workspace_id,user_id", ignoreDuplicates: true }
-        );
-
-      if (!insertError) {
-        // Success — user was auto-added (or already existed), return owner access
-        return { user, workspaceId, role: "owner" };
-      }
-      console.error("[Auth] Auto-onboarding failed:", insertError);
-    }
-
     return {
       error: NextResponse.json(
         { success: false, error: "Access denied: not a member of this workspace" },

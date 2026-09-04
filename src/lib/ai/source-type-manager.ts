@@ -172,7 +172,17 @@ export class SourceTypeManager {
     }
   ): DataProvenance {
     const source = this.sources.get(sourceId);
-    const sourceType = source?.type || "mock";
+    if (!source) {
+      return {
+        sourceId,
+        sourceType: "mock" as const,
+        collectedAt: new Date().toISOString(),
+        verified: false,
+        confidence: 0,
+        transformations: options?.transformations,
+      };
+    }
+    const sourceType = source.type;
 
     return {
       sourceId,

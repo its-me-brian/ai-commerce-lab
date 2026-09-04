@@ -275,6 +275,7 @@ describe("AgentChat", () => {
       expect.objectContaining({
         systemPrompt: expect.stringContaining("Product Research Specialist"),
       }),
+      { workspaceId: "" },
     );
   });
 });

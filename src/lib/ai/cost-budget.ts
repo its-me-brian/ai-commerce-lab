@@ -31,6 +31,9 @@ export interface CostBudget {
   /** Unique identifier */
   id: string;
 
+  /** Workspace ID for multi-tenancy */
+  workspaceId: string;
+
   /** Entity this budget applies to */
   entityId: string;
 
@@ -91,6 +94,9 @@ export interface CostRecord {
 
   /** Entity type */
   entityType: BudgetEntityType;
+
+  /** Workspace ID for multi-tenancy */
+  workspaceId: string;
 
   /** Cost in dollars */
   costDollars: number;
@@ -182,7 +188,7 @@ export class CostBudgetTracker {
   setBudget(budget: CostBudget): void {
     this.budgets.set(budget.id, budget);
     // Persist to Supabase (fire-and-forget)
-    this.persistBudgetToSupabase(budget);
+    this.persistBudgetToSupabase(budget, budget.workspaceId);
   }
 
   /**
@@ -312,7 +318,7 @@ export class CostBudgetTracker {
     }
 
     // Persist to Supabase (fire-and-forget)
-    this.persistCostRecordToSupabase(fullRecord);
+    this.persistCostRecordToSupabase(fullRecord, fullRecord.workspaceId);
 
     // Check alerts for all affected budgets
     const newAlerts = this.checkAlerts(record.entityId, record.entityType);
@@ -442,7 +448,11 @@ export class CostBudgetTracker {
    * Persist a budget to Supabase cost_budgets table.
    * Fire-and-forget with error logging.
    */
-  async persistBudgetToSupabase(budget: CostBudget, workspaceId: string = "ws-default"): Promise<void> {
+  async persistBudgetToSupabase(budget: CostBudget, workspaceId: string): Promise<void> {
+    if (!workspaceId) {
+      console.error("[CostBudget] workspaceId is required for budget persistence");
+      return;
+    }
     try {
       const { supabase } = await import("@/lib/database/supabase");
 
@@ -469,7 +479,11 @@ export class CostBudgetTracker {
    * Persist a cost record to Supabase cost_records table.
    * Fire-and-forget with error logging.
    */
-  async persistCostRecordToSupabase(record: CostRecord, workspaceId: string = "ws-default"): Promise<void> {
+  async persistCostRecordToSupabase(record: CostRecord, workspaceId: string): Promise<void> {
+    if (!workspaceId) {
+      console.error("[CostBudget] workspaceId is required for cost record persistence");
+      return;
+    }
     try {
       const { supabase } = await import("@/lib/database/supabase");
 
@@ -509,6 +523,7 @@ export class CostBudgetTracker {
           id: row.id,
           entityId: row.entity_id,
           entityType: row.entity_type as BudgetEntityType,
+          workspaceId: row.workspace_id || "",
           maxDollars: row.max_dollars,
           window: row.time_window as BudgetWindow,
           alertThresholds: row.alert_thresholds ?? undefined,
@@ -605,12 +620,13 @@ export function resetCostBudgetTracker(): void {
 export function createAgentBudget(
   agentId: string,
   maxDollarsPerDay: number,
-  options?: { description?: string; alertThresholds?: number[] }
+  options?: { description?: string; alertThresholds?: number[]; workspaceId?: string }
 ): CostBudget {
   return {
     id: `agent:${agentId}:day`,
     entityId: agentId,
     entityType: "agent",
+    workspaceId: options?.workspaceId || "",
     maxDollars: maxDollarsPerDay,
     window: "day",
     alertThresholds: options?.alertThresholds,
@@ -625,12 +641,13 @@ export function createAgentBudget(
 export function createWorkflowBudget(
   workflowId: string,
   maxDollarsPerRun: number,
-  options?: { description?: string; alertThresholds?: number[] }
+  options?: { description?: string; alertThresholds?: number[]; workspaceId?: string }
 ): CostBudget {
   return {
     id: `workflow:${workflowId}:total`,
     entityId: workflowId,
     entityType: "workflow",
+    workspaceId: options?.workspaceId || "",
     maxDollars: maxDollarsPerRun,
     window: "total",
     alertThresholds: options?.alertThresholds,
@@ -650,6 +667,7 @@ export function createGlobalDailyBudget(
     id: "global:global:day",
     entityId: "global",
     entityType: "global",
+    workspaceId: "",
     maxDollars: maxDollarsPerDay,
     window: "day",
     alertThresholds: options?.alertThresholds,

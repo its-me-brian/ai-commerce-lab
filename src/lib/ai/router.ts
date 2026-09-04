@@ -171,7 +171,7 @@ export class AIModelRouter {
   async generateForAgent(
     agentId: string,
     options: AIGenerateOptions,
-    overrides?: { temperature?: number; maxTokens?: number }
+    overrides?: { temperature?: number; maxTokens?: number; workspaceId?: string }
   ): Promise<{ result: AIGenerateResult; log: RouterExecutionLog }> {
     const startTime = Date.now();
     const logger = getStructuredLogger();
@@ -224,7 +224,7 @@ export class AIModelRouter {
     const modelRegistry = getModelRegistry();
 
     // Load enabled routes for this agent
-    const routes = await routesManager.listEnabledByAgent(agentId);
+    const routes = await routesManager.listEnabledByAgent(agentId, overrides?.workspaceId || "");
     if (routes.length === 0) {
       throw new Error(`No model routes configured for agent: ${agentId}`);
     }

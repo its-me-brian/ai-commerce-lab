@@ -54,12 +54,22 @@ export async function getWorkspaceId(): Promise<string> {
   const client = await createClient();
 
   // Supabase not configured — dev mode
-  if (!client) return "ws-default";
+  if (!client) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[WorkspaceId] Supabase not configured in production — check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+    }
+    return "ws-default";
+  }
 
   const { data: { user } } = await client.auth.getUser();
 
   // No session — dev mode
-  if (!user) return "ws-default";
+  if (!user) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn("[WorkspaceId] No session in production — check auth middleware");
+    }
+    return "ws-default";
+  }
 
   // Dev shortcut
   if (user.id === "local-dev") return "ws-default";
@@ -69,7 +79,12 @@ export async function getWorkspaceId(): Promise<string> {
   const serviceUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!serviceUrl || !serviceKey) return "ws-default";
+  if (!serviceUrl || !serviceKey) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[WorkspaceId] Missing Supabase credentials in production");
+    }
+    return "ws-default";
+  }
 
   const serviceClient = createServiceClient(serviceUrl, serviceKey);
 
@@ -81,5 +96,12 @@ export async function getWorkspaceId(): Promise<string> {
     .limit(1)
     .single();
 
-  return membership?.workspace_id || "ws-default";
+  if (!membership?.workspace_id) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn(`[WorkspaceId] No workspace membership for user ${user.id} — falling back to default`);
+    }
+    return "ws-default";
+  }
+
+  return membership.workspace_id;
 }

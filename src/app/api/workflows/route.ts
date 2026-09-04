@@ -55,6 +55,7 @@ export const POST = withSecurity(async (req: NextRequest) => {
   const executor = new WorkflowExecutor();
   const result = await executor.execute(definition, {
     input: input || {},
+    workspaceId: auth.workspaceId,
     maxParallel: 3,
     onNodeStateChange: (nodeId: string, state: { status: string }) => {
       console.log(`[Workflow] Node ${nodeId}: ${state.status}`);

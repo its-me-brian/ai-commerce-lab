@@ -53,7 +53,7 @@ describe("API Integration", () => {
       expect(evalResult.passed).toBe(true);
 
       // 4. Record cost after execution
-      const alerts = tracker.recordCost({ entityId: "researcher", entityType: "agent", costDollars: 0.05 });
+      const alerts = tracker.recordCost({ entityId: "researcher", entityType: "agent", costDollars: 0.05, workspaceId: "test-ws" });
       expect(alerts).toHaveLength(0);
 
       // 5. Verify spending tracked
@@ -63,6 +63,7 @@ describe("API Integration", () => {
     it("budget exhaustion prevents execution", () => {
       tracker.setBudget({
         id: "agent:a:day",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 0.1,
@@ -71,7 +72,7 @@ describe("API Integration", () => {
       });
 
       // Spend most of budget
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.09 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.09, workspaceId: "test-ws" });
 
       // Check: 0.09 + 0.05 = 0.14 > 0.1 → rejected
       const check = tracker.checkBudget("a", "agent", 0.05);
@@ -218,7 +219,7 @@ describe("API Integration", () => {
       tracer.endSpan(root.spanId, true);
 
       // 6. Record cost
-      tracker.recordCost({ entityId: "full-pipeline", entityType: "agent", costDollars: 0.15 });
+      tracker.recordCost({ entityId: "full-pipeline", entityType: "agent", costDollars: 0.15, workspaceId: "test-ws" });
 
       // 7. Record metrics
       metrics.increment("pipeline.count");

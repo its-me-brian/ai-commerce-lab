@@ -25,8 +25,8 @@ export const GET = withSecurity(async (req: NextRequest) => {
   const agentId = searchParams.get("agent_id");
 
   const data = agentId
-    ? await routes.listByAgent(agentId)
-    : await routes.list();
+    ? await routes.listByAgent(agentId, auth.workspaceId)
+    : await routes.list(auth.workspaceId);
 
   return NextResponse.json({ routes: data });
 });
@@ -51,7 +51,7 @@ export const POST = withSecurity(async (req: NextRequest) => {
     enabled: body.enabled,
   };
 
-  const route = await routes.create(input);
+  const route = await routes.create(input, auth.workspaceId);
   if (!route) {
     return NextResponse.json({ error: "Failed to create route" }, { status: 500 });
   }

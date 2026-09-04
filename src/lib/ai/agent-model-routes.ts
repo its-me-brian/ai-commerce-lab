@@ -36,10 +36,12 @@ export class AgentModelRoutes {
   /**
    * Get all routes, ordered by agent_id and priority.
    */
-  async list(): Promise<AgentModelRoute[]> {
+  async list(workspaceId: string): Promise<AgentModelRoute[]> {
+    if (!workspaceId) return [];
     const { data, error } = await supabase
       .from("agent_model_routes")
       .select("*")
+      .eq("workspace_id", workspaceId)
       .order("agent_id")
       .order("priority");
 
@@ -50,11 +52,13 @@ export class AgentModelRoutes {
   /**
    * Get all routes for an agent, ordered by priority.
    */
-  async listByAgent(agentId: string): Promise<AgentModelRoute[]> {
+  async listByAgent(agentId: string, workspaceId: string): Promise<AgentModelRoute[]> {
+    if (!workspaceId) return [];
     const { data, error } = await supabase
       .from("agent_model_routes")
       .select("*")
       .eq("agent_id", agentId)
+      .eq("workspace_id", workspaceId)
       .order("priority");
 
     if (error || !data) return [];
@@ -64,11 +68,13 @@ export class AgentModelRoutes {
   /**
    * Get only enabled routes for an agent.
    */
-  async listEnabledByAgent(agentId: string): Promise<AgentModelRoute[]> {
+  async listEnabledByAgent(agentId: string, workspaceId: string): Promise<AgentModelRoute[]> {
+    if (!workspaceId) return [];
     const { data, error } = await supabase
       .from("agent_model_routes")
       .select("*")
       .eq("agent_id", agentId)
+      .eq("workspace_id", workspaceId)
       .eq("enabled", true)
       .order("priority");
 
@@ -79,11 +85,13 @@ export class AgentModelRoutes {
   /**
    * Get a specific route by ID.
    */
-  async getById(id: string): Promise<AgentModelRoute | null> {
+  async getById(id: string, workspaceId: string): Promise<AgentModelRoute | null> {
+    if (!workspaceId) return null;
     const { data, error } = await supabase
       .from("agent_model_routes")
       .select("*")
       .eq("id", id)
+      .eq("workspace_id", workspaceId)
       .single();
 
     if (error || !data) return null;
@@ -95,13 +103,16 @@ export class AgentModelRoutes {
    */
   async getByAgentAndModel(
     agentId: string,
-    modelId: string
+    modelId: string,
+    workspaceId: string
   ): Promise<AgentModelRoute | null> {
+    if (!workspaceId) return null;
     const { data, error } = await supabase
       .from("agent_model_routes")
       .select("*")
       .eq("agent_id", agentId)
       .eq("model_id", modelId)
+      .eq("workspace_id", workspaceId)
       .single();
 
     if (error || !data) return null;
@@ -111,11 +122,13 @@ export class AgentModelRoutes {
   /**
    * Get all routes that use a specific model.
    */
-  async listByModel(modelId: string): Promise<AgentModelRoute[]> {
+  async listByModel(modelId: string, workspaceId: string): Promise<AgentModelRoute[]> {
+    if (!workspaceId) return [];
     const { data, error } = await supabase
       .from("agent_model_routes")
       .select("*")
-      .eq("model_id", modelId);
+      .eq("model_id", modelId)
+      .eq("workspace_id", workspaceId);
 
     if (error || !data) return [];
     return data as AgentModelRoute[];
@@ -124,7 +137,8 @@ export class AgentModelRoutes {
   /**
    * Create a new route.
    */
-  async create(input: RouteCreateInput, workspaceId: string = "ws-default"): Promise<AgentModelRoute | null> {
+  async create(input: RouteCreateInput, workspaceId: string): Promise<AgentModelRoute | null> {
+    if (!workspaceId) return null;
     const { data, error } = await supabase
       .from("agent_model_routes")
       .insert({

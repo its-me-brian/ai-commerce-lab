@@ -63,7 +63,8 @@ describe("Agent Delegation", () => {
             query: "find products",
             _delegatedBy: "agent-a",
           }),
-        })
+        }),
+        ""
       );
     });
 
@@ -106,7 +107,8 @@ describe("Agent Delegation", () => {
       });
 
       expect(mockCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ priority: 1 })
+        expect.objectContaining({ priority: 1 }),
+        ""
       );
     });
 
@@ -127,7 +129,8 @@ describe("Agent Delegation", () => {
       });
 
       expect(mockCreate).toHaveBeenCalledWith(
-        expect.objectContaining({ depends_on: ["task-1", "task-2"] })
+        expect.objectContaining({ depends_on: ["task-1", "task-2"] }),
+        ""
       );
     });
   });

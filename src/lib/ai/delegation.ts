@@ -10,6 +10,7 @@ export interface DelegationInput {
   toAgentId: string;
   taskType: string;
   input: Record<string, unknown>;
+  workspaceId?: string;
   priority?: number;
   dependsOn?: string[];
 }
@@ -51,7 +52,7 @@ export async function delegateTask(input: DelegationInput): Promise<DelegationRe
     },
     priority: input.priority ?? 5,
     depends_on: input.dependsOn ?? [],
-  });
+  }, input.workspaceId || "");
 
   if (!task) {
     throw new Error("Failed to create delegation task");

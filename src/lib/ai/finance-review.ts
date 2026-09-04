@@ -45,7 +45,7 @@ export class FinanceReview {
   /**
    * Review a product's financial viability.
    */
-  async review(input: FinanceReviewInput): Promise<FinanceReviewResult> {
+  async review(input: FinanceReviewInput, workspaceId?: string): Promise<FinanceReviewResult> {
     const checks: FinancialCheck[] = [];
 
     // Calculate pricing for reference (engine's recommended price)
@@ -134,7 +134,7 @@ export class FinanceReview {
             failedChecks: criticalFailures.map((c) => c.name),
           },
           risk_level: verdict === "rejected" ? "critical" : "high",
-        });
+        }, workspaceId || "");
         approvalId = approval.id;
       } catch (error) {
         // Approval creation failed — proceed without

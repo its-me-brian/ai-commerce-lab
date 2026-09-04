@@ -329,7 +329,8 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
         prompt: input.message,
         systemPrompt: enrichedSystemPrompt,
         responseFormat: "text",
-      }
+      },
+      { workspaceId: input.workspaceId || "" }
     );
 
     const durationMs = Date.now() - startTime;

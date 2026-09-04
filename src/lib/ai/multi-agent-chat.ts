@@ -93,6 +93,7 @@ export async function multiAgentChat(input: MultiAgentChatInput): Promise<MultiA
       conversationEngine,
       registry,
       router,
+      input.workspaceId,
     );
     agentResponses.push(response);
   } else {
@@ -138,7 +139,8 @@ Examples of when NOT to delegate:
         prompt: input.message,
         systemPrompt: coordinatorPrompt,
         responseFormat: "text",
-      }
+      },
+      { workspaceId: input.workspaceId || "" }
     );
 
     // Save CEO response
@@ -182,6 +184,7 @@ Examples of when NOT to delegate:
             conversationEngine,
             registry,
             router,
+            input.workspaceId,
           );
           agentResponses.push(response);
         } catch {
@@ -211,6 +214,7 @@ async function invokeAgent(
   conversationEngine: ReturnType<typeof getConversationEngine>,
   registry: ReturnType<typeof getAgentRegistry>,
   router: ReturnType<typeof getRouter>,
+  workspaceId?: string,
 ): Promise<AgentResponse> {
   const agentDef = registry.getDefinition(agentId);
 
@@ -239,7 +243,8 @@ async function invokeAgent(
       prompt: userMessage,
       systemPrompt,
       responseFormat: "text",
-    }
+    },
+    { workspaceId: workspaceId || "" }
   );
 
   const message = await conversationEngine.addMessage({

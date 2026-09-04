@@ -68,7 +68,7 @@ export class MarketingWorkflow {
   /**
    * Execute the full marketing workflow.
    */
-  async execute(input: MarketingWorkflowInput): Promise<MarketingWorkflowResult> {
+  async execute(input: MarketingWorkflowInput, workspaceId?: string): Promise<MarketingWorkflowResult> {
     const workflowId = `mw-${Date.now()}`;
     const completedSteps: MarketingWorkflowStep[] = [];
     const errors: string[] = [];
@@ -144,7 +144,7 @@ export class MarketingWorkflow {
               campaignName: content.campaignStrategy.name,
             },
             risk_level: riskLevel,
-          });
+          }, workspaceId || "");
           approvalId = approval.id;
         } catch (error) {
           errors.push(`Failed to create approval: ${error instanceof Error ? error.message : "Unknown"}`);

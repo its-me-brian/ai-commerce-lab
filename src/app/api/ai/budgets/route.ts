@@ -94,6 +94,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Ensure workspaceId from auth, not from client
+    budget.workspaceId = auth.workspaceId;
+
     tracker.setBudget(budget);
     return NextResponse.json({ success: true, budget });
   } catch (error) {

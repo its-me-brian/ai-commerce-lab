@@ -86,7 +86,7 @@ export class StoreBuilderWorkflow {
   /**
    * Execute the product draft workflow.
    */
-  async execute(input: ProductDraftInput): Promise<StoreBuilderResult> {
+  async execute(input: ProductDraftInput, workspaceId?: string): Promise<StoreBuilderResult> {
     const workflowId = `sb-${Date.now()}`;
     const completedSteps: StoreBuilderStep[] = [];
     const errors: string[] = [];
@@ -145,7 +145,7 @@ export class StoreBuilderWorkflow {
             sourceType,
           },
           risk_level: marginPercent < 0.15 ? "high" : "medium",
-        });
+        }, workspaceId || "");
         draft.approvalId = approval.id;
       } catch (error) {
         errors.push(`Approval failed: ${error instanceof Error ? error.message : "Unknown"}`);

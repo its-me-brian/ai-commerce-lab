@@ -21,7 +21,7 @@ describe("ApprovalCard", () => {
     status: "pending",
     reviewer_notes: null,
     reviewed_at: null,
-    expires_at: "2026-09-04T10:00:00Z",
+    expires_at: "2099-01-01T00:00:00Z",
     created_at: "2026-09-03T10:00:00Z",
   };
 

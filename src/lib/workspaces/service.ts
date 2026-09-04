@@ -7,6 +7,13 @@ import type { Workspace, WorkspaceInsert, WorkspaceUpdate, CompanyContext } from
 
 const DEFAULT_WORKSPACE_ID = "ws-default";
 
+function getDefaultWorkspaceId(): string {
+  if (process.env.NODE_ENV === "production") {
+    console.warn("[WorkspaceService] Falling back to default workspace in production — this should not happen. Check workspace resolution chain.");
+  }
+  return DEFAULT_WORKSPACE_ID;
+}
+
 export interface EnhancedCompanyContext extends CompanyContext {
   active_agents: Array<{ id: string; name: string; status: string; department: string | null }>;
   configured_providers: Array<{ slug: string; name: string; configured: boolean }>;
@@ -19,7 +26,7 @@ export class WorkspaceService {
    * Get workspace by ID. Falls back to default workspace.
    */
   async get(id?: string): Promise<Workspace | null> {
-    const workspaceId = id || DEFAULT_WORKSPACE_ID;
+    const workspaceId = id || getDefaultWorkspaceId();
 
     const { data, error } = await supabase
       .from("workspaces")
@@ -29,8 +36,8 @@ export class WorkspaceService {
 
     if (error || !data) {
       // Try to get default workspace
-      if (workspaceId !== DEFAULT_WORKSPACE_ID) {
-        return this.get(DEFAULT_WORKSPACE_ID);
+      if (workspaceId !== getDefaultWorkspaceId()) {
+        return this.get(getDefaultWorkspaceId());
       }
       return null;
     }

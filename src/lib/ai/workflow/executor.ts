@@ -221,7 +221,7 @@ export class WorkflowExecutor {
 
       switch (node.type) {
         case "agent":
-          output = await this.executeAgentNode(node, resolver);
+          output = await this.executeAgentNode(node, resolver, options);
           break;
         case "mini-ai":
           output = await this.executeMiniAINode(node, resolver);
@@ -287,7 +287,8 @@ export class WorkflowExecutor {
    */
   private async executeAgentNode(
     node: WorkflowNode,
-    resolver: WorkflowInputResolver
+    resolver: WorkflowInputResolver,
+    options: WorkflowExecutionOptions
   ): Promise<Record<string, unknown>> {
     if (!node.agentId) {
       throw new Error(`Agent node "${node.id}" is missing agentId`);
@@ -295,7 +296,7 @@ export class WorkflowExecutor {
 
     const input = resolver.resolveNodeInput(node);
     const engine = new AgentEngine();
-    const { result } = await engine.executeTask(node.agentId, input);
+    const { result } = await engine.executeTask(node.agentId, input, { workspaceId: options.workspaceId });
 
     if (!result.success) {
       throw new Error(result.errors?.join(", ") || "Agent execution failed");

@@ -50,17 +50,23 @@ export function ApprovalList({ agentId, limit = 50 }: ApprovalListProps) {
 
   const handleReview = async (id: string, decision: "approved" | "rejected") => {
     try {
-      // This would need a PATCH endpoint for approvals
-      // For now, we'll optimistically update the UI
-      setApprovals((prev) =>
-        prev.map((a) =>
-          a.id === id
-            ? { ...a, status: decision, reviewed_at: new Date().toISOString() }
-            : a
-        )
-      );
+      const res = await fetch(`/api/approvals/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.approval) {
+        setApprovals((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, ...data.approval } : a))
+        );
+      } else {
+        setError(data.error || "Failed to review approval");
+      }
     } catch (err) {
-      console.error("Failed to review approval:", err);
+      setError(err instanceof Error ? err.message : "Failed to review approval");
     }
   };
 

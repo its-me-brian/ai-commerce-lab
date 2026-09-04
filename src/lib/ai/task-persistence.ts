@@ -67,7 +67,7 @@ export class TaskPersistence {
         message: options?.message || null,
         metadata: options?.metadata || {},
         created_at: now,
-        workspace_id: options?.workspaceId || "ws-default",
+        workspace_id: options?.workspaceId || "",
       })
       .select()
       .single();

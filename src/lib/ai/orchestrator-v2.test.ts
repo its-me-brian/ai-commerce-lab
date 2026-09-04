@@ -363,7 +363,8 @@ describe("OrchestratorV2", () => {
           action_type: "price_change",
           action_summary: "Price change needs review",
           risk_level: "high",
-        })
+        }),
+        ""
       );
       expect(mockWaitForApproval).toHaveBeenCalled();
     });

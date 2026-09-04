@@ -43,7 +43,10 @@ export class TaskEngine {
   /**
    * Create a new task.
    */
-  async create(input: TaskCreateInput, workspaceId: string = "ws-default"): Promise<Task | null> {
+  async create(input: TaskCreateInput, workspaceId: string): Promise<Task | null> {
+    if (!workspaceId) {
+      throw new Error("workspaceId is required for task creation");
+    }
     const now = new Date().toISOString();
     const { data, error } = await supabase
       .from("agent_tasks")

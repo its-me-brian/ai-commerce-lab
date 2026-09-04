@@ -269,12 +269,14 @@ export class RAGService {
   /**
    * Delete a document.
    */
-  async deleteDocument(id: string): Promise<boolean> {
+  async deleteDocument(id: string, workspaceId: string): Promise<boolean> {
+    if (!workspaceId) return false;
     const db = await this.getClient();
     const { error } = await db
       .from("knowledge_documents")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("workspace_id", workspaceId);
 
     return !error;
   }

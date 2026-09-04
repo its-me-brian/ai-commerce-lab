@@ -14,11 +14,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { workspace_id, title, content, embedding, source_type, source_url, category, tags, metadata } = body;
+    const { title, content, embedding, source_type, source_url, category, tags, metadata } = body;
 
-    if (!workspace_id || !title || !content || !embedding) {
+    // Use workspaceId from authenticated session, NOT from client body
+    const workspace_id = authResult.workspaceId;
+
+    if (!title || !content || !embedding) {
       return NextResponse.json(
-        { error: "Missing required fields: workspace_id, title, content, embedding" },
+        { error: "Missing required fields: title, content, embedding" },
         { status: 400 }
       );
     }

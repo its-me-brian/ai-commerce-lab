@@ -296,6 +296,9 @@ export interface WorkflowExecutionOptions {
   /** Original input to the workflow */
   input: Record<string, unknown>;
 
+  /** Workspace ID for multi-tenancy isolation */
+  workspaceId: string;
+
   /** Maximum parallel nodes (default: Infinity — no limit) */
   maxParallel?: number;
 

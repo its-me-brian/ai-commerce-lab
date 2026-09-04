@@ -59,8 +59,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenRes.ok) {
-      const errText = await tokenRes.text();
-      console.error("[Shopify] Token exchange failed:", errText);
+      console.error("[Shopify] Token exchange failed:", tokenRes.status);
       return NextResponse.redirect(
         new URL(`/dashboard/settings?tab=integrations&error=token_exchange_failed`, request.url)
       );
@@ -98,6 +97,26 @@ export async function GET(request: NextRequest) {
         new URL("/dashboard/settings?tab=integrations&error=missing_state", request.url)
       );
     }
+
+    // 4b. Validate that the authenticated user is a member of the workspace from state
+    const { createClient: createServiceClient } = await import("@supabase/supabase-js");
+    const serviceClient = createServiceClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { data: membership } = await serviceClient
+      .from("workspace_members")
+      .select("role")
+      .eq("workspace_id", state)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!membership) {
+      return NextResponse.redirect(
+        new URL("/dashboard/settings?tab=integrations&error=unauthorized", request.url)
+      );
+    }
+
     const workspaceId = state;
 
     // 5. Upsert store connection

@@ -25,6 +25,7 @@ describe("CostBudgetTracker", () => {
     it("adds and retrieves a budget", () => {
       const budget: CostBudget = {
         id: "agent:researcher:day",
+        workspaceId: "test-ws",
         entityId: "researcher",
         entityType: "agent",
         maxDollars: 1.0,
@@ -40,6 +41,7 @@ describe("CostBudgetTracker", () => {
     it("removes a budget", () => {
       tracker.setBudget({
         id: "test-budget",
+        workspaceId: "test-ws",
         entityId: "test",
         entityType: "agent",
         maxDollars: 1.0,
@@ -54,6 +56,7 @@ describe("CostBudgetTracker", () => {
     it("lists budgets for an entity", () => {
       tracker.setBudget({
         id: "agent:a:day",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 1.0,
@@ -62,6 +65,7 @@ describe("CostBudgetTracker", () => {
       });
       tracker.setBudget({
         id: "agent:a:hour",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 0.1,
@@ -70,6 +74,7 @@ describe("CostBudgetTracker", () => {
       });
       tracker.setBudget({
         id: "agent:b:day",
+        workspaceId: "test-ws",
         entityId: "b",
         entityType: "agent",
         maxDollars: 2.0,
@@ -84,6 +89,7 @@ describe("CostBudgetTracker", () => {
     it("filters by entity type", () => {
       tracker.setBudget({
         id: "agent:a:day",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 1.0,
@@ -92,6 +98,7 @@ describe("CostBudgetTracker", () => {
       });
       tracker.setBudget({
         id: "workflow:a:total",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "workflow",
         maxDollars: 5.0,
@@ -107,6 +114,7 @@ describe("CostBudgetTracker", () => {
     it("returns only active budgets", () => {
       tracker.setBudget({
         id: "active-budget",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 1.0,
@@ -115,6 +123,7 @@ describe("CostBudgetTracker", () => {
       });
       tracker.setBudget({
         id: "inactive-budget",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 1.0,
@@ -141,6 +150,7 @@ describe("CostBudgetTracker", () => {
     it("allows when within budget", () => {
       tracker.setBudget({
         id: "agent:a:day",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 1.0,
@@ -155,6 +165,7 @@ describe("CostBudgetTracker", () => {
     it("rejects when estimated cost exceeds budget", () => {
       tracker.setBudget({
         id: "agent:a:day",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 0.1,
@@ -172,6 +183,7 @@ describe("CostBudgetTracker", () => {
     it("rejects when existing spending + estimated would exceed budget", () => {
       tracker.setBudget({
         id: "agent:a:day",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 1.0,
@@ -180,7 +192,7 @@ describe("CostBudgetTracker", () => {
       });
 
       // Record existing spending
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.8 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars:  0.8, workspaceId: "test-ws" });
 
       // Check if we can spend 0.3 more → total 1.1 > 1.0
       const result = tracker.checkBudget("a", "agent", 0.3);
@@ -190,6 +202,7 @@ describe("CostBudgetTracker", () => {
     it("checks global budget as well", () => {
       tracker.setBudget({
         id: "global:global:day",
+        workspaceId: "test-ws",
         entityId: "global",
         entityType: "global",
         maxDollars: 5.0,
@@ -198,7 +211,7 @@ describe("CostBudgetTracker", () => {
       });
 
       // Spending on specific agent
-      tracker.recordCost({ entityId: "agent-a", entityType: "agent", costDollars: 4.8 });
+      tracker.recordCost({ entityId: "agent-a", entityType: "agent", costDollars:  4.8, workspaceId: "test-ws" });
 
       // Global check: 4.8 + 0.5 = 5.3 > 5.0
       const result = tracker.checkBudget("agent-a", "agent", 0.5);
@@ -208,6 +221,7 @@ describe("CostBudgetTracker", () => {
     it("assertBudget throws on violation", () => {
       tracker.setBudget({
         id: "agent:a:day",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 0.1,
@@ -225,16 +239,16 @@ describe("CostBudgetTracker", () => {
 
   describe("recordCost", () => {
     it("records a cost", () => {
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.1 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.1, workspaceId: "test-ws" });
 
       const spending = tracker.getSpending("a", "agent", "total");
       expect(spending).toBe(0.1);
     });
 
     it("accumulates multiple costs", () => {
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.1 });
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.2 });
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.3 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.1, workspaceId: "test-ws" });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.2, workspaceId: "test-ws" });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.3, workspaceId: "test-ws" });
 
       const spending = tracker.getSpending("a", "agent", "total");
       expect(spending).toBeCloseTo(0.6);
@@ -245,6 +259,7 @@ describe("CostBudgetTracker", () => {
         id: "agent:a:day",
         entityId: "a",
         entityType: "agent",
+        workspaceId: "test-ws",
         maxDollars: 1.0,
         window: "day",
         active: true,
@@ -252,7 +267,7 @@ describe("CostBudgetTracker", () => {
       });
 
       // Spend 0.55 → crosses 50% threshold
-      const alerts = tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.55 });
+      const alerts = tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.55, workspaceId: "test-ws" });
       expect(alerts.length).toBeGreaterThan(0);
       expect(alerts[0].level).toBe("warning");
     });
@@ -262,13 +277,14 @@ describe("CostBudgetTracker", () => {
         id: "agent:a:day",
         entityId: "a",
         entityType: "agent",
+        workspaceId: "test-ws",
         maxDollars: 1.0,
         window: "day",
         active: true,
         alertThresholds: [0.8, 0.95],
       });
 
-      const alerts = tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.96 });
+      const alerts = tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.96, workspaceId: "test-ws" });
       const critical = alerts.find((a) => a.level === "critical");
       expect(critical).toBeDefined();
     });
@@ -278,13 +294,14 @@ describe("CostBudgetTracker", () => {
         id: "agent:a:day",
         entityId: "a",
         entityType: "agent",
+        workspaceId: "test-ws",
         maxDollars: 1.0,
         window: "day",
         active: true,
         alertThresholds: [0.8],
       });
 
-      const alerts = tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 1.1 });
+      const alerts = tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 1.1, workspaceId: "test-ws" });
       const exceeded = alerts.find((a) => a.level === "exceeded");
       expect(exceeded).toBeDefined();
     });
@@ -294,6 +311,7 @@ describe("CostBudgetTracker", () => {
         id: "agent:a:day",
         entityId: "a",
         entityType: "agent",
+        workspaceId: "test-ws",
         maxDollars: 1.0,
         window: "day",
         active: true,
@@ -301,11 +319,11 @@ describe("CostBudgetTracker", () => {
       });
 
       // First spend crosses threshold
-      const alerts1 = tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.55 });
+      const alerts1 = tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.55, workspaceId: "test-ws" });
       expect(alerts1.length).toBe(1);
 
       // Second spend still in same range → no new alert
-      const alerts2 = tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.1 });
+      const alerts2 = tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.1, workspaceId: "test-ws" });
       expect(alerts2.length).toBe(0);
     });
   });
@@ -320,24 +338,24 @@ describe("CostBudgetTracker", () => {
     });
 
     it("getSpending isolates by entity", () => {
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.5 });
-      tracker.recordCost({ entityId: "b", entityType: "agent", costDollars: 0.3 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.5, workspaceId: "test-ws" });
+      tracker.recordCost({ entityId: "b", entityType: "agent", costDollars: 0.3, workspaceId: "test-ws" });
 
       expect(tracker.getSpending("a", "agent", "total")).toBe(0.5);
       expect(tracker.getSpending("b", "agent", "total")).toBe(0.3);
     });
 
     it("getSpending isolates by entity type", () => {
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.5 });
-      tracker.recordCost({ entityId: "a", entityType: "workflow", costDollars: 0.3 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.5, workspaceId: "test-ws" });
+      tracker.recordCost({ entityId: "a", entityType: "workflow", costDollars: 0.3, workspaceId: "test-ws" });
 
       expect(tracker.getSpending("a", "agent", "total")).toBe(0.5);
       expect(tracker.getSpending("a", "workflow", "total")).toBe(0.3);
     });
 
     it("getTotalSpending sums all records", () => {
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.5 });
-      tracker.recordCost({ entityId: "b", entityType: "workflow", costDollars: 0.3 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.5, workspaceId: "test-ws" });
+      tracker.recordCost({ entityId: "b", entityType: "workflow", costDollars: 0.3, workspaceId: "test-ws" });
 
       expect(tracker.getTotalSpending("total")).toBeCloseTo(0.8);
     });
@@ -351,6 +369,7 @@ describe("CostBudgetTracker", () => {
     it("returns correct status with no spending", () => {
       const budget: CostBudget = {
         id: "test",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 1.0,
@@ -368,6 +387,7 @@ describe("CostBudgetTracker", () => {
     it("returns correct status with spending", () => {
       const budget: CostBudget = {
         id: "test",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 1.0,
@@ -375,7 +395,7 @@ describe("CostBudgetTracker", () => {
         active: true,
       };
 
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.6 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.6, workspaceId: "test-ws" });
 
       const status = tracker.getBudgetStatus(budget);
       expect(status.currentSpending).toBeCloseTo(0.6);
@@ -387,6 +407,7 @@ describe("CostBudgetTracker", () => {
     it("marks as exhausted when over limit", () => {
       const budget: CostBudget = {
         id: "test",
+        workspaceId: "test-ws",
         entityId: "a",
         entityType: "agent",
         maxDollars: 0.5,
@@ -394,7 +415,7 @@ describe("CostBudgetTracker", () => {
         active: true,
       };
 
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.6 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.6, workspaceId: "test-ws" });
 
       const status = tracker.getBudgetStatus(budget);
       expect(status.exhausted).toBe(true);
@@ -405,6 +426,7 @@ describe("CostBudgetTracker", () => {
         id: "a:day",
         entityId: "a",
         entityType: "agent",
+        workspaceId: "test-ws",
         maxDollars: 1.0,
         window: "day",
         active: true,
@@ -413,6 +435,7 @@ describe("CostBudgetTracker", () => {
         id: "a:hour",
         entityId: "a",
         entityType: "agent",
+        workspaceId: "test-ws",
         maxDollars: 0.1,
         window: "hour",
         active: true,
@@ -462,11 +485,12 @@ describe("CostBudgetTracker", () => {
         id: "test",
         entityId: "a",
         entityType: "agent",
+        workspaceId: "test-ws",
         maxDollars: 1.0,
         window: "day",
         active: true,
       });
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.5 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.5, workspaceId: "test-ws" });
 
       tracker.clear();
 
@@ -480,6 +504,7 @@ describe("CostBudgetTracker", () => {
         id: "budget-a",
         entityId: "a",
         entityType: "agent",
+        workspaceId: "test-ws",
         maxDollars: 0.5,
         window: "day",
         active: true,
@@ -489,14 +514,15 @@ describe("CostBudgetTracker", () => {
         id: "budget-b",
         entityId: "b",
         entityType: "agent",
+        workspaceId: "test-ws",
         maxDollars: 0.5,
         window: "day",
         active: true,
         alertThresholds: [0.5],
       });
 
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.3 });
-      tracker.recordCost({ entityId: "b", entityType: "agent", costDollars: 0.3 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.3, workspaceId: "test-ws" });
+      tracker.recordCost({ entityId: "b", entityType: "agent", costDollars: 0.3, workspaceId: "test-ws" });
 
       expect(tracker.getAlerts()).toHaveLength(2);
       tracker.clearAlerts("budget-a");
@@ -510,12 +536,12 @@ describe("CostBudgetTracker", () => {
 
   describe("edge cases", () => {
     it("handles zero-cost execution", () => {
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0, workspaceId: "test-ws" });
       expect(tracker.getSpending("a", "agent", "total")).toBe(0);
     });
 
     it("handles very small costs", () => {
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.0001 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.0001, workspaceId: "test-ws" });
       expect(tracker.getSpending("a", "agent", "total")).toBeCloseTo(0.0001);
     });
 
@@ -524,6 +550,7 @@ describe("CostBudgetTracker", () => {
         id: "zero-budget",
         entityId: "a",
         entityType: "agent",
+        workspaceId: "test-ws",
         maxDollars: 0,
         window: "day",
         active: true,
@@ -534,9 +561,9 @@ describe("CostBudgetTracker", () => {
     });
 
     it("recent records are ordered chronologically", () => {
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.1 });
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.2 });
-      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.3 });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.1, workspaceId: "test-ws" });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.2, workspaceId: "test-ws" });
+      tracker.recordCost({ entityId: "a", entityType: "agent", costDollars: 0.3, workspaceId: "test-ws" });
 
       const records = tracker.getRecentRecords();
       expect(records[0].costDollars).toBe(0.1);
