@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 // GET /api/agents/list
 // List all agents with their configs and definitions for the workspace selector
@@ -33,7 +34,7 @@ export const GET = withSecurity(async (request: NextRequest) => {
       .eq("workspace_id", workspaceId);
 
     if (configsError) {
-      console.error("[API] Failed to load configs:", configsError.message);
+      logger.error("Failed to load agent configs", { workspaceId, code: configsError.code });
     }
 
     // V1 fallback: new workspaces have no configs — use ws-default
@@ -51,7 +52,7 @@ export const GET = withSecurity(async (request: NextRequest) => {
       .select("slug, identity_name, identity_role, identity_description, mission, expertise, rules, skills");
 
     if (defsError) {
-      console.error("[API] Failed to load definitions:", defsError.message);
+      logger.error("Failed to load agent definitions", { code: defsError.code });
     }
 
     // Merge agents with their configs and definitions

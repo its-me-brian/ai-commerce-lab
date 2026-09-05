@@ -11,6 +11,7 @@ import { createClient } from "@/lib/database/supabase-server";
 import { supabase } from "@/lib/database/supabase";
 import { encrypt } from "@/lib/ai/encryption";
 import { createHmac, timingSafeEqual } from "crypto";
+import { logger } from "@/lib/logging";
 
 /**
  * Verify HMAC signature on OAuth state parameter.
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
     const apiSecret = process.env.SHOPIFY_API_SECRET;
 
     if (!apiKey || !apiSecret) {
-      console.error("[Shopify] Missing SHOPIFY_API_KEY or SHOPIFY_API_SECRET");
+      logger.error("Shopify missing API credentials");
       return NextResponse.redirect(
         new URL("/dashboard/settings?tab=integrations&error=missing_config", request.url)
       );
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenRes.ok) {
-      console.error("[Shopify] Token exchange failed:", tokenRes.status);
+      logger.error("Shopify token exchange failed", { status: tokenRes.status });
       return NextResponse.redirect(
         new URL(`/dashboard/settings?tab=integrations&error=token_exchange_failed`, request.url)
       );
@@ -186,7 +187,7 @@ export async function GET(request: NextRequest) {
       );
 
     if (upsertError) {
-      console.error("[Shopify] Failed to store connection:", upsertError);
+      logger.error("Failed to store Shopify connection", { shop, code: upsertError.code });
       return NextResponse.redirect(
         new URL("/dashboard/settings?tab=integrations&error=store_failed", request.url)
       );
@@ -197,7 +198,7 @@ export async function GET(request: NextRequest) {
       new URL("/dashboard/settings?tab=integrations&shopify=connected", request.url)
     );
   } catch (error) {
-    console.error("[Shopify] OAuth callback error:", error);
+    logger.error("Shopify OAuth callback error", { message: error instanceof Error ? error.message : "unknown" });
     return NextResponse.redirect(
       new URL("/dashboard/settings?tab=integrations&error=unknown", request.url)
     );

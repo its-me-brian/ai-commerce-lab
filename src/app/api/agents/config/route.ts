@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 // GET /api/agents/config?agentId=product-hunter
 // Get agent configuration
@@ -45,7 +46,7 @@ export const GET = withSecurity(async (request: NextRequest) => {
       .single();
 
     if (configError && configError.code !== "PGRST116") {
-      console.error(`[API] Failed to load config for ${agentId}:`, configError.message);
+      logger.error("Failed to load agent config", { agentId, code: configError.code });
     }
 
     // V1 fallback: use ws-default config if workspace has none
@@ -66,7 +67,7 @@ export const GET = withSecurity(async (request: NextRequest) => {
       .order("name");
 
     if (providersError) {
-      console.error("[API] Failed to load providers:", providersError.message);
+      logger.error("Failed to load providers", { code: providersError.code });
     }
 
     // Get models (global table — no workspace_id filter)
@@ -76,7 +77,7 @@ export const GET = withSecurity(async (request: NextRequest) => {
       .order("name");
 
     if (modelsError) {
-      console.error("[API] Failed to load models:", modelsError.message);
+      logger.error("Failed to load models", { code: modelsError.code });
     }
 
     // Get recent runs
@@ -89,7 +90,7 @@ export const GET = withSecurity(async (request: NextRequest) => {
       .limit(5);
 
     if (runsError) {
-      console.error("[API] Failed to load runs:", runsError.message);
+      logger.error("Failed to load agent runs", { agentId, code: runsError.code });
     }
 
     // Get agent skills (scoped via agent's workspace_id from query above)
@@ -99,7 +100,7 @@ export const GET = withSecurity(async (request: NextRequest) => {
       .eq("agent_id", agentId);
 
     if (skillsError) {
-      console.error("[API] Failed to load skills:", skillsError.message);
+      logger.error("Failed to load agent skills", { agentId, code: skillsError.code });
     }
 
     return NextResponse.json({
