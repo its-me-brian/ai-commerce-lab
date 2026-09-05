@@ -7,7 +7,7 @@ import {
   createWorkflowBudget,
   createGlobalDailyBudget,
 } from "./cost-budget";
-import type { CostBudget, BudgetAlert } from "./cost-budget";
+import type { CostBudget }from "./cost-budget";
 
 describe("CostBudgetTracker", () => {
   let tracker: CostBudgetTracker;

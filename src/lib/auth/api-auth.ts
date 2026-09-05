@@ -2,8 +2,10 @@
 // Utility functions for authenticating and authorizing API routes.
 // PHASE 1: Added workspace access checks and production-safe auth.
 
+import { logger } from "../logging";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface AuthenticatedUser {
   id: string;
@@ -118,9 +120,9 @@ export async function requireAuth(request: NextRequest): Promise<
  * For V1: single user → single workspace → auto-resolved.
  * Creates a workspace + membership if user has none.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 async function getOrCreatePersonalWorkspace(
-  serviceClient: any,
+  serviceClient: SupabaseClient,
   userId: string
 ): Promise<{ workspaceId: string; role: WorkspaceRole } | null> {
   // 1. Check existing membership
@@ -157,7 +159,7 @@ async function getOrCreatePersonalWorkspace(
     });
 
   if (wsError) {
-    console.error("[Auth] Failed to create workspace:", wsError.message);
+    logger.error("[Auth] Failed to create workspace:", { message: wsError.message });
     return null;
   }
 
@@ -171,11 +173,11 @@ async function getOrCreatePersonalWorkspace(
     });
 
   if (memError) {
-    console.error("[Auth] Failed to create membership:", memError.message);
+    logger.error("[Auth] Failed to create membership:", { message: memError.message });
     return null;
   }
 
-  console.log(`[Auth] Created personal workspace ${workspaceId} for user ${userId}`);
+  logger.info(`[Auth] Created personal workspace ${workspaceId} for user ${userId}`);
   return { workspaceId, role: "owner" };
 }
 
@@ -202,10 +204,14 @@ export async function requireWorkspaceAccess(
   const { user } = auth;
   const minimumRole = options.minimumRole || "viewer";
 
-  // If Supabase not configured, allow access (dev mode)
+  // If Supabase not configured, deny access (fail closed)
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    const wsId = options.workspaceId || "ws-default";
-    return { user, workspaceId: wsId, role: "owner" };
+    return {
+      error: NextResponse.json(
+        { success: false, error: "Authentication service not configured" },
+        { status: 401 }
+      ),
+    };
   }
 
   // Dev synthetic user: skip DB membership check

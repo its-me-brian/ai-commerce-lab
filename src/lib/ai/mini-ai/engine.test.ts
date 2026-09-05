@@ -1,5 +1,6 @@
 // Mini-AI Engine Tests
 import { describe, it, expect, beforeEach, vi } from "vitest";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   MiniAIEngine,
   getMiniAIEngine,
@@ -9,6 +10,7 @@ import {
   clearDeterministicImpls,
   clearPromptBuilders,
 } from "./engine";
+/* eslint-enable @typescript-eslint/no-unused-vars */
 import { getMiniAIRegistry, resetMiniAIRegistry } from "./registry";
 import type { MiniAIDefinition } from "./types";
 
@@ -127,7 +129,7 @@ describe("MiniAIEngine", () => {
       const def = createTestDefinition();
       registry.register(def);
 
-      registerDeterministicImpl("test-mini-ai", async (input) => ({
+      registerDeterministicImpl("test-mini-ai", async (_input) => ({  
         output: { classified: true, category: "test" },
         confidence: 0.95,
         reasoning: "Test input classified as test",

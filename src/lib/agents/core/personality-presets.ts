@@ -5,10 +5,6 @@
 
 import type {
   Personality,
-  PersonalityTrait,
-  CommunicationStyle,
-  DecisionStyle,
-  PersonalityTone,
 } from "./types-agent-definition";
 
 export interface PersonalityPreset {

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { TaskCard, type TaskRecord } from "./TaskCard";
-import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorMessage } from "@/components/ui/ErrorMessage";
 
 interface TaskListProps {
   agentId?: string;
@@ -76,7 +77,7 @@ export function TaskList({ agentId, limit = 50 }: TaskListProps) {
 
       {/* Loading state */}
       {loading && (
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-12" role="status" aria-label="Loading tasks">
           <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-tertiary)" }}>
             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
             Loading tasks...
@@ -86,32 +87,16 @@ export function TaskList({ agentId, limit = 50 }: TaskListProps) {
 
       {/* Error state */}
       {error && (
-        <div
-          className="text-sm p-4 rounded-[var(--r-md)]"
-          style={{ background: "var(--error-bg)", color: "var(--error)" }}
-        >
-          {error}
-        </div>
+        <ErrorMessage message={error} />
       )}
 
       {/* Empty state */}
       {!loading && !error && tasks.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12">
-          <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3"
-            style={{ background: "var(--bg-sunken)" }}
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: "var(--text-tertiary)" }}>
-              <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-          </div>
-          <p className="text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>
-            No tasks found
-          </p>
-          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            Tasks will appear here when agents execute them
-          </p>
-        </div>
+        <EmptyState
+          icon="📋"
+          title="No tasks found"
+          description="Tasks will appear here."
+        />
       )}
 
       {/* Task grid */}

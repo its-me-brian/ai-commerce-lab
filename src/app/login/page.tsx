@@ -3,9 +3,11 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getBrowserClient } from "@/lib/database/supabase-browser";
+import { Button } from "@/components/ui/Button";
 
 export default function LoginPage() {
-  const router = useRouter();
+ 
+  const _router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,6 +44,7 @@ export default function LoginPage() {
 
       if (data?.session) {
         // Session persisted in cookies via createBrowserClient — safe to reload
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.href = "/dashboard";
       } else {
         setError("Login failed. Please try again.");
@@ -102,17 +105,13 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button
+          <Button
             type="submit"
-            disabled={loading}
-            className="w-full py-2 text-sm font-medium rounded-[var(--r-md)] transition-colors disabled:opacity-50"
-            style={{
-              background: "var(--accent)",
-              color: "var(--text-inverse)",
-            }}
+            loading={loading}
+            className="w-full"
           >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
+            Sign in
+          </Button>
         </form>
 
         <p className="text-center text-xs mt-6" style={{ color: "var(--text-tertiary)" }}>

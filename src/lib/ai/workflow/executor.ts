@@ -23,7 +23,8 @@ import type {
   WorkflowNode,
   WorkflowNodeState,
   WorkflowState,
-  WorkflowStatus,
+ 
+  WorkflowStatus as _WorkflowStatus,
   WorkflowExecutionOptions,
   WorkflowExecutionResult,
   WorkflowCondition,
@@ -379,6 +380,7 @@ export class WorkflowExecutor {
   private async executeConditionNode(
     node: WorkflowNode,
     resolver: WorkflowInputResolver,
+ 
     _nodeMap: Map<string, WorkflowNode>
   ): Promise<Record<string, unknown>> {
     if (!node.condition) {
@@ -399,7 +401,8 @@ export class WorkflowExecutor {
   private async executeAggregateNode(
     node: WorkflowNode,
     resolver: WorkflowInputResolver,
-    definition: WorkflowDefinition
+     
+    _definition: WorkflowDefinition
   ): Promise<Record<string, unknown>> {
     if (!node.aggregation) {
       throw new Error(`Aggregate node "${node.id}" has no aggregation defined`);
@@ -601,6 +604,7 @@ export class WorkflowExecutor {
 
   private getNodeDependencies(
     node: WorkflowNode,
+ 
     _definition: WorkflowDefinition
   ): string[] {
     const deps: string[] = [];

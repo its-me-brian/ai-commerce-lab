@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chatWithAgent } from "@/lib/ai/agent-chat";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // POST /api/agents/chat
 // Send a message to an agent and get a response.
 // Body: { agentId, message, conversationId? }
-export async function POST(request: NextRequest) {
+export const POST = withSecurity(async (request: NextRequest) => {
   try {
     // Auth + workspace check — workspaceId comes from session, NOT from request body
     const auth = await requireWorkspaceAccess(request);
@@ -55,13 +56,13 @@ export async function POST(request: NextRequest) {
         createdAt: result.assistantMessage.created_at,
       },
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
   }
-}
+});

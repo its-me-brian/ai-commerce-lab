@@ -2,6 +2,7 @@
 // Cookie-based Supabase client for Server Components and Route Handlers.
 // Uses @supabase/ssr for proper cookie handling in Next.js App Router.
 
+import { logger } from "../logging";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -53,7 +54,7 @@ export async function getWorkspaceId(): Promise<string> {
   // Supabase not configured — dev mode only
   if (!client) {
     if (process.env.NODE_ENV === "production") {
-      console.error("[WorkspaceId] Supabase not configured in production");
+      logger.error("[WorkspaceId] Supabase not configured in production");
       throw new Error("Supabase not configured");
     }
     return "ws-default";
@@ -119,7 +120,7 @@ export async function getWorkspaceId(): Promise<string> {
     });
 
   if (wsError) {
-    console.error("[WorkspaceId] Failed to create workspace:", wsError.message);
+    logger.error("[WorkspaceId] Failed to create workspace:", { error: String(wsError.message) });
     throw new Error("Failed to create workspace");
   }
 
@@ -132,10 +133,10 @@ export async function getWorkspaceId(): Promise<string> {
     });
 
   if (memError) {
-    console.error("[WorkspaceId] Failed to create membership:", memError.message);
+    logger.error("[WorkspaceId] Failed to create membership:", { error: String(memError.message) });
     throw new Error("Failed to create workspace membership");
   }
 
-  console.log(`[WorkspaceId] Created personal workspace ${workspaceId} for user ${user.id}`);
+  logger.info(`[WorkspaceId] Created personal workspace  for user ${user.id}`, { value: workspaceId });
   return workspaceId;
 }

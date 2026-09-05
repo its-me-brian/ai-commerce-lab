@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { sanitizeBody } from "@/lib/security/sanitize";
 
 export async function GET(
   request: NextRequest,
@@ -30,9 +31,9 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, definition });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
@@ -47,7 +48,7 @@ export async function PATCH(
     if ("error" in auth) return auth.error;
 
     const { id } = await params;
-    const body = await request.json();
+    const body = sanitizeBody(await request.json()) as Record<string, unknown>;
 
     // Only allow updating specific definition fields
     const allowedFields = [
@@ -90,9 +91,8 @@ export async function PATCH(
       .single();
 
     if (error) {
-      console.error("[Agent Definition] Update error:", error);
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: "Failed to update definition" },
         { status: 500 }
       );
     }
@@ -116,9 +116,9 @@ export async function PATCH(
     }
 
     return NextResponse.json({ success: true, definition: data });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }

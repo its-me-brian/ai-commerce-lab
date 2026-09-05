@@ -6,6 +6,7 @@
 //   new OpenAICompatibleProvider("qwen", apiKey, "https://dashscope.aliyuncs.com/compatible-mode/v1")
 //   new OpenAICompatibleProvider("deepseek", apiKey, "https://api.deepseek.com/v1")
 
+import { logger } from "../../logging";
 import { AIProvider } from "./base";
 import type {
   AIProviderSlug,
@@ -108,7 +109,7 @@ export class OpenAICompatibleProvider extends AIProvider {
       try {
         structuredData = JSON.parse(content);
       } catch (parseError) {
-        console.warn(
+        logger.warn(
           `[${this.slug}] Response was not valid JSON despite responseFormat=json. ` +
           `Parse error: ${parseError instanceof Error ? parseError.message : "unknown"}`
         );
@@ -166,7 +167,7 @@ export class OpenAICompatibleProvider extends AIProvider {
         provider: this.slug,
         model,
         latencyMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : String(error),
+        error: String(error),
       };
     }
   }
@@ -185,9 +186,9 @@ export class OpenAICompatibleProvider extends AIProvider {
         contextWindow: 128000,
       }));
     } catch (error) {
-      console.error(
+      logger.error(
         `[${this.slug}] Failed to fetch available models:`,
-        error instanceof Error ? error.message : error
+        { error: error instanceof Error ? error.message : String(error) }
       );
       return [];
     }

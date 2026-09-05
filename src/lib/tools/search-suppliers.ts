@@ -45,7 +45,8 @@ export class SearchSuppliersTool implements Tool {
     },
   };
 
-  async execute(input: Record<string, unknown>): Promise<ToolResult> {
+   
+  async execute(_input: Record<string, unknown>): Promise<ToolResult> {
     // No real supplier API configured yet — return clear error
     return {
       success: false,

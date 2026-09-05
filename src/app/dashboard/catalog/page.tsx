@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 
 interface CatalogProduct {
@@ -75,7 +76,7 @@ export default function CatalogPage() {
       } else {
         setError(data.error || "Failed to load catalog");
       }
-    } catch (err) {
+    } catch  {
       setError("Failed to connect to the server. Please try again.");
     } finally {
       setLoading(false);
@@ -83,8 +84,30 @@ export default function CatalogPage() {
   }, [statusFilter, searchQuery]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    let cancelled = false;
+    async function load() {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      if (searchQuery) params.set("search", searchQuery);
+      try {
+        const res = await fetch(`/api/catalog?${params.toString()}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.success) {
+          setProducts(data.products);
+          setCounts(data.counts);
+        } else {
+          setError(data.error || "Failed to load catalog");
+        }
+      } catch {
+        if (!cancelled) setError("Failed to connect to the server. Please try again.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [statusFilter, searchQuery]);
 
   const updateStatus = async (id: string, status: string) => {
     try {
@@ -139,6 +162,7 @@ export default function CatalogPage() {
           placeholder="Search products..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          aria-label="Search products"
           className="px-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
           style={{
             border: "1px solid var(--border)",
@@ -181,16 +205,17 @@ export default function CatalogPage() {
         {/* Product List */}
         <div className={selectedProduct ? "w-1/2" : "w-full"}>
           {loading ? (
-            <div className="text-center py-12" style={{ color: "var(--text-tertiary)" }}>
-              Loading...
+            <div className="flex items-center justify-center py-8" role="status" aria-label="Loading">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin" style={{ animation: "spin 1s linear infinite" }}>
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              </svg>
             </div>
           ) : products.length === 0 ? (
-            <div className="text-center py-12" style={{ color: "var(--text-tertiary)" }}>
-              <p className="text-lg mb-2" style={{ color: "var(--text-secondary)" }}>
-                No products in catalog
-              </p>
-              <p className="text-sm">Run Product Hunter to discover products, then add them here.</p>
-            </div>
+            <EmptyState
+              icon="📦"
+              title="No products in catalog"
+              description="Products from Shopify or manual entry will appear here."
+            />
           ) : (
             <div className="grid gap-3">
               {products.map((product) => {
@@ -200,6 +225,14 @@ export default function CatalogPage() {
                   <div
                     key={product.id}
                     onClick={() => setSelectedProduct(product)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedProduct(product);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
                     className="p-4 rounded-lg cursor-pointer transition-all"
                     style={{
                       border: `1px solid ${isSelected ? "var(--accent)" : "var(--border)"}`,
@@ -249,6 +282,7 @@ export default function CatalogPage() {
                         </div>
                       </div>
                       {product.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={product.image_url}
                           alt={product.name}
@@ -268,6 +302,11 @@ export default function CatalogPage() {
           <div
             className="w-1/2 rounded-lg p-5 h-fit sticky top-6"
             style={{ border: "1px solid var(--border)", background: "var(--bg-card)" }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setSelectedProduct(null);
+            }}
+            tabIndex={-1}
+            aria-label="Product details"
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
@@ -275,6 +314,7 @@ export default function CatalogPage() {
               </h2>
               <button
                 onClick={() => setSelectedProduct(null)}
+                aria-label="Close product details"
                 className="text-lg"
                 style={{ color: "var(--text-tertiary)" }}
               >

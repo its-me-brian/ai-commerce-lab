@@ -9,7 +9,8 @@ export abstract class BaseAgent {
 
   abstract execute(context: AgentContext): Promise<AgentResult>;
 
-  validateInput(input: Record<string, unknown>): string[] {
+ 
+  validateInput(_input: Record<string, unknown>): string[] {
     // Default: no validation errors
     // Override in specific agents
     return [];

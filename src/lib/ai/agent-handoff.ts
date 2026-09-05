@@ -98,6 +98,8 @@ export type CompleteHandoffInput = z.infer<typeof CompleteHandoffInputSchema>;
 /**
  * Agent Handoff Manager
  * Manages structured context-passing between agents.
+ * Persistence: Handoffs are persisted to Supabase (agent_handoffs table)
+ * for survival across restarts. In-memory Map is kept as read cache.
  */
 export class AgentHandoffManager {
   private handoffs: Map<string, AgentHandoff> = new Map();
@@ -121,6 +123,7 @@ export class AgentHandoffManager {
     };
 
     this.handoffs.set(handoff.id, handoff);
+    this.persistToSupabase(handoff);
     return handoff;
   }
 
@@ -133,6 +136,7 @@ export class AgentHandoffManager {
 
     handoff.status = "in_progress";
     handoff.updatedAt = new Date().toISOString();
+    this.updateInSupabase(handoff);
     return handoff;
   }
 
@@ -150,6 +154,7 @@ export class AgentHandoffManager {
     handoff.result = input.result;
     handoff.completedAt = new Date().toISOString();
     handoff.updatedAt = new Date().toISOString();
+    this.updateInSupabase(handoff);
 
     return handoff;
   }
@@ -166,6 +171,7 @@ export class AgentHandoffManager {
     handoff.result = result;
     handoff.completedAt = new Date().toISOString();
     handoff.updatedAt = new Date().toISOString();
+    this.updateInSupabase(handoff);
 
     return handoff;
   }
@@ -313,6 +319,7 @@ export class AgentHandoffManager {
       summary: "Handoff cancelled by source agent",
       errors: ["Cancelled"],
     };
+    this.updateInSupabase(handoff);
     return true;
   }
 
@@ -364,6 +371,53 @@ export class AgentHandoffManager {
     }
 
     return chain;
+  }
+
+  // ============================================
+  // SUPABASE PERSISTENCE
+  // ============================================
+
+  /**
+   * Persist a handoff to Supabase.
+   */
+  private async persistToSupabase(handoff: AgentHandoff): Promise<void> {
+    try {
+      const { supabase } = await import("@/lib/database/supabase");
+
+      await supabase.from("agent_handoffs").insert({
+        id: handoff.id,
+        source_agent_id: handoff.sourceAgentId,
+        target_agent_id: handoff.targetAgentId,
+        type: handoff.type,
+        action: handoff.action,
+        context: handoff.context,
+        status: handoff.status,
+        result: handoff.result ?? null,
+        created_at: handoff.createdAt,
+        updated_at: handoff.updatedAt,
+        completed_at: handoff.completedAt ?? null,
+      });
+    } catch {
+      // Silent fail — in-memory is source of truth, DB is backup
+    }
+  }
+
+  /**
+   * Update a handoff in Supabase.
+   */
+  private async updateInSupabase(handoff: AgentHandoff): Promise<void> {
+    try {
+      const { supabase } = await import("@/lib/database/supabase");
+
+      await supabase.from("agent_handoffs").update({
+        status: handoff.status,
+        result: handoff.result ?? null,
+        updated_at: handoff.updatedAt,
+        completed_at: handoff.completedAt ?? null,
+      }).eq("id", handoff.id);
+    } catch {
+      // Silent fail — in-memory is source of truth, DB is backup
+    }
   }
 }
 

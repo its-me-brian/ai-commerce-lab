@@ -4,6 +4,7 @@
 //
 // Pattern: same as src/lib/ai/mini-ai/bootstrap.ts
 
+import { logger } from "../../logging";
 import { getWorkflowRegistry } from "./registry";
 import type { WorkflowDefinition } from "./types";
 
@@ -194,5 +195,5 @@ export const builtinWorkflows: WorkflowDefinition[] = [
 export async function bootstrapWorkflows(): Promise<void> {
   const registry = getWorkflowRegistry();
   await registry.registerAll(builtinWorkflows);
-  console.log(`[Workflow Bootstrap] Registered ${builtinWorkflows.length} built-in workflows`);
+  logger.info(`[Workflow Bootstrap] Registered ${builtinWorkflows.length} built-in workflows`);
 }

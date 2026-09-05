@@ -62,17 +62,12 @@ export function MicrophoneButton({
   lang = "es-ES",
 }: MicrophoneButtonProps) {
   const [isListening, setIsListening] = React.useState(false);
-  const [isSupported, setIsSupported] = React.useState(false);
+  const [isSupported] = React.useState(() => getSpeechRecognition() !== null);
   const [error, setError] = React.useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const restartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const accumulatedRef = useRef("");
-
-  // Check support on mount
-  useEffect(() => {
-    setIsSupported(getSpeechRecognition() !== null);
-  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -101,11 +96,10 @@ export function MicrophoneButton({
 
     if (nativeSetter) {
       nativeSetter.call(el, text);
-    } else {
-      el.value = text;
     }
 
     el.dispatchEvent(new Event("input", { bubbles: true }));
+    // eslint-disable-next-line react-hooks/immutability -- Direct DOM write required for speech recognition
     el.scrollTop = el.scrollHeight;
   }, [textareaRef]);
 

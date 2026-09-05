@@ -2,14 +2,16 @@
 // CRUD operations for workspaces.
 // FASE 18: Enhanced company context builder with agents, providers, and rules.
 
+import { logger } from "../logging";
 import { supabase } from "../database/supabase";
+import { isValidWorkspaceId } from "../security/sanitize";
 import type { Workspace, WorkspaceInsert, WorkspaceUpdate, CompanyContext } from "./types";
 
 const DEFAULT_WORKSPACE_ID = "ws-default";
 
 function getDefaultWorkspaceId(): string {
   if (process.env.NODE_ENV === "production") {
-    console.warn("[WorkspaceService] Falling back to default workspace in production — this should not happen. Check workspace resolution chain.");
+    logger.warn("[WorkspaceService] Falling back to default workspace in production — this should not happen. Check workspace resolution chain.");
   }
   return DEFAULT_WORKSPACE_ID;
 }
@@ -62,6 +64,12 @@ export class WorkspaceService {
    * Create a new workspace.
    */
   async create(input: WorkspaceInsert): Promise<Workspace | null> {
+    // Validate workspace ID format to prevent injection
+    if (input.id && !isValidWorkspaceId(input.id)) {
+      logger.error(`[WorkspaceService] Invalid workspace ID format: ${input.id}`);
+      return null;
+    }
+
     const { data, error } = await supabase
       .from("workspaces")
       .insert({
@@ -229,6 +237,7 @@ export class WorkspaceService {
     return parts.join("\n");
   }
 
+ 
   private async getActiveProductCount(_workspaceId: string): Promise<number> {
     // Will be implemented when products table exists
     return 0;

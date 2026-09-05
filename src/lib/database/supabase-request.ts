@@ -32,7 +32,8 @@ export async function createRequestClient(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+       
+      setAll(_cookiesToSet) {
         // No-op in route handlers — cookies are set on response
       },
     },

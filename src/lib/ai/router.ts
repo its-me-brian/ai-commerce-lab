@@ -2,13 +2,14 @@
 // Central component that decides which model to use for each execution.
 // FASE 10: Supports both legacy RouterConfig and new agent-based routing via agent_model_routes.
 
+import { logger } from "../logging";
 import type {
   AIProviderSlug,
   AIGenerateOptions,
   AIGenerateResult,
 } from "./types";
 import type { AIProvider } from "./providers/base";
-import { getAgentModelRoutes, type AgentModelRoute } from "./agent-model-routes";
+import { getAgentModelRoutes }from "./agent-model-routes";
 import { getModelRegistry, type ModelRecord } from "./model-registry";
 import { calculateModelCost } from "./model-pricing";
 import { getMetricsCollector, getStructuredLogger, getExecutionTracer } from "./observability";
@@ -143,7 +144,7 @@ export class AIModelRouter {
       }
 
       // Try fallback
-      console.warn(
+      logger.warn(
         `[AI Router] Primary provider ${config.primaryProvider} failed, trying fallback ${config.fallbackProvider}`
       );
 
@@ -198,7 +199,7 @@ export class AIModelRouter {
     overrides?: { temperature?: number; maxTokens?: number; workspaceId?: string }
   ): Promise<{ result: AIGenerateResult; log: RouterExecutionLog }> {
     const startTime = Date.now();
-    const logger = getStructuredLogger();
+    const structuredLogger = getStructuredLogger();
     const tracer = getExecutionTracer();
 
     // Start trace for this request
@@ -213,12 +214,13 @@ export class AIModelRouter {
     const cachedResult = cache.get(
       options.systemPrompt || "",
       options.prompt || "",
-      options.model
+      options.model,
+      overrides?.workspaceId
     );
 
     if (cachedResult) {
       // Cache hit — return immediately with zero token cost
-      logger.log({
+      structuredLogger.log({
         severity: "info",
         component: "router",
         message: `Cache hit for agent ${agentId}`,
@@ -276,13 +278,13 @@ export class AIModelRouter {
       if (!resolvedProvider && overrides?.workspaceId) {
         resolvedProvider = await this.resolveWorkspaceProvider(model.provider_id, overrides.workspaceId);
         if (!resolvedProvider) {
-          console.warn(
+          logger.warn(
             `[AI Router] Provider ${model.provider_id} not registered and no workspace credential found, skipping route ${route.id}`
           );
           continue;
         }
       } else if (!resolvedProvider) {
-        console.warn(
+        logger.warn(
           `[AI Router] Provider ${model.provider_id} not registered, skipping route ${route.id}`
         );
         continue;
@@ -310,13 +312,14 @@ export class AIModelRouter {
           options.systemPrompt || "",
           options.prompt || "",
           result,
-          model.model_id
+          model.model_id,
+          overrides?.workspaceId
         );
 
         const durationMs = Date.now() - startTime;
         const cost = calculateModelCost(model.model_id, result.inputTokens, result.outputTokens);
 
-        logger.log({
+        structuredLogger.log({
           severity: "info",
           component: "router",
           message: `LLM call succeeded: ${model.provider_id}/${model.model_id}`,
@@ -361,7 +364,7 @@ export class AIModelRouter {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        logger.log({
+        structuredLogger.log({
           severity: "warn",
           component: "router",
           message: `Route failed: ${model.provider_id}/${model.model_id}`,
@@ -382,7 +385,7 @@ export class AIModelRouter {
     // All routes failed
     const durationMs = Date.now() - startTime;
 
-    logger.log({
+    structuredLogger.log({
       severity: "error",
       component: "router",
       message: `All routes failed for agent ${agentId}`,
@@ -443,7 +446,7 @@ export class AIModelRouter {
     const ProviderClass = classes[providerRecord.slug];
 
     if (ProviderClass) {
-      console.log(`[AI Router] Resolved provider ${providerRecord.slug} from workspace credential (env: ${providerRecord.api_key_env_var})`);
+      logger.info(`[AI Router] Resolved provider ${providerRecord.slug} from workspace credential (env: ${providerRecord.api_key_env_var})`);
       return new ProviderClass(key);
     }
 
@@ -451,7 +454,7 @@ export class AIModelRouter {
     if (providerRecord.base_url) {
       try {
         const { OpenAICompatibleProvider } = await import("./providers/openai-compatible");
-        console.log(`[AI Router] Resolved OpenAI-compatible provider ${providerRecord.slug} from workspace credential`);
+        logger.info(`[AI Router] Resolved OpenAI-compatible provider ${providerRecord.slug} from workspace credential`);
         return new OpenAICompatibleProvider(
           providerRecord.slug,
           key,

@@ -9,6 +9,8 @@
 // This COMPLEMENTS existing sanitize.ts (XSS) and rate-limiter.ts (throttling).
 // This is NOT a replacement — it adds the AI-specific security layer.
 
+import { logger } from "../logging";
+
 // ============================================
 // INPUT VALIDATOR
 // ============================================
@@ -281,6 +283,8 @@ export interface SecurityAuditEntry {
 
 /**
  * Security Audit — logs security events for monitoring.
+ * Persistence: Events are persisted to Supabase (security_audit_logs table)
+ * for survival across restarts. In-memory array is kept as read cache.
  */
 export class SecurityAudit {
   private entries: SecurityAuditEntry[] = [];
@@ -308,13 +312,37 @@ export class SecurityAudit {
 
     // Console warning for high/critical
     if (entry.severity === "high" || entry.severity === "critical") {
-      console.warn(`[SECURITY] ${entry.severity.toUpperCase()}: ${entry.message}`, {
+      logger.warn(`[SECURITY] ${entry.severity.toUpperCase()}: ${entry.message}`, {
         source: entry.source,
         clientId: entry.clientId,
       });
     }
 
+    // Persist to Supabase (fire-and-forget)
+    this.persistToSupabase(full);
+
     return full;
+  }
+
+  /**
+   * Persist a security event to Supabase.
+   */
+  private async persistToSupabase(entry: SecurityAuditEntry): Promise<void> {
+    try {
+      const { supabase } = await import("@/lib/database/supabase");
+
+      await supabase.from("security_audit_logs").insert({
+        event_type: entry.eventType,
+        severity: entry.severity,
+        message: entry.message,
+        source: entry.source,
+        client_id: entry.clientId ?? null,
+        sanitized_input: entry.sanitizedInput ?? null,
+        metadata: entry.metadata ?? null,
+      });
+    } catch {
+      // Silent fail — in-memory is source of truth, DB is backup
+    }
   }
 
   /**

@@ -85,6 +85,30 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     outputPerMillion: 15.0,
     label: "Grok 3",
   },
+
+  // ============================================
+  // QWEN (Alibaba)
+  // ============================================
+  "qwen-turbo": {
+    inputPerMillion: 0.002,
+    outputPerMillion: 0.006,
+    label: "Qwen Turbo",
+  },
+  "qwen-plus": {
+    inputPerMillion: 0.004,
+    outputPerMillion: 0.012,
+    label: "Qwen Plus",
+  },
+  "qwen-max": {
+    inputPerMillion: 0.024,
+    outputPerMillion: 0.048,
+    label: "Qwen Max",
+  },
+  "qwen-vl-plus": {
+    inputPerMillion: 0.008,
+    outputPerMillion: 0.016,
+    label: "Qwen VL Plus",
+  },
 };
 
 /** Default pricing when model is not in the table */

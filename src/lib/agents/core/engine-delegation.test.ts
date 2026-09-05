@@ -13,7 +13,8 @@ vi.mock("../../database/supabase", () => ({
   supabase: { from: (...args: unknown[]) => mockFrom(...args) },
 }));
 
-function createChain(terminalResult: { data: unknown; error: unknown }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function createChain(terminalResult: {data: unknown; error: unknown}) {
   const chain: Record<string, unknown> = {
     select: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),

@@ -136,7 +136,7 @@ export class FinanceReview {
           risk_level: verdict === "rejected" ? "critical" : "high",
         }, workspaceId || "");
         approvalId = approval.id;
-      } catch (error) {
+      } catch  {
         // Approval creation failed — proceed without
       }
     }

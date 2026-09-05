@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurityAndParams } from "@/lib/security/api-middleware";
 
 // GET /api/agents/[id]/model-routes
 // Get model routes (pool) for an agent
-export async function GET(
+export const GET = withSecurityAndParams(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
   const { id } = await params;
 
+  // eslint-disable-next-line prefer-const
   let { data, error } = await supabase
     .from("agent_model_routes")
     .select("*, ai_models!inner(name, model_id, provider_id, context_window, input_price, output_price, capabilities, ai_providers(name, slug))")
@@ -32,18 +34,18 @@ export async function GET(
   }
 
   if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "An unexpected error occurred" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, routes: data });
-}
+});
 
 // POST /api/agents/[id]/model-routes
 // Add a model route for an agent
-export async function POST(
+export const POST = withSecurityAndParams(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -76,18 +78,18 @@ export async function POST(
     .single();
 
   if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "An unexpected error occurred" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, route: data });
-}
+});
 
 // PATCH /api/agents/[id]/model-routes
 // Update a model route (priority, policy, enabled)
-export async function PATCH(
+export const PATCH = withSecurityAndParams(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -135,18 +137,18 @@ export async function PATCH(
     .single();
 
   if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "An unexpected error occurred" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, route: data });
-}
+});
 
 // DELETE /api/agents/[id]/model-routes
 // Remove a model route
-export async function DELETE(
+export const DELETE = withSecurityAndParams(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -182,8 +184,8 @@ export async function DELETE(
     .eq("id", routeId);
 
   if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "An unexpected error occurred" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });
-}
+});

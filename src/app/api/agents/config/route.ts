@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // GET /api/agents/config?agentId=product-hunter
 // Get agent configuration
-export async function GET(request: NextRequest) {
+export const GET = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get config (fallback to ws-default for new workspaces)
+    // eslint-disable-next-line prefer-const
     let { data: config, error: configError } = await supabase
       .from("agent_configs")
       .select("*")
@@ -109,22 +111,22 @@ export async function GET(request: NextRequest) {
       recentRuns: recentRuns || [],
       skills: agentSkills || [],
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       {
         error: {
           code: "INTERNAL_ERROR",
-          message: error instanceof Error ? error.message : "An unexpected error occurred",
+          message: "An unexpected error occurred",
         },
       },
       { status: 500 }
     );
   }
-}
+});
 
 // PUT /api/agents/config
 // Update agent configuration
-export async function PUT(request: NextRequest) {
+export const PUT = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -196,15 +198,15 @@ export async function PUT(request: NextRequest) {
       success: true,
       config: data,
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       {
         error: {
           code: "INTERNAL_ERROR",
-          message: error instanceof Error ? error.message : "An unexpected error occurred",
+          message: "An unexpected error occurred",
         },
       },
       { status: 500 }
     );
   }
-}
+});

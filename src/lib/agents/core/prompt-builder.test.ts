@@ -6,11 +6,13 @@ import { marketingDefinition } from "../definitions/marketing";
 import { secretaryDefinition } from "../definitions/secretary";
 import { financeDefinition } from "../definitions/finance";
 import { ceoDefinition } from "../definitions/ceo";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   agentDefinitions,
   getAgentDefinition,
   listAgentDefinitions,
 } from "../definitions";
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 describe("AgentPromptBuilder", () => {
   const builder = new AgentPromptBuilder();

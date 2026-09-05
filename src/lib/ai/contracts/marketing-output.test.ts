@@ -208,12 +208,14 @@ describe("Marketing Output Contract", () => {
     });
 
     it("should reject missing adCopy", () => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { adCopy, ...rest } = validOutput;
       const result = MarketingOutputSchema.safeParse(rest);
       expect(result.success).toBe(false);
     });
 
     it("should accept output without SEO", () => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { seo, ...rest } = validOutput;
       const result = MarketingOutputSchema.safeParse(rest);
       expect(result.success).toBe(true);

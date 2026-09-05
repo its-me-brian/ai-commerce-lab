@@ -356,7 +356,8 @@ describe("OrchestratorV2", () => {
       });
 
       const plan = await orchestrator.plan("Calculate pricing");
-      const result = await orchestrator.execute(plan);
+ 
+      const _result = await orchestrator.execute(plan);
 
       expect(mockCreateApproval).toHaveBeenCalledWith(
         expect.objectContaining({

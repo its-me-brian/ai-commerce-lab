@@ -54,3 +54,20 @@ export function isAcceptableSize(data: unknown, maxBytes: number = 100_000): boo
     return false;
   }
 }
+
+/**
+ * Sanitize a parsed request body — encodes all string values to prevent XSS.
+ * Use after request.json() in API handlers.
+ */
+export function sanitizeBody<T extends Record<string, unknown>>(body: T): T {
+  return sanitizeObject(body);
+}
+
+/**
+ * Validate workspace ID format.
+ * Workspace IDs must be: ws-{alphanumeric}-{timestamp} or ws-default.
+ * Prevents injection of arbitrary IDs.
+ */
+export function isValidWorkspaceId(id: string): boolean {
+  return /^ws-[a-z0-9]+-\d{13,}$/.test(id) || id === "ws-default";
+}

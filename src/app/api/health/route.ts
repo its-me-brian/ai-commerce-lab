@@ -1,6 +1,7 @@
 // Health Check API
 // Aggregated system health: providers, models, database, workflows.
 // No auth required — this is a monitoring endpoint.
+// Error messages are sanitized to prevent leaking internal details.
 
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
@@ -16,6 +17,17 @@ interface HealthCheck {
   }>;
 }
 
+/** Sanitize error message — never expose Supabase internals, connection strings, or stack traces. */
+function sanitizeError(msg: string): string {
+  if (/relation .* does not exist/i.test(msg)) return "Table not found";
+  if (/permission denied/i.test(msg)) return "Permission denied";
+  if (/connection refused/i.test(msg)) return "Connection failed";
+  if (/timeout/i.test(msg)) return "Request timed out";
+  if (/ECONNREFUSED/i.test(msg)) return "Connection failed";
+  if (/invalid input/i.test(msg)) return "Invalid query";
+  return "Internal error";
+}
+
 export async function GET(): Promise<NextResponse<HealthCheck>> {
   const checks: HealthCheck["checks"] = {};
   let overallStatus: HealthCheck["status"] = "healthy";
@@ -27,14 +39,14 @@ export async function GET(): Promise<NextResponse<HealthCheck>> {
     checks.database = {
       status: error ? "error" : "ok",
       latencyMs: Date.now() - dbStart,
-      error: error?.message,
+      error: error ? sanitizeError(error.message) : undefined,
     };
     if (error) overallStatus = "degraded";
-  } catch (e) {
+  } catch {
     checks.database = {
       status: "error",
       latencyMs: Date.now() - dbStart,
-      error: e instanceof Error ? e.message : "Unknown error",
+      error: "Connection failed",
     };
     overallStatus = "down";
   }
@@ -49,17 +61,17 @@ export async function GET(): Promise<NextResponse<HealthCheck>> {
     checks.providers = {
       status: error ? "error" : "ok",
       latencyMs: Date.now() - provStart,
-      error: error?.message,
+      error: error ? sanitizeError(error.message) : undefined,
     };
     if (data) {
       checks.providers.details = `${data.length} enabled`;
     }
     if (error) overallStatus = "degraded";
-  } catch (e) {
+  } catch {
     checks.providers = {
       status: "error",
       latencyMs: Date.now() - provStart,
-      error: e instanceof Error ? e.message : "Unknown error",
+      error: "Connection failed",
     };
   }
 
@@ -73,16 +85,16 @@ export async function GET(): Promise<NextResponse<HealthCheck>> {
     checks.models = {
       status: error ? "error" : "ok",
       latencyMs: Date.now() - modelStart,
-      error: error?.message,
+      error: error ? sanitizeError(error.message) : undefined,
     };
     if (data) {
       checks.models.details = `${data.length} enabled`;
     }
-  } catch (e) {
+  } catch {
     checks.models = {
       status: "error",
       latencyMs: Date.now() - modelStart,
-      error: e instanceof Error ? e.message : "Unknown error",
+      error: "Connection failed",
     };
   }
 
@@ -96,14 +108,14 @@ export async function GET(): Promise<NextResponse<HealthCheck>> {
     checks.agents = {
       status: error ? "error" : "ok",
       latencyMs: Date.now() - agentStart,
-      error: error?.message,
+      error: error ? sanitizeError(error.message) : undefined,
     };
     checks.agents.details = `${count || 0} running`;
-  } catch (e) {
+  } catch {
     checks.agents = {
       status: "error",
       latencyMs: Date.now() - agentStart,
-      error: e instanceof Error ? e.message : "Unknown error",
+      error: "Connection failed",
     };
   }
 

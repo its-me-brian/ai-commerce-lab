@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWorkspaceService } from "@/lib/workspaces/service";
 import { requireAuth, requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // GET /api/workspaces
 // V1: Returns the user's current workspace (auto-resolved).
-export async function GET(request: NextRequest) {
+export const GET = withSecurity(async (request: NextRequest) => {
   try {
     // V1: Use requireWorkspaceAccess to auto-resolve user's workspace
     const auth = await requireWorkspaceAccess(request);
@@ -21,18 +22,17 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, workspace, workspaces: [workspace] });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  } catch  {
     return NextResponse.json(
-      { success: false, error: message },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});
 
 // POST /api/workspaces
 // Create a new workspace.
-export async function POST(request: NextRequest) {
+export const POST = withSecurity(async (request: NextRequest) => {
   try {
     // Auth check
     const auth = await requireAuth(request);
@@ -72,18 +72,17 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, workspace });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  } catch  {
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to create workspace" } },
       { status: 500 }
     );
   }
-}
+});
 
 // PUT /api/workspaces
 // Update an existing workspace — requires admin role.
-export async function PUT(request: NextRequest) {
+export const PUT = withSecurity(async (request: NextRequest) => {
   try {
     // Workspace access check — user must be admin of the workspace
     const auth = await requireWorkspaceAccess(request, { minimumRole: "admin" });
@@ -118,11 +117,10 @@ export async function PUT(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, workspace });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  } catch  {
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to update workspace" } },
       { status: 500 }
     );
   }
-}
+});

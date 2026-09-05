@@ -18,6 +18,16 @@ export function Card({
       className={`bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--r-lg)] shadow-[var(--shadow-sm)] ${onClick ? "cursor-pointer hover:shadow-[var(--shadow-md)] transition-shadow" : ""} ${className}`}
       style={style}
       onClick={onClick}
+      {...(onClick ? {
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick();
+          }
+        },
+        role: "button" as const,
+        tabIndex: 0,
+      } : {})}
     >
       {children}
     </div>

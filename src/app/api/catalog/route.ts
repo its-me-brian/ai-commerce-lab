@@ -5,8 +5,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCatalogService, type CatalogStatus } from "@/lib/catalog/service";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
-export async function GET(request: NextRequest) {
+export const GET = withSecurity(async (request: NextRequest) => {
   try {
     // Auth + workspace check
     const auth = await requireWorkspaceAccess(request);
@@ -35,15 +36,15 @@ export async function GET(request: NextRequest) {
       counts,
       total: Object.values(counts).reduce((a, b) => a + b, 0),
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request: NextRequest) {
+export const POST = withSecurity(async (request: NextRequest) => {
   try {
     // Auth + workspace check
     const auth = await requireWorkspaceAccess(request);
@@ -62,10 +63,10 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, product });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});

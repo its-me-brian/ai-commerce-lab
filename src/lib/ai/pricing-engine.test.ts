@@ -2,7 +2,6 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { PricingEngine } from "./pricing-engine";
-import type { PricingInput } from "./pricing-engine";
 
 describe("PricingEngine", () => {
   let engine: PricingEngine;

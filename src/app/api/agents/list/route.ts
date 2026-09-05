@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // GET /api/agents/list
 // List all agents with their configs and definitions for the workspace selector
 // PHASE 1: Now requires workspace membership
-export async function GET(request: NextRequest) {
+export const GET = withSecurity(async (request: NextRequest) => {
   try {
     // Auth + workspace check
     const access = await requireWorkspaceAccess(request);
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all configs for this workspace (fallback to ws-default for new workspaces)
+    // eslint-disable-next-line prefer-const
     let { data: configs, error: configsError } = await supabase
       .from("agent_configs")
       .select("*")
@@ -74,13 +76,13 @@ export async function GET(request: NextRequest) {
       agents: agentsWithConfigs,
       workspaceId,
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
   }
-}
+});

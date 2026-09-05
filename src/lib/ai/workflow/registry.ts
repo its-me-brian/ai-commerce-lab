@@ -6,6 +6,7 @@
 //   - Write path: write to DB, then update cache
 //   - On startup: load all from DB into cache
 
+import { logger } from "../../logging";
 import { supabase } from "../../database/supabase";
 import type { WorkflowDefinition, WorkflowQueryOptions } from "./types";
 
@@ -39,7 +40,7 @@ export class WorkflowRegistry {
         .select("*");
 
       if (error) {
-        console.warn("Failed to load workflows from DB:", error.message);
+        logger.warn("Failed to load workflows from DB:", { error: error.message });
         this.loaded = true; // Mark as loaded even on error to avoid retries
         return;
       }
@@ -51,7 +52,7 @@ export class WorkflowRegistry {
       }
       this.loaded = true;
     } catch (err) {
-      console.warn("Workflow DB load failed, using cache only:", err);
+      logger.warn("Workflow DB load failed, using cache only:", { error: err instanceof Error ? err.message : String(err) });
       this.loaded = true;
     }
   }
@@ -70,7 +71,7 @@ export class WorkflowRegistry {
         .from("workflow_definitions")
         .upsert(this.definitionToRow(workflow), { onConflict: "id" });
     } catch (err) {
-      console.warn(`Failed to persist workflow ${workflow.id} to DB:`, err);
+      logger.warn(`Failed to persist workflow ${workflow.id} to DB:`, { error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -108,7 +109,7 @@ export class WorkflowRegistry {
         .delete()
         .eq("id", id);
     } catch (err) {
-      console.warn(`Failed to delete workflow ${id} from DB:`, err);
+      logger.warn(`Failed to delete workflow ${id} from DB:`, { error: err instanceof Error ? err.message : String(err) });
     }
     return true;
   }

@@ -44,7 +44,8 @@ export class AnalyzeSeoTool implements Tool {
     const title = (input.title as string) || "";
     const description = (input.description as string) || "";
     const keywords = (input.keywords as string[]) || [];
-    const category = (input.category as string) || "";
+ 
+    const _category = (input.category as string) || "";
 
     const issues: string[] = [];
     const suggestions: string[] = [];

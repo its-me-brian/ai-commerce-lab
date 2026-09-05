@@ -108,8 +108,35 @@ export function SettingsTabs({ envStatus }: { envStatus: EnvVar[] }) {
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    let cancelled = false;
+    async function load() {
+      try {
+        const [provRes, modelRes, routeRes, budgetRes, securityRes, wsRes] = await Promise.all([
+          fetch("/api/settings/credentials").then((r) => r.json()),
+          fetch("/api/settings/models").then((r) => r.json()),
+          fetch("/api/settings/routes").then((r) => r.json()),
+          fetch("/api/ai/budgets?action=list").then((r) => r.json()),
+          fetch("/api/ai/security?action=recent&count=50").then((r) => r.json()),
+          fetch("/api/workspaces").then((r) => r.json()),
+        ]);
+        if (cancelled) return;
+        setProviders(provRes.credentials || []);
+        setModels(modelRes.models || []);
+        setRoutes(routeRes.routes || []);
+        setBudgets(budgetRes.budgets || []);
+        setSecurityEvents(securityRes.events || []);
+        if (wsRes.success && wsRes.workspaces?.length > 0) {
+          setWorkspaceSettings(wsRes.workspaces[0]);
+        }
+      } catch {
+        console.error("Failed to load settings");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "providers", label: "AI Providers", count: providers.length },
@@ -123,11 +150,15 @@ export function SettingsTabs({ envStatus }: { envStatus: EnvVar[] }) {
   return (
     <div>
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)", marginBottom: 20 }}>
+      <div role="tablist" style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)", marginBottom: 20 }}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
+            role="tab"
+            id={`tab-${tab.id}`}
+            aria-selected={activeTab === tab.id}
+            aria-controls={`panel-${tab.id}`}
             style={{
               padding: "10px 16px",
               fontSize: "0.8125rem",
@@ -156,8 +187,10 @@ export function SettingsTabs({ envStatus }: { envStatus: EnvVar[] }) {
 
       {/* Tab content */}
       {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text-tertiary)" }}>
-          Loading...
+        <div className="flex items-center justify-center py-8" role="status" aria-label="Loading">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin" style={{ animation: "spin 1s linear infinite" }}>
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
         </div>
       ) : (
         <>
@@ -239,7 +272,7 @@ function ProvidersTab({
   };
 
   return (
-    <div>
+    <div role="tabpanel" id="panel-providers" aria-labelledby="tab-providers">
       {/* Env var status */}
       <div style={{ marginBottom: 24 }}>
         <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 8 }}>Environment Variables</h3>
@@ -276,6 +309,8 @@ function ProvidersTab({
           <h3 style={{ fontSize: "0.8125rem", fontWeight: 600 }}>Stored Credentials</h3>
           <button
             onClick={() => setShowAddForm(!showAddForm)}
+            aria-expanded={showAddForm}
+            aria-controls="add-api-key-form"
             style={{
               padding: "5px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
               fontSize: "0.75rem", cursor: "pointer", background: "var(--bg-card)", color: "var(--text-primary)",
@@ -286,7 +321,7 @@ function ProvidersTab({
         </div>
 
         {showAddForm && (
-          <div style={{
+          <div id="add-api-key-form" style={{
             padding: 14, marginBottom: 12, background: "var(--bg-sunken)", border: "1px solid var(--border)",
             borderRadius: "var(--r-md)",
           }}>
@@ -441,7 +476,7 @@ function ModelsTab({
   }, {});
 
   return (
-    <div>
+    <div role="tabpanel" id="panel-models" aria-labelledby="tab-models">
       {Object.entries(byProvider).map(([providerId, providerModels]) => (
         <div key={providerId} style={{ marginBottom: 24 }}>
           <h3 style={{ fontSize: "0.8125rem", fontWeight: 600, marginBottom: 8, textTransform: "capitalize" }}>
@@ -518,7 +553,8 @@ function ModelsTab({
 function IntegrationsTab({
   routes,
   models,
-  onRefresh,
+   
+  onRefresh: _onRefresh,
 }: {
   routes: AgentRoute[];
   models: Model[];
@@ -529,7 +565,6 @@ function IntegrationsTab({
     status: string; products_count: number; last_products_sync_at: string | null;
     created_at: string;
   }>>([]);
-  const [shopifyLoading, setShopifyLoading] = useState(false);
   const [shopDomain, setShopDomain] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [shopifyMsg, setShopifyMsg] = useState<string | null>(null);
@@ -547,10 +582,12 @@ function IntegrationsTab({
     const domain = shopDomain.includes(".myshopify.com")
       ? shopDomain.trim()
       : `${shopDomain.trim()}.myshopify.com`;
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = `/api/shopify/install?shop=${encodeURIComponent(domain)}`;
   };
 
-  const handleSync = async (storeId: string) => {
+   
+  const handleSync = async (_storeId: string) => {
     setSyncing(true);
     setShopifyMsg(null);
     try {
@@ -594,7 +631,7 @@ function IntegrationsTab({
   };
 
   return (
-    <div>
+    <div role="tabpanel" id="panel-integrations" aria-labelledby="tab-integrations">
       {/* Shopify Section */}
       <div style={{ marginBottom: 24 }}>
         <h3 style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: 4 }}>Shopify</h3>
@@ -657,6 +694,7 @@ function IntegrationsTab({
               onChange={(e) => setShopDomain(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleConnect()}
               placeholder="my-store.myshopify.com"
+              aria-label="Shopify store domain"
               style={{
                 flex: 1, padding: "8px 12px", borderRadius: "var(--r-md)", border: "1px solid var(--border)",
                 background: "var(--bg-sunken)", fontSize: "0.8125rem", color: "var(--text-primary)", outline: "none",
@@ -833,7 +871,7 @@ function BudgetsTab({
   }
 
   return (
-    <div>
+    <div role="tabpanel" id="panel-budgets" aria-labelledby="tab-budgets">
       {/* Header + Add button */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>
@@ -841,6 +879,8 @@ function BudgetsTab({
         </p>
         <button
           onClick={() => setShowForm(!showForm)}
+          aria-expanded={showForm}
+          aria-controls="add-budget-form"
           style={{
             padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
             fontSize: "0.75rem", cursor: "pointer", background: "var(--bg-card)",
@@ -853,7 +893,7 @@ function BudgetsTab({
 
       {/* Create form */}
       {showForm && (
-        <div style={{
+        <div id="add-budget-form" style={{
           padding: 14, marginBottom: 14, background: "var(--bg-sunken)", border: "1px solid var(--border)",
           borderRadius: "var(--r-md)",
         }}>
@@ -1017,7 +1057,8 @@ function BudgetsTab({
 
 function SecurityTab({
   events,
-  onRefresh,
+   
+  onRefresh: _onRefresh,
 }: {
   events: SecurityEvent[];
   onRefresh: () => void;
@@ -1036,12 +1077,13 @@ function SecurityTab({
   };
 
   return (
-    <div>
+    <div role="tabpanel" id="panel-security" aria-labelledby="tab-security">
       {/* Filters */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <select
           value={filterSeverity}
           onChange={(e) => setFilterSeverity(e.target.value)}
+          aria-label="Filter by severity"
           style={{
             padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
             fontSize: "0.75rem", background: "var(--bg-card)",
@@ -1118,10 +1160,12 @@ function WorkspaceTab({
 }) {
   const [saving, setSaving] = useState(false);
   const [localSettings, setLocalSettings] = useState<WorkspaceSettings | null>(settings);
+  const [prevSettings, setPrevSettings] = useState(settings);
 
-  useEffect(() => {
+  if (prevSettings !== settings) {
+    setPrevSettings(settings);
     setLocalSettings(settings);
-  }, [settings]);
+  }
 
   if (!localSettings) {
     return (
@@ -1148,7 +1192,7 @@ function WorkspaceTab({
   }
 
   return (
-    <div>
+    <div role="tabpanel" id="panel-workspace" aria-labelledby="tab-workspace">
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div>
           <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>

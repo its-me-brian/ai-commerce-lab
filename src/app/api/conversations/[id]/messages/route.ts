@@ -5,11 +5,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurityAndParams } from "@/lib/security/api-middleware";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = withSecurityAndParams<{ id: string }>(async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -53,13 +51,13 @@ export async function GET(
         hasMore: offset + limit < totalCount,
       },
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
   }
-}
+});

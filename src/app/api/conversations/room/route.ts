@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
 import { multiAgentChat } from "@/lib/ai/multi-agent-chat";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 interface RoomMessageRequest {
   message: string;
@@ -13,7 +14,7 @@ interface RoomMessageRequest {
 }
 
 // GET: Load room conversation + messages (no side effects)
-export async function GET(req: NextRequest) {
+export const GET = withSecurity(async (req: NextRequest) => {
   try {
     // Auth + workspace check
     const auth = await requireWorkspaceAccess(req);
@@ -44,18 +45,18 @@ export async function GET(req: NextRequest) {
       conversation: room,
       messages,
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withSecurity(async (req: NextRequest) => {
   try {
     // Auth + workspace check
     const auth = await requireWorkspaceAccess(req);
@@ -114,13 +115,13 @@ export async function POST(req: NextRequest) {
         createdAt: r.message.created_at,
       })),
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
   }
-}
+});

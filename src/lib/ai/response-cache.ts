@@ -39,13 +39,17 @@ export class ResponseCache {
   /**
    * Generate a cache key from prompt components.
    * Uses SHA-256 for consistent, collision-resistant hashing.
+   * Includes workspaceId to prevent cross-tenant data leaks.
    */
   private generateKey(
     systemPrompt: string,
     userMessage: string,
-    model?: string
+    model?: string,
+    workspaceId?: string
   ): string {
     const fingerprint = [
+      workspaceId || "global",
+      "---",
       systemPrompt,
       "---",
       userMessage,
@@ -62,9 +66,10 @@ export class ResponseCache {
   get(
     systemPrompt: string,
     userMessage: string,
-    model?: string
+    model?: string,
+    workspaceId?: string
   ): AIGenerateResult | null {
-    const key = this.generateKey(systemPrompt, userMessage, model);
+    const key = this.generateKey(systemPrompt, userMessage, model, workspaceId);
     const entry = this.cache.get(key);
 
     if (!entry) return null;
@@ -87,9 +92,10 @@ export class ResponseCache {
     systemPrompt: string,
     userMessage: string,
     result: AIGenerateResult,
-    model?: string
+    model?: string,
+    workspaceId?: string
   ): void {
-    const key = this.generateKey(systemPrompt, userMessage, model);
+    const key = this.generateKey(systemPrompt, userMessage, model, workspaceId);
 
     // Evict oldest entries if at capacity
     if (this.cache.size >= this.maxEntries) {

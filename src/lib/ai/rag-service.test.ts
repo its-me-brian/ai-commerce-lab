@@ -1,5 +1,5 @@
 // RAG Service Tests
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi }from "vitest";
 import { RAGService, type SupabaseClient, type KnowledgeDocument } from "./rag-service";
 
 // Helper: generate same embedding the real service would
@@ -97,9 +97,10 @@ function createMockClient(docs: Record<string, unknown>[]): SupabaseClient {
   }
 
   return {
+ 
     from: vi.fn().mockImplementation((_table: string) => {
       // Default chain: returns all docs, apply filtering in the chain
-      let filters: Record<string, unknown> = {};
+      const filters: Record<string, unknown> = {};
       let filteredDocs = [...fakeDocs];
 
       const chain: Record<string, unknown> = {};

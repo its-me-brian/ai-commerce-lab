@@ -3,7 +3,7 @@
 // FASE 28: Every status change, progress update, and event is recorded.
 
 import { supabase } from "../database/supabase";
-import { getTaskEngine, type Task, type TaskStatus } from "./task-engine";
+import { getTaskEngine, type TaskStatus }from "./task-engine";
 
 export type TaskEventType =
   | "created"

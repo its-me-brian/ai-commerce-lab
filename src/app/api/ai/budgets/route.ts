@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCostBudgetTracker } from "@/lib/ai/cost-budget";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { sanitizeBody } from "@/lib/security/sanitize";
 import type { CostBudget, BudgetEntityType } from "@/lib/ai/cost-budget";
 
 // GET /api/ai/budgets
@@ -58,9 +59,9 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch (error) {
+  } catch {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
@@ -74,11 +75,9 @@ export async function POST(request: NextRequest) {
     const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
-    const body = await request.json();
-    const { budget, action } = body as {
-      budget?: CostBudget;
-      action?: string;
-    };
+    const body = sanitizeBody(await request.json()) as Record<string, unknown>;
+    const budget = body.budget as CostBudget | undefined;
+    const action = body.action as string;
 
     const tracker = getCostBudgetTracker();
 
@@ -99,9 +98,9 @@ export async function POST(request: NextRequest) {
 
     tracker.setBudget(budget);
     return NextResponse.json({ success: true, budget });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }

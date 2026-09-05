@@ -1,6 +1,7 @@
 // Grok Provider Adapter
 // Implements AIProvider interface for xAI Grok API (OpenAI-compatible)
 
+import { logger } from "../../logging";
 import { AIProvider } from "./base";
 import type {
   AIProviderSlug,
@@ -92,7 +93,7 @@ export class GrokProvider extends AIProvider {
       try {
         structuredData = JSON.parse(content);
       } catch (parseError) {
-        console.warn(
+        logger.warn(
           `[Grok] Response was not valid JSON despite responseFormat=json. ` +
           `Parse error: ${parseError instanceof Error ? parseError.message : "unknown"}`
         );
@@ -150,7 +151,7 @@ export class GrokProvider extends AIProvider {
         provider: "xai",
         model,
         latencyMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : String(error),
+        error: String(error),
       };
     }
   }
@@ -169,7 +170,7 @@ export class GrokProvider extends AIProvider {
         contextWindow: 128000,
       }));
     } catch (error) {
-      console.error("[Grok] Failed to fetch available models:", error instanceof Error ? error.message : error);
+      logger.error("[Grok] Failed to fetch available models:", { error: error instanceof Error ? error.message : String(error) });
       return [
         { id: "grok-3-mini-latest", name: "Grok 3 Mini", contextWindow: 128000 },
       ];

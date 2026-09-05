@@ -2,6 +2,7 @@
 // Central registry of all available tools.
 // Agents discover and call tools through this registry.
 
+import { logger } from "../logging";
 import type { Tool, ToolResult } from "./types";
 
 export class ToolRegistry {
@@ -9,9 +10,7 @@ export class ToolRegistry {
 
   register(tool: Tool): void {
     if (this.tools.has(tool.id)) {
-      console.warn(
-        `[ToolRegistry] Tool ${tool.id} already registered, overwriting`
-      );
+      logger.warn(`[ToolRegistry] Tool ${tool.id} already registered, overwriting`);
     }
     this.tools.set(tool.id, tool);
   }

@@ -2,6 +2,7 @@
 // Client-side Supabase client with cookie-based session persistence.
 // Uses @supabase/ssr createBrowserClient so sessions survive full page reloads.
 
+import { logger } from "../logging";
 import { createBrowserClient } from "@supabase/ssr";
 
 // Lazy singleton — only created when first accessed
@@ -15,7 +16,7 @@ export function getBrowserClient() {
 
   if (!supabaseUrl || !supabaseAnonKey) {
     // Gracefully degrade — realtime won't work but app still functions
-    console.warn(
+    logger.warn(
       "[Supabase] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. Realtime disabled."
     );
     return null;

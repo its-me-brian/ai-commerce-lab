@@ -121,7 +121,8 @@ const STATUS_QUERY_PATTERNS = [
 /**
  * Status keywords for quick intent detection.
  */
-const STATUS_KEYWORDS = [
+ 
+const _STATUS_KEYWORDS = [
   "producto", "product", "hunter", "market", "marketing",
   "supplier", "supplier-research", "proveedores",
   "copys", "copies", "copys", "avance", "progreso",
@@ -226,7 +227,8 @@ export function generateStatusResponse(
     completed_at: string | null;
     error: string | null;
   }>,
-  message: string,
+   
+  _message: string,
 ): string {
   // If we have tasks, summarize them
   if (tasks.length === 0) {
@@ -463,7 +465,8 @@ function compressHistory(
 function prunePromptByIntent(
   basePrompt: string,
   intent: string,
-  entities: Record<string, unknown>,
+ 
+  _entities: Record<string, unknown>,
 ): string {
   const lines = basePrompt.split("\n");
   const pruned: string[] = [];

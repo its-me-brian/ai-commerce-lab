@@ -125,7 +125,8 @@ export function getMarketingSummary(output: MarketingOutput): string {
   const channels = new Set([
     ...output.adCopy.map((a) => a.platform),
     ...output.socialPosts.map((s) => s.platform),
-    ...output.emails.map((e) => "email"),
+ 
+    ...output.emails.map((_e) => "email"),
   ]);
 
   return [

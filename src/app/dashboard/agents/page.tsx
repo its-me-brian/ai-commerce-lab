@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/database/supabase";
 import { getWorkspaceId } from "@/lib/database/supabase-server";
 import { OrgChart } from "@/components/agents/OrgChart";
+import { ErrorMessage } from "@/components/ui/ErrorMessage";
 
 export const dynamic = "force-dynamic";
 
@@ -85,13 +86,10 @@ export default async function AgentsPage() {
       </div>
 
       {agentsError && (
-        <div style={{
-          padding: "12px 16px", marginBottom: 16,
-          background: "var(--error-bg, #fee)", color: "var(--error, #e00)",
-          borderRadius: "var(--r-md)", fontSize: "0.8125rem",
-        }}>
-          Failed to load agents. Please try refreshing.
-        </div>
+        <ErrorMessage
+          message="Failed to load agents. Please try refreshing."
+          className="mb-4"
+        />
       )}
 
       {/* Org Chart View */}

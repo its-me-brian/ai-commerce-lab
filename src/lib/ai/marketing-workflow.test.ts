@@ -2,7 +2,7 @@
 // FASE 30: Marketing campaign creation pipeline.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MarketingWorkflow, type MarketingWorkflowInput } from "./marketing-workflow";
+import { MarketingWorkflow }from "./marketing-workflow";
 
 // Mock MarketingAgent
 vi.mock("../agents/marketing", () => {

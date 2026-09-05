@@ -1,11 +1,13 @@
 // Model Pricing Tests
 import { describe, it, expect } from "vitest";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   MODEL_PRICING,
   getModelPricing,
   calculateModelCost,
   type ModelPricing,
 } from "./model-pricing";
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 describe("model-pricing", () => {
   describe("MODEL_PRICING table", () => {

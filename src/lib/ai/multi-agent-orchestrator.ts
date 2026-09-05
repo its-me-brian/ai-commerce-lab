@@ -3,8 +3,8 @@
 // FASE 20: Product Hunter delegates to Market Research, Supplier Research, Opportunity Scoring.
 
 import { AgentEngine } from "../agents/core/engine";
-import { bootstrap, getAgentRegistry } from "./bootstrap";
 import type { AgentResult } from "../agents/core/types";
+import { bootstrap } from "./bootstrap";
 
 export interface AgentTask {
   agentId: string;

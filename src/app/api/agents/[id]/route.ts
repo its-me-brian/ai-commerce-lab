@@ -4,11 +4,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurityAndParams } from "@/lib/security/api-middleware";
 
-export async function GET(
+export const GET = withSecurityAndParams(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     // Auth check
     const auth = await requireWorkspaceAccess(request);
@@ -31,18 +32,18 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, agent });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});
 
-export async function PATCH(
+export const PATCH = withSecurityAndParams(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     // Auth check
     const auth = await requireWorkspaceAccess(request);
@@ -87,10 +88,10 @@ export async function PATCH(
     }
 
     return NextResponse.json({ success: true, agent: data });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});

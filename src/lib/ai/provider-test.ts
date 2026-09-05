@@ -2,11 +2,17 @@
 // Orchestrates connection testing for AI providers.
 // FASE 6: Supports both env-var and DB-stored credentials (CredentialManager).
 
-import { bootstrap, getAgentRegistry } from "./bootstrap";
+import { bootstrap } from "./bootstrap";
 import { getRouter } from "./router";
 import { getProviderManager } from "./provider-manager";
 import { getCredentialManager } from "./credential-manager";
-import type { AIConnectionTestResult } from "./types";
+
+// Types used in this file
+export interface AIConnectionTestResult {
+  success: boolean;
+  error?: string;
+  latencyMs?: number;
+}
 
 export interface ProviderStatus {
   slug: string;
@@ -123,7 +129,7 @@ export async function testProviderConnection(
   const model = requestedModel || DEFAULT_TEST_MODELS[slug] || "default";
 
   // 4. Check if already registered in router
-  let providerInstance = router.getProvider(slug);
+  const providerInstance = router.getProvider(slug);
   let credentialSource: "env" | "database" | "none" = "none";
 
   if (providerInstance) {

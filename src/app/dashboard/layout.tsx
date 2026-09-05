@@ -1,16 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   return (
     <div className="flex min-h-screen">
@@ -18,6 +12,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setMobileOpen(false);
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Close menu"
           className="fixed inset-0 z-40 bg-black/30"
         />
       )}
@@ -39,7 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main */}
-      <div className="main-content flex-1">
+      <main className="main-content flex-1">
         {/* Mobile header */}
         <div className="mobile-header sticky top-0 z-30 h-[var(--header-h)] bg-[var(--bg-card)] border-b border-[var(--border-subtle)] flex items-center px-4 gap-3">
           <button
@@ -57,7 +57,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {children}
-      </div>
+      </main>
     </div>
   );
 }

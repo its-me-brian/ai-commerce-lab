@@ -3,6 +3,7 @@
 // §8, §14: When no @mention, CEO coordinates and can delegate to other agents.
 // Each agent's response is saved as a separate message.
 
+import { logger } from "../logging";
 import { bootstrap, getAgentRegistry } from "./bootstrap";
 import { getRouter } from "./router";
 import { getConversationEngine, type Conversation, type ConversationMessage } from "./conversation-engine";
@@ -190,7 +191,7 @@ Examples of when NOT to delegate:
           agentResponses.push(response);
         } catch {
           // Log error but continue with other agents
-          console.error(`Agent ${agentId} failed in fan-out:`, agentId);
+          logger.error(`Agent ${agentId} failed in fan-out:`, { error: String(agentId) });
         }
       }
     }

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import { ProductClassifier } from "@/components/ai/ProductClassifier";
+import { Button } from "@/components/ui/Button";
+import { ErrorMessage } from "@/components/ui/ErrorMessage";
 
 type Mode = "analyze" | "discover";
 
@@ -167,17 +169,13 @@ export default function ProductHunterPage() {
                   background: "var(--bg-sunken)", fontSize: "0.8125rem", color: "var(--text-primary)", outline: "none",
                 }}
               />
-              <button
+              <Button
                 onClick={handleDiscover}
-                disabled={loading || !query.trim()}
-                style={{
-                  padding: "10px 20px", borderRadius: "var(--r-md)", border: "none", cursor: loading ? "wait" : "pointer",
-                  background: "var(--accent)", color: "#fff", fontSize: "0.8125rem", fontWeight: 600,
-                  opacity: loading || !query.trim() ? 0.5 : 1,
-                }}
+                loading={loading}
+                disabled={!query.trim()}
               >
-                {loading ? "Searching..." : "Search"}
-              </button>
+                Search
+              </Button>
             </div>
             <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginTop: 8 }}>
               Searches eBay for products and runs multi-agent analysis
@@ -221,17 +219,14 @@ export default function ProductHunterPage() {
                 />
               </div>
             </div>
-            <button
+            <Button
               onClick={handleAnalyze}
-              disabled={loading || !productName.trim() || !supplierPrice.trim()}
-              style={{
-                marginTop: 12, padding: "10px 20px", borderRadius: "var(--r-md)", border: "none", cursor: loading ? "wait" : "pointer",
-                background: "var(--accent)", color: "#fff", fontSize: "0.8125rem", fontWeight: 600,
-                opacity: loading || !productName.trim() || !supplierPrice.trim() ? 0.5 : 1,
-              }}
+              loading={loading}
+              disabled={!productName.trim() || !supplierPrice.trim()}
+              className="mt-3"
             >
-              {loading ? "Analyzing..." : "Analyze Product"}
-            </button>
+              Analyze Product
+            </Button>
             <p style={{ fontSize: "0.6875rem", color: "var(--text-tertiary)", marginTop: 8 }}>
               Evaluates viability, margins, and generates a recommendation score
             </p>
@@ -241,12 +236,7 @@ export default function ProductHunterPage() {
 
       {/* Error */}
       {error && (
-        <div style={{
-          padding: "12px 16px", marginBottom: 16, borderRadius: "var(--r-md)", fontSize: "0.8125rem",
-          background: "var(--error-bg)", color: "var(--error)", border: "1px solid var(--error)",
-        }}>
-          {error}
-        </div>
+        <ErrorMessage message={error} className="mb-4" />
       )}
 
       {/* Analysis Result */}
@@ -330,7 +320,7 @@ export default function ProductHunterPage() {
                 borderRadius: "var(--r-md)", background: "var(--bg-sunken)",
               }}>
                 {p.imageUrl && (
-                  <Image src={p.imageUrl} alt="" width={40} height={40} style={{ borderRadius: "var(--r-sm)", objectFit: "cover" }} />
+                  <Image src={p.imageUrl} alt={p.name} width={40} height={40} style={{ borderRadius: "var(--r-sm)", objectFit: "cover" }} />
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--text-primary)" }}>{p.name}</div>

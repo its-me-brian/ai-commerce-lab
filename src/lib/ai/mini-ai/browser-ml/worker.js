@@ -14,7 +14,8 @@
 
 let pipeline = null;
 let currentModel = null;
-let currentTask = null;
+ 
+let _currentTask = null;
 
 self.onmessage = async function (event) {
   const { type } = event.data;
@@ -28,7 +29,7 @@ self.onmessage = async function (event) {
         if (pipeline && currentModel !== model) {
           pipeline = null;
           currentModel = null;
-          currentTask = null;
+        _currentTask = null;
         }
 
         // Lazy-load Transformers.js
@@ -42,14 +43,15 @@ self.onmessage = async function (event) {
         });
 
         currentModel = model;
-        currentTask = task;
+        _currentTask = task;
 
         self.postMessage({ type: "loaded", model });
         break;
       }
 
       case "inference": {
-        const { id, input, task, options } = event.data;
+ 
+        const { id, input, _task, options } = event.data;
 
         if (!pipeline) {
           self.postMessage({

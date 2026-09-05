@@ -14,6 +14,8 @@
 // Persistence: budgets and cost records are persisted to Supabase
 // (cost_budgets, cost_records tables) for survival across restarts.
 
+import { logger } from "../logging";
+
 /**
  * Budget time window.
  */
@@ -201,7 +203,7 @@ export class CostBudgetTracker {
       const { supabase } = await import("@/lib/database/supabase");
       await supabase.from("cost_budgets").delete().eq("id", budgetId);
     } catch (error) {
-      console.error("[CostBudget] Failed to delete budget from Supabase:", error);
+      logger.error("[CostBudget] Failed to delete budget from Supabase:", { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -248,9 +250,15 @@ export class CostBudgetTracker {
   checkBudget(
     entityId: string,
     entityType: BudgetEntityType,
-    estimatedCostDollars: number
+    estimatedCostDollars: number,
+    workspaceId?: string
   ): { allowed: true; statuses: BudgetStatus[] } | { allowed: false; violatedBudget: BudgetStatus } {
-    const budgets = this.getBudgetsForEntity(entityId, entityType).filter((b) => b.active);
+    let budgets = this.getBudgetsForEntity(entityId, entityType).filter((b) => b.active);
+
+    // Filter by workspace if provided (workspace partitioning)
+    if (workspaceId) {
+      budgets = budgets.filter((b) => b.workspaceId === workspaceId || b.entityType === "global");
+    }
 
     // Also check global budget
     const globalBudgets = this.getBudgetsForEntity("global", "global").filter((b) => b.active);
@@ -340,7 +348,7 @@ export class CostBudgetTracker {
    * Get the status of a specific budget.
    */
   getBudgetStatus(budget: CostBudget): BudgetStatus {
-    const spending = this.getSpending(budget.entityId, budget.entityType, budget.window);
+    const spending = this.getSpending(budget.entityId, budget.entityType, budget.window, budget.workspaceId);
     const utilization = budget.maxDollars > 0 ? spending / budget.maxDollars : 0;
     const activeAlerts = this.alerts.filter((a) => a.budgetId === budget.id);
 
@@ -365,13 +373,18 @@ export class CostBudgetTracker {
   /**
    * Get spending for an entity within a time window.
    */
-  getSpending(entityId: string, entityType: BudgetEntityType, window: BudgetWindow): number {
+  getSpending(entityId: string, entityType: BudgetEntityType, window: BudgetWindow, workspaceId?: string): number {
     const now = Date.now();
     const windowStart = window === "total" ? 0 : now - WINDOW_MS[window];
 
     return this.records
       .filter((r) => {
         const matchesTime = r.timestamp >= windowStart;
+
+        // Workspace partitioning: only count spending from the same workspace
+        if (workspaceId && r.workspaceId !== workspaceId && entityType !== "global") {
+          return false;
+        }
 
         if (entityType === "global" && entityId === "global") {
           // Global budget: count ALL spending across all entities
@@ -450,7 +463,7 @@ export class CostBudgetTracker {
    */
   async persistBudgetToSupabase(budget: CostBudget, workspaceId: string): Promise<void> {
     if (!workspaceId) {
-      console.error("[CostBudget] workspaceId is required for budget persistence");
+      logger.error("[CostBudget] workspaceId is required for budget persistence");
       return;
     }
     try {
@@ -471,7 +484,7 @@ export class CostBudgetTracker {
         { onConflict: "id" }
       );
     } catch (error) {
-      console.error("[CostBudget] Failed to persist budget to Supabase:", error);
+      logger.error("[CostBudget] Failed to persist budget to Supabase:", { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -481,7 +494,7 @@ export class CostBudgetTracker {
    */
   async persistCostRecordToSupabase(record: CostRecord, workspaceId: string): Promise<void> {
     if (!workspaceId) {
-      console.error("[CostBudget] workspaceId is required for cost record persistence");
+      logger.error("[CostBudget] workspaceId is required for cost record persistence");
       return;
     }
     try {
@@ -500,7 +513,7 @@ export class CostBudgetTracker {
         workspace_id: workspaceId,
       });
     } catch (error) {
-      console.error("[CostBudget] Failed to persist cost record to Supabase:", error);
+      logger.error("[CostBudget] Failed to persist cost record to Supabase:", { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -532,9 +545,35 @@ export class CostBudgetTracker {
         });
       }
 
-      console.log(`[CostBudget] Loaded ${data?.length ?? 0} budgets from Supabase`);
+      // Also load recent cost records (last 24 hours) for accurate spending tracking
+      const recordsResult = await supabase
+        .from("cost_records")
+        .select("*")
+        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .order("created_at", { ascending: false })
+        .limit(this.maxRecords);
+
+      if (!recordsResult.error && recordsResult.data) {
+        for (const row of recordsResult.data) {
+          this.records.push({
+            entityId: row.entity_id,
+            entityType: row.entity_type as BudgetEntityType,
+            workspaceId: row.workspace_id || "",
+            costDollars: row.cost_dollars,
+            provider: row.provider ?? undefined,
+            model: row.model ?? undefined,
+            inputTokens: row.input_tokens ?? undefined,
+            outputTokens: row.output_tokens ?? undefined,
+            taskId: row.task_id ?? undefined,
+            runId: row.run_id ?? undefined,
+            timestamp: new Date(row.created_at).getTime(),
+          });
+        }
+      }
+
+      logger.info(`[CostBudget] Loaded ${data?.length ?? 0} budgets and ${recordsResult.data?.length ?? 0} records from Supabase`);
     } catch (error) {
-      console.error("[CostBudget] Failed to load budgets from Supabase:", error);
+      logger.error("[CostBudget] Failed to load from Supabase:", { error: error instanceof Error ? error.message : String(error) });
     }
   }
 

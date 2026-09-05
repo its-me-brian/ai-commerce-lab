@@ -1,7 +1,7 @@
 // Mini-AI Enhanced Engine Tests
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { MiniAIEnhancedEngine, ENHANCEMENT_PROFILES } from "./mini-ai-enhanced-engine";
-import { getMiniAIRegistry, resetMiniAIRegistry } from "./mini-ai/registry";
+import { resetMiniAIRegistry }from "./mini-ai/registry";
 import { resetMiniAIEngine, clearDeterministicImpls } from "./mini-ai/engine";
 import { bootstrapMiniAIs } from "./mini-ai/bootstrap";
 

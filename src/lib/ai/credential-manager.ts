@@ -3,9 +3,9 @@
 // Keys are encrypted at rest using AES-256-GCM.
 // Never exposes raw keys to the browser — only hints are returned.
 
+import { logger } from "../logging";
 import { supabase } from "../database/supabase";
 import { encrypt, decrypt, getKeyHint } from "./encryption";
-import type { EncryptedData } from "./encryption";
 
 export interface CredentialRecord {
   id: string;
@@ -102,7 +102,7 @@ export class CredentialManager {
 
     // Check expiration
     if (credential.expires_at && new Date(credential.expires_at) < new Date()) {
-      console.warn(`[CredentialManager] Credential ${credentialId} has expired`);
+      logger.warn(`[CredentialManager] Credential ${credentialId} has expired`);
       return null;
     }
 
@@ -114,9 +114,9 @@ export class CredentialManager {
         authTag: credential.auth_tag,
       });
     } catch (err) {
-      console.error(
+      logger.error(
         `[CredentialManager] Failed to decrypt credential ${credentialId}:`,
-        err instanceof Error ? err.message : err
+        { error: err instanceof Error ? err.message : String(err) }
       );
       return null;
     }
@@ -166,7 +166,7 @@ export class CredentialManager {
   async listByProvider(providerId: string, workspaceId: string): Promise<CredentialSafe[]> {
     const { data, error } = await supabase
       .from("ai_provider_credentials")
-      .select("*")
+      .select("id, provider_id, name, key_hint, environment, is_active, workspace_id, created_at, updated_at, expires_at")
       .eq("provider_id", providerId)
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false });
@@ -181,7 +181,7 @@ export class CredentialManager {
   async listAll(workspaceId: string): Promise<CredentialSafe[]> {
     const { data, error } = await supabase
       .from("ai_provider_credentials")
-      .select("*")
+      .select("id, provider_id, name, key_hint, environment, is_active, workspace_id, created_at, updated_at, expires_at")
       .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false });
 

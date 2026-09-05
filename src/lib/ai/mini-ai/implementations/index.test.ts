@@ -69,12 +69,14 @@ vi.mock("../../router", () => ({
 }));
 
 import { getMiniAIRegistry, resetMiniAIRegistry } from "../registry";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   getMiniAIEngine,
   resetMiniAIEngine,
   registerDeterministicImpl,
   clearDeterministicImpls,
 } from "../engine";
+/* eslint-enable @typescript-eslint/no-unused-vars */
 import { bootstrapMiniAIs, builtinMiniAIDs } from "../bootstrap";
 
 // Import individual deterministic implementations

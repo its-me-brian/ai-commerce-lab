@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess, requirePermission } from "@/lib/auth/api-auth";
 import { getCredentialManager } from "@/lib/ai/credential-manager";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { sanitizeBody } from "@/lib/security/sanitize";
 
 /**
  * GET /api/settings/credentials
@@ -23,11 +24,11 @@ export const GET = withSecurity(async (request: NextRequest) => {
       success: true,
       credentials,
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
@@ -47,8 +48,11 @@ export const POST = withSecurity(async (request: NextRequest) => {
     const perm = requirePermission(access.role, "credentials.write");
     if ("error" in perm) return perm.error;
 
-    const body = await request.json();
-    const { provider_id, name, api_key, environment } = body;
+    const body = sanitizeBody(await request.json()) as Record<string, unknown>;
+    const provider_id = body.provider_id as string;
+    const name = body.name as string;
+    const api_key = body.api_key as string;
+    const environment = body.environment as string;
 
     // Validate required fields
     if (!provider_id || !name || !api_key) {
@@ -94,11 +98,11 @@ export const POST = withSecurity(async (request: NextRequest) => {
       credential,
       message: "Credential stored securely. The API key is encrypted and will not be shown again.",
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
@@ -141,11 +145,11 @@ export const DELETE = withSecurity(async (request: NextRequest) => {
       success: true,
       message: "Credential deleted permanently",
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );

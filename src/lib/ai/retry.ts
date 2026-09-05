@@ -2,6 +2,8 @@
 // Exponential backoff with jitter for transient failures.
 // Used by AgentEngine and Router for LLM calls.
 
+import { logger } from "../logging";
+
 export interface RetryConfig {
   maxRetries: number;
   baseDelayMs: number;
@@ -72,7 +74,7 @@ export async function withRetry<T>(
         delay += (Math.random() * 2 - 1) * jitterRange;
       }
 
-      console.warn(
+      logger.warn(
         `[Retry] ${context?.operation || "operation"} failed (attempt ${attempt + 1}/${cfg.maxRetries + 1})` +
         `${context?.agentId ? ` for agent ${context.agentId}` : ""}:` +
         ` ${error instanceof Error ? error.message : String(error)}` +

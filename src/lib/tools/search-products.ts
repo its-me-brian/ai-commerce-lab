@@ -96,7 +96,8 @@ class EbayBrowseSource implements ProductSource {
 
     return items.map((item: Record<string, unknown>) => {
       const price = item.price as Record<string, unknown> | undefined;
-      const seller = item.seller as Record<string, unknown> | undefined;
+ 
+      const _seller = item.seller as Record<string, unknown> | undefined;
       const rating = item.rating as Record<string, unknown> | undefined;
 
       return {

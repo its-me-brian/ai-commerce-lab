@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface Agent {
   id: string;
@@ -81,19 +83,19 @@ export default function TestCenterPage() {
   const [testInput, setTestInput] = useState('{\n  "name": "Test Product",\n  "supplierPrice": 10\n}');
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<TestResult | null>(null);
-  const [history, setHistory] = useState<TestHistoryEntry[]>([]);
+  const [history, setHistory] = useState<TestHistoryEntry[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = localStorage.getItem("test-center-history");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchAgents();
-    // Load history from localStorage
-    const saved = localStorage.getItem("test-center-history");
-    if (saved) {
-      try { setHistory(JSON.parse(saved)); } catch { /* ignore */ }
-    }
-  }, []);
-
-  async function fetchAgents() {
+ 
+  async function _fetchAgents() {
     try {
       const res = await fetch("/api/agents/list");
       const data = await res.json();
@@ -113,6 +115,33 @@ export default function TestCenterPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/agents/list");
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.success && data.agents) {
+          setAgents(
+            data.agents.map((a: { id: string; name: string; description: string; enabled: boolean }) => ({
+              id: a.id,
+              name: a.name,
+              description: a.description,
+              enabled: a.enabled,
+            }))
+          );
+        }
+      } catch (err) {
+        console.error("Failed to load agents:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   function selectAgent(agentId: string) {
     setSelectedAgent(agentId);
@@ -220,25 +249,21 @@ export default function TestCenterPage() {
               onChange={(e) => setTestInput(e.target.value)}
               rows={12}
               className="mono"
+              aria-label="Test input JSON"
               style={{
                 width: "100%", padding: "10px 14px", border: "1px solid var(--border)",
                 borderRadius: "var(--r-md)", fontSize: "0.75rem", background: "var(--bg-card)",
                 resize: "vertical", lineHeight: 1.5,
               }}
             />
-            <button
+            <Button
               onClick={runTest}
-              disabled={testing || !selectedAgent}
-              style={{
-                marginTop: 12, width: "100%", padding: "10px 18px",
-                background: testing || !selectedAgent ? "var(--bg-sunken)" : "var(--accent)",
-                color: "white", border: "none", borderRadius: "var(--r-md)",
-                fontSize: "0.8125rem", fontWeight: 500,
-                cursor: testing || !selectedAgent ? "not-allowed" : "pointer",
-              }}
+              loading={testing}
+              disabled={!selectedAgent}
+              className="w-full mt-3"
             >
-              {testing ? "Running..." : "Run Test"}
-            </button>
+              Run Test
+            </Button>
           </div>
         </div>
 
@@ -284,11 +309,13 @@ export default function TestCenterPage() {
           ) : (
             <div style={{
               background: "var(--bg-card)", border: "1px solid var(--border)",
-              borderRadius: "var(--r-lg)", padding: 40, textAlign: "center",
+              borderRadius: "var(--r-lg)",
             }}>
-              <p style={{ fontSize: "0.875rem", color: "var(--text-tertiary)" }}>
-                {selectedAgent ? "Click \"Run Test\" to see results" : "Select an agent to begin"}
-              </p>
+              <EmptyState
+                icon="🧪"
+                title="Select an agent"
+                description="Choose an agent and click Run Test to see results."
+              />
             </div>
           )}
         </div>
@@ -307,6 +334,16 @@ export default function TestCenterPage() {
                   setTestInput(entry.input);
                   setResult(entry.result);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedAgent(entry.agentId);
+                    setTestInput(entry.input);
+                    setResult(entry.result);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   padding: "8px 12px", background: "var(--bg-sunken)", borderRadius: "var(--r-md)",

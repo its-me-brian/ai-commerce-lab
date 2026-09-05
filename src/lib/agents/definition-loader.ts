@@ -2,6 +2,7 @@
 // Loads agent definitions from DB with fallback to hardcoded definitions.
 // FASE: Agent definitions from DB — allows updating agent identity/personality without code changes.
 
+import { logger } from "../logging";
 import { supabase } from "../database/supabase";
 import { agentDefinitions } from "../agents/definitions";
 import type {
@@ -87,7 +88,7 @@ export async function loadDefinitionsFromDB(): Promise<Record<string, AgentDefin
       .order("slug");
 
     if (error || !data || data.length === 0) {
-      console.warn("[DefinitionLoader] DB unavailable or empty, using hardcoded definitions");
+      logger.warn("[DefinitionLoader] DB unavailable or empty, using hardcoded definitions");
       return agentDefinitions;
     }
 
@@ -96,10 +97,10 @@ export async function loadDefinitionsFromDB(): Promise<Record<string, AgentDefin
       definitions[record.slug] = recordToDefinition(record);
     }
 
-    console.log(`[DefinitionLoader] Loaded ${Object.keys(definitions).length} definitions from DB`);
+    logger.info(`[DefinitionLoader] Loaded ${Object.keys(definitions).length} definitions from DB`);
     return definitions;
   } catch (error) {
-    console.warn("[DefinitionLoader] Failed to load from DB, using hardcoded:", error);
+    logger.warn("[DefinitionLoader] Failed to load from DB, using hardcoded:", { error: error instanceof Error ? error.message : String(error) });
     return agentDefinitions;
   }
 }

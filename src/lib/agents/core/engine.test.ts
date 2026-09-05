@@ -25,9 +25,9 @@ vi.mock("../../database/supabase", () => ({
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function createChain(terminalResult: SupabaseResult): any {
-  let terminalMethod = "single";
-  let terminalValue: unknown = terminalResult.data;
-  let terminalError: unknown = terminalResult.error;
+  const terminalMethod: string = "single";
+  const terminalValue: unknown = terminalResult.data;
+  const terminalError: unknown = terminalResult.error;
 
   const chain: any = {
     select: vi.fn(() => chain),
@@ -60,7 +60,8 @@ function mockQuery(terminalResult: SupabaseResult) {
 // Mock Provider
 // ============================================
 
-class MockProvider extends AIProvider {
+ 
+class _MockProvider extends AIProvider {
   readonly slug: AIProviderSlug = "gemini";
   readonly name = "Mock Gemini";
 
@@ -163,6 +164,7 @@ class MockAgent extends BaseAgent {
     return errors;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async execute(context: AgentContext): Promise<AgentResult> {
     return {
       success: true,
@@ -266,7 +268,8 @@ const VALID_CONFIG_ROW = {
   fallback_model: null,
 };
 
-function setupAgentMocks(agentId = "mock-agent", agent?: MockAgent) {
+ 
+function setupAgentMocks(_agentId = "mock-agent", agent?: MockAgent) {
   const a = agent || new MockAgent();
   mockRegistry.get.mockReturnValue(a);
   mockRegistry.has.mockReturnValue(true);

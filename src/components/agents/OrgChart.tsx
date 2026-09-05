@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { StatusDot, type StatusDotStatus } from "@/components/ui/StatusDot";
+import { StatusDot } from "@/components/ui/StatusDot";
 
 interface AgentNode {
   id: string;
@@ -43,7 +43,7 @@ export function OrgChart({ roots, childrenMap, configMap, modelMap }: OrgChartPr
             configMap={configMap}
             modelMap={modelMap}
             depth={0}
-            isLast={false}
+            _isLast={false}
           />
         ))}
       </div>
@@ -57,14 +57,14 @@ function TreeNode({
   configMap,
   modelMap,
   depth,
-  isLast,
+  _isLast,
 }: {
   agent: AgentNode;
   childrenMap: Map<string, AgentNode[]>;
   configMap: Map<string, { primary_model_id: string; primary_provider_id: string }>;
   modelMap: Map<string, string>;
   depth: number;
-  isLast: boolean;
+  _isLast: boolean;
 }) {
   const children = childrenMap.get(agent.id) || [];
   const hasChildren = children.length > 0;
@@ -88,6 +88,15 @@ function TreeNode({
           transition: "background 0.15s",
         }}
         onClick={() => hasChildren && setExpanded(!expanded)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (hasChildren) setExpanded(!expanded);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={hasChildren ? expanded : undefined}
         onMouseEnter={(e) => {
           if (hasChildren) e.currentTarget.style.background = "var(--bg-hover)";
         }}
@@ -205,7 +214,7 @@ function TreeNode({
               configMap={configMap}
               modelMap={modelMap}
               depth={depth + 1}
-              isLast={i === children.length - 1}
+              _isLast={i === children.length - 1}
             />
           ))}
         </div>

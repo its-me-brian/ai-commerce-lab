@@ -4,7 +4,7 @@
 // FASE 17: Added delegation permission validation.
 
 import { supabase } from "../database/supabase";
-import type { Permission, PermissionAction, AgentPermissions, DelegationRule } from "./types";
+import type { Permission, PermissionAction, DelegationRule }from "./types";
 import { DEFAULT_PERMISSIONS, DEFAULT_DELEGATION_RULES } from "./types";
 
 export class PermissionChecker {

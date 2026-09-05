@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProviderStatuses } from "@/lib/ai/provider-test";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { sanitizeBody } from "@/lib/security/sanitize";
 
 // GET /api/ai/providers
 // Lists all registered providers with their configuration status.
@@ -13,11 +14,11 @@ export async function GET(request: NextRequest) {
 
     const providers = await getProviderStatuses(access.workspaceId);
     return NextResponse.json({ success: true, providers });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
@@ -32,10 +33,10 @@ export async function PATCH(request: NextRequest) {
     const access = await requireWorkspaceAccess(request);
     if ("error" in access) return access.error;
 
-    const body = await request.json();
-    const { id, slug, enabled } = body as { id?: string; slug?: string; enabled?: boolean };
+    const body = sanitizeBody(await request.json()) as Record<string, unknown>;
+    const identifier = (body.slug || body.id) as string;
+    const enabled = body.enabled as boolean;
 
-    const identifier = slug || id;
     if (!identifier || typeof enabled !== "boolean") {
       return NextResponse.json(
         { success: false, error: "slug (or id) and enabled (boolean) are required" },
@@ -51,13 +52,13 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: "Failed to update provider" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, provider: data });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }

@@ -67,10 +67,13 @@ export class CEOAgent extends BaseAgent {
     const { input, configuration } = context;
 
     const router = getRouter();
-    const registry = getAgentRegistry();
+ 
+    const _registry = getAgentRegistry();
     const orchestrator = getMultiAgentOrchestrator();
-    const pricingEngine = getPricingEngine();
-    const sourceManager = getSourceTypeManager();
+ 
+    const _pricingEngine = getPricingEngine();
+ 
+    const _sourceManager = getSourceTypeManager();
 
     // Check if this is a workflow execution request
     if (input.workflow) {
@@ -78,7 +81,8 @@ export class CEOAgent extends BaseAgent {
     }
 
     // 1. Create execution plan
-    const { result: planResult, log: planLog } = await router.generate(
+ 
+    const { result: planResult, log: _planLog } = await router.generate(
       {
         agentId: configuration.agentId,
         primaryProvider: configuration.primaryProvider,

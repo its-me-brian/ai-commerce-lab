@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { supabase } from "@/lib/database/supabase";
 import { getWorkspaceId } from "@/lib/database/supabase-server";
 import { notFound } from "next/navigation";
@@ -36,7 +37,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginBottom: 4 }}>
-          <a href="/dashboard/runs" style={{ color: "var(--accent)", textDecoration: "none" }}>Runs</a>
+          <Link href="/dashboard/runs" style={{ color: "var(--accent)", textDecoration: "none" }}>Runs</Link>
           {" / "}
           <span className="mono">{id.slice(0, 8)}...</span>
         </p>

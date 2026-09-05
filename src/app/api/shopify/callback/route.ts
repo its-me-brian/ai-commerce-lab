@@ -10,6 +10,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/database/supabase-server";
 import { supabase } from "@/lib/database/supabase";
 import { encrypt } from "@/lib/ai/encryption";
+import { createHmac, timingSafeEqual } from "crypto";
+
+/**
+ * Verify HMAC signature on OAuth state parameter.
+ * Returns the workspace_id if valid, null if tampered.
+ */
+function verifyState(state: string): string | null {
+  const dotIndex = state.lastIndexOf(".");
+  if (dotIndex === -1) return null;
+
+  const workspaceId = state.slice(0, dotIndex);
+  const receivedSig = state.slice(dotIndex + 1);
+
+  const secret = process.env.OAUTH_STATE_SECRET || process.env.ENCRYPTION_KEY || "";
+  const expectedSig = createHmac("sha256", secret).update(workspaceId).digest("hex").slice(0, 16);
+
+  if (receivedSig.length !== expectedSig.length) return null;
+
+  // Timing-safe comparison to prevent timing attacks
+  const sigBuffer = Buffer.from(receivedSig, "hex");
+  const expectedBuffer = Buffer.from(expectedSig, "hex");
+
+  if (sigBuffer.length !== expectedBuffer.length) return null;
+  if (!timingSafeEqual(sigBuffer, expectedBuffer)) return null;
+
+  return workspaceId;
+}
+
+// SSRF prevention: only allow valid Shopify myshopify.com domains
+const SHOPIFY_SHOP_REGEX = /^[a-z0-9][a-z0-9\-]*\.myshopify\.com$/;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -19,6 +49,13 @@ export async function GET(request: NextRequest) {
   if (!shop || !code) {
     return NextResponse.redirect(
       new URL("/dashboard/settings?tab=integrations&error=missing_params", request.url)
+    );
+  }
+
+  // CRITICAL: Validate shop domain to prevent SSRF
+  if (!SHOPIFY_SHOP_REGEX.test(shop)) {
+    return NextResponse.redirect(
+      new URL("/dashboard/settings?tab=integrations&error=invalid_shop", request.url)
     );
   }
 
@@ -92,10 +129,18 @@ export async function GET(request: NextRequest) {
     }
 
     // 4. Determine workspace_id from OAuth state (set by /api/shopify/install)
-    const state = searchParams.get("state");
-    if (!state) {
+    const rawState = searchParams.get("state");
+    if (!rawState) {
       return NextResponse.redirect(
         new URL("/dashboard/settings?tab=integrations&error=missing_state", request.url)
+      );
+    }
+
+    // CRITICAL: Verify HMAC signature to prevent state tampering
+    const state = verifyState(rawState);
+    if (!state) {
+      return NextResponse.redirect(
+        new URL("/dashboard/settings?tab=integrations&error=invalid_state", request.url)
       );
     }
 

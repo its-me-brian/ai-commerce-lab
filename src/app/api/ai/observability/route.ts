@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStructuredLogger, getExecutionTracer, getMetricsCollector } from "@/lib/ai/observability";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // GET /api/ai/observability
 // Query logs, traces, and metrics
 // Falls back to Supabase when in-memory data is empty (cold start)
-export async function GET(request: NextRequest) {
+export const GET = withSecurity(async (request: NextRequest) => {
   try {
     // Auth check
     const auth = await requireWorkspaceAccess(request);
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ success: true, trace, spans: flat });
         }
 
-        let traces = tracer.getRecentTraces(count);
+        const traces = tracer.getRecentTraces(count);
 
         // Fallback to Supabase if in-memory is empty
         if (traces.length === 0) {
@@ -182,10 +183,10 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});

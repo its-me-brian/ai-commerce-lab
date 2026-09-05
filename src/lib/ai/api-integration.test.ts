@@ -1,10 +1,8 @@
 // API Integration Tests
 // Tests cross-system integration by importing modules directly.
 import { describe, it, expect, beforeEach } from "vitest";
-import { EvaluationEngine, DEFAULT_THRESHOLDS, resetEvaluationEngine } from "./evaluation";
-import type { ExecutionEvaluation } from "./evaluation";
+import { EvaluationEngine, resetEvaluationEngine }from "./evaluation";
 import { CostBudgetTracker, resetCostBudgetTracker, createAgentBudget } from "./cost-budget";
-import type { CostBudget } from "./cost-budget";
 import { StructuredLogger, ExecutionTracer, MetricsCollector, resetObservability } from "./observability";
 import { SecurityAudit, resetSecurityAudit } from "../security/middleware";
 

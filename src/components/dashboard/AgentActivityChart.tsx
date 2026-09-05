@@ -76,16 +76,6 @@ export const AgentActivityChart = React.memo(function AgentActivityChart({
   data,
   height = 260,
 }: AgentActivityChartProps) {
-  if (!data.length) {
-    return (
-      <div className="flex items-center justify-center" style={{ height }}>
-        <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-          No agent activity data
-        </p>
-      </div>
-    );
-  }
-
   // Truncate long agent IDs for display
   const chartData = useMemo(
     () =>
@@ -95,6 +85,16 @@ export const AgentActivityChart = React.memo(function AgentActivityChart({
       })),
     [data],
   );
+
+  if (!data.length) {
+    return (
+      <div className="flex items-center justify-center" style={{ height }}>
+        <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+          No agent activity data
+        </p>
+      </div>
+    );
+  }
 
   return (
     <ResponsiveContainer width="100%" height={height}>

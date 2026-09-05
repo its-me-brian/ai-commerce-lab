@@ -5,7 +5,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TaskPersistence, type TaskEvent } from "./task-persistence";
 
 // Mock Supabase with a Proxy-based chain that resolves any method chain
-const mockResolvedData = (data: unknown, error: unknown = null) =>
+ 
+const _mockResolvedData = (data: unknown, error: unknown = null) =>
   Promise.resolve({ data, error });
 
 function createMockQuery(returnData: unknown = null, returnError: unknown = null) {

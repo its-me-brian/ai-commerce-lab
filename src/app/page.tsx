@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <div
@@ -56,7 +58,7 @@ export default function Home() {
               <path d="M4.5 2.5l4 3.5-4 3.5" />
             </svg>
           </a>
-          <a
+          <Link
             href="/dashboard/agents"
             style={{
               display: "inline-flex",
@@ -72,7 +74,7 @@ export default function Home() {
             }}
           >
             Agents
-          </a>
+          </Link>
         </div>
       </div>
     </div>

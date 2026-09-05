@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { bootstrap, getAgentRegistry } from "@/lib/ai/bootstrap";
 import { AgentEngine } from "@/lib/agents/core/engine";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // POST /api/agents/product-hunter/run
 // Legacy endpoint — redirects to generic /api/agents/run
 // Kept for backward compatibility.
-export async function POST(request: NextRequest) {
+export const POST = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -40,16 +41,15 @@ export async function POST(request: NextRequest) {
       metadata: result.metadata,
       timestamp: new Date().toISOString(),
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  } catch  {
     return NextResponse.json(
       {
         error: {
           code: "AGENT_ERROR",
-          message: message.startsWith("Input validation failed") ? message : "An unexpected error occurred",
+          message: "An unexpected error occurred",
         },
       },
       { status: 500 }
     );
   }
-}
+});

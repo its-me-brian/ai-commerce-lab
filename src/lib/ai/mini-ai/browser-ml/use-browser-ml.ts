@@ -13,7 +13,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
   getBrowserMLProvider,
-  resetBrowserMLProvider,
+ 
+  resetBrowserMLProvider as _resetBrowserMLProvider,
   type BrowserMLResult,
   type BrowserMLProgress,
 } from "@/lib/ai/mini-ai/browser-ml/provider";

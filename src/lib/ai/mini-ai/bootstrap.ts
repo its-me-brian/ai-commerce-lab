@@ -4,9 +4,11 @@
 //
 // Pattern: same as src/lib/tools/bootstrap.ts and src/lib/ai/bootstrap.ts
 
+import { logger } from "../../logging";
 import { getMiniAIRegistry } from "./registry";
 import {
   registerDeterministicImpl,
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
   registerPromptBuilder,
 } from "./engine";
 
@@ -58,7 +60,7 @@ export function bootstrapMiniAIs(): void {
   registerDeterministicImpl("critic", criticDeterministic);
   registerDeterministicImpl("validator", validatorDeterministic);
 
-  console.log(`[MiniAI Bootstrap] Registered ${builtinMiniAIDs.length} built-in mini-IAs`);
+  logger.info(`[MiniAI Bootstrap] Registered ${builtinMiniAIDs.length} built-in mini-IAs`);
 }
 
 /**

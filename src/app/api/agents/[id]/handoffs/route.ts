@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurityAndParams } from "@/lib/security/api-middleware";
 
 // GET /api/agents/[id]/handoffs
 // Get handoff events for tasks owned by this agent in the current workspace
-export async function GET(
+export const GET = withSecurityAndParams(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -35,8 +36,8 @@ export async function GET(
     .limit(50);
 
   if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "An unexpected error occurred" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, handoffs: data });
-}
+});

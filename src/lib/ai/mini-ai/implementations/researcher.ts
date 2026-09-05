@@ -64,7 +64,8 @@ Output format:
  */
 export async function researcherDeterministic(input: Record<string, unknown>) {
   const topic = String(input.topic || input.query || "unknown");
-  const context = String(input.context || "");
+ 
+  const _context = String(input.context || "");
 
   // Simple keyword extraction
   const words = topic.toLowerCase().split(/\s+/);

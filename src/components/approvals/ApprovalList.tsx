@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { ApprovalCard, type ApprovalRecord } from "./ApprovalCard";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorMessage } from "@/components/ui/ErrorMessage";
 
 interface ApprovalListProps {
   agentId?: string;
@@ -99,7 +101,7 @@ export function ApprovalList({ agentId, limit = 50 }: ApprovalListProps) {
 
       {/* Loading state */}
       {loading && (
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-12" role="status" aria-label="Loading approvals">
           <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-tertiary)" }}>
             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
             Loading approvals...
@@ -109,32 +111,16 @@ export function ApprovalList({ agentId, limit = 50 }: ApprovalListProps) {
 
       {/* Error state */}
       {error && (
-        <div
-          className="text-sm p-4 rounded-[var(--r-md)]"
-          style={{ background: "var(--error-bg)", color: "var(--error)" }}
-        >
-          {error}
-        </div>
+        <ErrorMessage message={error} />
       )}
 
       {/* Empty state */}
       {!loading && !error && approvals.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12">
-          <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3"
-            style={{ background: "var(--bg-sunken)" }}
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: "var(--text-tertiary)" }}>
-              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <p className="text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>
-            No approvals found
-          </p>
-          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-            Approval requests will appear here when agents need human review
-          </p>
-        </div>
+        <EmptyState
+          icon="✅"
+          title="No approvals found"
+          description="Approval requests will appear here."
+        />
       )}
 
       {/* Approval list */}

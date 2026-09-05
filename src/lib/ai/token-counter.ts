@@ -3,6 +3,7 @@
 //
 // The naive `text.length / 4` is ~40% off for Spanish and ~20% off for English.
 // This uses word-level heuristics that are much more accurate.
+import { MODEL_PRICING } from "./model-pricing";
 //
 // Usage:
 //   const tokens = countTokens("Hola, ¿cómo estás?");  // ~4 tokens
@@ -110,8 +111,6 @@ export function estimateCost(
   inputTokens: number,
   outputTokens: number
 ): number {
-  // Dynamic import to avoid circular dependencies
-  const { MODEL_PRICING } = require("./model-pricing");
   const pricing = MODEL_PRICING[modelId];
 
   if (!pricing) {

@@ -29,39 +29,37 @@ interface ChatContainerProps {
 export function ChatContainer({
   agents,
   selectedAgentId: propAgentId,
-  sessionId,
+   
+  sessionId: _sessionId,
   onSendMessage,
 }: ChatContainerProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(
-    propAgentId || agents.find((a) => a.enabled !== false)?.id || null,
-  );
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const loadingRef = useRef(false);
 
-  // Sync internal state when prop changes (agent switched from sidebar)
+  // Derive selectedAgentId from props directly — no separate state needed
+  const selectedAgentId = propAgentId || agents.find((a) => a.enabled !== false)?.id || null;
+
+  // Reset conversation when prop agent changes
+  const [prevPropAgentId, setPrevPropAgentId] = useState(propAgentId);
   useEffect(() => {
-    if (propAgentId && propAgentId !== selectedAgentId) {
-      setSelectedAgentId(propAgentId);
-      // Reset conversation when switching agents
+    if (propAgentId !== prevPropAgentId) {
+      setPrevPropAgentId(propAgentId); // eslint-disable-line react-hooks/set-state-in-effect
       setConversationId(null);
       setMessages([]);
     }
-  }, [propAgentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [propAgentId, prevPropAgentId]);
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
 
   // ─── Load messages from Supabase when conversation changes ─────
   useEffect(() => {
-    if (!conversationId) {
-      setMessages([]);
-      return;
-    }
+    if (!conversationId) return;
 
     let cancelled = false;
-    setLoadingHistory(true);
+    setLoadingHistory(true); // eslint-disable-line react-hooks/set-state-in-effect
 
     fetch(`/api/conversations/${conversationId}/messages`)
       .then((res) => res.json())
@@ -223,6 +221,7 @@ export function ChatContainer({
         loadingRef.current = false;
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onSendMessage, selectedAgentId, agents, conversationId, selectedAgent],
   );
 

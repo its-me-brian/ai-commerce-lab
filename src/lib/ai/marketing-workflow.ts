@@ -3,7 +3,6 @@
 // FASE 30: Research → Strategy → Content → Review → Launch
 
 import { MarketingAgent, type MarketingContent } from "../agents/marketing";
-import { getSourceTypeManager, type DataSourceInput } from "./source-type-manager";
 import { getApprovalManager } from "./approval-manager";
 
 export type MarketingWorkflowStep =

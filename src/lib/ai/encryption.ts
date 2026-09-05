@@ -2,6 +2,10 @@
 // AES-256-GCM encryption/decryption for API keys.
 // Uses Node.js crypto module — server-side only.
 // Keys are encrypted at rest and never exposed to the browser.
+//
+// Key rotation: Set ENCRYPTION_KEY to the new key. Set ENCRYPTION_KEY_PREVIOUS
+// to the old key. New encryptions use the new key. Decryption tries the new key
+// first, then falls back to the previous key for legacy data.
 
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
@@ -39,6 +43,20 @@ function getEncryptionKey(): Buffer {
 }
 
 /**
+ * Get the previous encryption key (for rotation).
+ * Returns null if not configured.
+ */
+function getPreviousEncryptionKey(): Buffer | null {
+  const keyHex = process.env.ENCRYPTION_KEY_PREVIOUS;
+  if (!keyHex) return null;
+
+  const key = Buffer.from(keyHex, "hex");
+  if (key.length !== 32) return null;
+
+  return key;
+}
+
+/**
  * Encrypt a plaintext string using AES-256-GCM.
  * Returns encrypted data with IV and auth tag for decryption.
  */
@@ -67,13 +85,32 @@ export function encrypt(plaintext: string): EncryptedData {
 /**
  * Decrypt an encrypted string using AES-256-GCM.
  * Requires the same IV and auth tag used during encryption.
+ * Tries current key first, then falls back to previous key (for rotation).
  */
 export function decrypt(encryptedData: EncryptedData): string {
-  const key = getEncryptionKey();
   const iv = Buffer.from(encryptedData.iv, "hex");
   const authTag = Buffer.from(encryptedData.authTag, "hex");
   const encrypted = Buffer.from(encryptedData.encrypted, "hex");
 
+  // Try current key first
+  try {
+    return decryptWithKey(getEncryptionKey(), iv, authTag, encrypted);
+  } catch {
+    // If previous key exists, try it (legacy data from before rotation)
+    const prevKey = getPreviousEncryptionKey();
+    if (prevKey) {
+      return decryptWithKey(prevKey, iv, authTag, encrypted);
+    }
+    throw new Error("Decryption failed with current key and no previous key configured");
+  }
+}
+
+function decryptWithKey(
+  key: Buffer,
+  iv: Buffer,
+  authTag: Buffer,
+  encrypted: Buffer
+): string {
   const decipher = createDecipheriv(ALGORITHM, key, iv, {
     authTagLength: AUTH_TAG_LENGTH,
   });

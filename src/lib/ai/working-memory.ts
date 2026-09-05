@@ -247,32 +247,24 @@ export class WorkingMemory {
 }
 
 /**
- * Singleton working memory for the current execution context.
- * Created fresh for each execution, cleared after completion.
- */
-let currentMemory: WorkingMemory | null = null;
-
-/**
- * Get or create the current working memory.
+ * Get a new working memory instance for the current execution.
+ * Each call returns a fresh, isolated instance — no shared singleton.
+ * This prevents concurrent executions from leaking state to each other.
  */
 export function getWorkingMemory(): WorkingMemory {
-  if (!currentMemory) {
-    currentMemory = new WorkingMemory();
-  }
-  return currentMemory;
+  return new WorkingMemory();
 }
 
 /**
  * Reset the current working memory (for testing or new execution).
  */
 export function resetWorkingMemory(): WorkingMemory {
-  currentMemory = new WorkingMemory();
-  return currentMemory;
+  return new WorkingMemory();
 }
 
 /**
- * Clear the current working memory reference.
+ * Clear a working memory reference (no-op, kept for API compatibility).
  */
 export function clearWorkingMemory(): void {
-  currentMemory = null;
+  // No-op: each getWorkingMemory() call creates a fresh instance
 }

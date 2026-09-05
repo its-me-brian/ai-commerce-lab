@@ -13,10 +13,7 @@
 //   - Synthesize final response
 //   - Handle retries and fallbacks
 
-import { getAgentRegistry } from "./bootstrap";
 import { getMiniAIEngine } from "./mini-ai/engine";
-import { getMiniAIRegistry } from "./mini-ai/registry";
-import { selectModelByComplexity } from "./complexity-router";
 import { getApprovalManager } from "./approval-manager";
 import { getPlanBuilder } from "./plan-builder";
 import { AgentEngine } from "../agents/core/engine";
@@ -536,7 +533,8 @@ Respond with ONLY the category name, nothing else.`;
   private synthesizeResponse(
     plan: ExecutionPlan,
     stepResults: ExecutionResult["stepResults"],
-    workingMemory: Record<string, unknown>
+ 
+    _workingMemory: Record<string, unknown>
   ): string {
     // Collect all successful outputs
     const outputs = stepResults

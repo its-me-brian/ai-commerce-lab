@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorMessage } from "@/components/ui/ErrorMessage";
 
 interface AppEvent {
@@ -47,6 +48,7 @@ export default function ObservabilityPage() {
 
   useEffect(() => {
     fetchEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterType, filterSeverity, page]);
 
   async function fetchEvents() {
@@ -67,7 +69,7 @@ export default function ObservabilityPage() {
       } else {
         setError(data.error || "Failed to load events");
       }
-    } catch (err) {
+    } catch  {
       setError("Failed to connect to the server. Please try again.");
     } finally {
       setLoading(false);
@@ -180,13 +182,17 @@ export default function ObservabilityPage() {
         background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", overflow: "hidden",
       }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center" }}>
-            <p style={{ fontSize: "0.8125rem", color: "var(--text-tertiary)" }}>Loading events...</p>
+          <div className="flex items-center justify-center py-8" role="status" aria-label="Loading">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin" style={{ animation: "spin 1s linear infinite" }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
           </div>
         ) : events.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center" }}>
-            <p style={{ fontSize: "0.875rem", color: "var(--text-tertiary)" }}>No events found</p>
-          </div>
+          <EmptyState
+            icon="📊"
+            title="No events found"
+            description="Events will appear here as they occur."
+          />
         ) : (
           <div>
             {events.map((event) => {
@@ -196,6 +202,14 @@ export default function ObservabilityPage() {
                 <div
                   key={event.id}
                   onClick={() => setSelectedEvent(selectedEvent?.id === event.id ? null : event)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedEvent(selectedEvent?.id === event.id ? null : event);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
                   style={{
                     display: "flex", alignItems: "center", gap: 10,
                     padding: "10px 14px",
@@ -262,14 +276,22 @@ export default function ObservabilityPage() {
 
       {/* Event detail panel */}
       {selectedEvent && (
-        <div style={{
-          marginTop: 14, background: "var(--bg-card)", border: "1px solid var(--border)",
-          borderRadius: "var(--r-lg)", padding: 20,
-        }}>
+        <div
+          style={{
+            marginTop: 14, background: "var(--bg-card)", border: "1px solid var(--border)",
+            borderRadius: "var(--r-lg)", padding: 20,
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setSelectedEvent(null);
+          }}
+          tabIndex={-1}
+          aria-label="Event details"
+        >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <h2 style={{ fontSize: "0.875rem" }}>Event Detail</h2>
             <button
               onClick={() => setSelectedEvent(null)}
+              aria-label="Close event detail"
               style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", fontSize: "0.875rem" }}
             >×</button>
           </div>

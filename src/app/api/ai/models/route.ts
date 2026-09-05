@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // GET /api/ai/models
 // Lists all AI models grouped by provider
-export async function GET(request: NextRequest) {
+export const GET = withSecurity(async (request: NextRequest) => {
   try {
-    // Auth check
-    const auth = await requireAuth(request);
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const { data, error } = await supabase
@@ -20,48 +20,20 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, models: data });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "Failed to load models" },
       { status: 500 }
     );
   }
-}
+});
 
 // PATCH /api/ai/models
-// Enable/disable a model
-export async function PATCH(request: NextRequest) {
-  try {
-    // Auth check
-    const auth = await requireAuth(request);
-    if ("error" in auth) return auth.error;
-
-    const body = await request.json();
-    const { id, enabled } = body as { id?: string; enabled?: boolean };
-
-    if (!id || typeof enabled !== "boolean") {
-      return NextResponse.json(
-        { success: false, error: "id and enabled (boolean) are required" },
-        { status: 400 }
-      );
-    }
-
-    const { data, error } = await supabase
-      .from("ai_models")
-      .update({ enabled })
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, model: data });
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    );
-  }
-}
+// DISABLED: ai_models is a global table without workspace isolation
+ 
+export const PATCH = withSecurity(async (_request: NextRequest) => {
+  return NextResponse.json(
+    { success: false, error: "Model enable/disable not supported yet" },
+    { status: 405 }
+  );
+});

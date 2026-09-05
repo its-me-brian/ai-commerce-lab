@@ -1,6 +1,7 @@
 // Personality Presets Tests
 
 import { describe, it, expect } from "vitest";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   personalityPresets,
   getPersonalityPreset,
@@ -9,6 +10,7 @@ import {
   ANALYTICAL_STRICT,
   FRIENDLY_CREATIVE,
 } from "./personality-presets";
+/* eslint-enable @typescript-eslint/no-unused-vars */
 import type { Personality } from "./types-agent-definition";
 
 describe("Personality Presets", () => {

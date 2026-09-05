@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // POST /api/products/search
 // Search for products using Product Hunter agent
-export async function POST(request: NextRequest) {
+export const POST = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -59,13 +60,13 @@ export async function POST(request: NextRequest) {
       response: chatData.assistantMessage,
       products,
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
   }
-}
+});

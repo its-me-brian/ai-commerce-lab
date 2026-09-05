@@ -3,10 +3,11 @@
 // NOTE: These tests require a running server with valid auth.
 // Skip in CI until auth mock infrastructure is in place.
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
+ 
+const _supabase = createClient(
   process.env.SUPABASE_URL || "http://localhost:54321",
   process.env.SUPABASE_SERVICE_ROLE_KEY || "test-key"
 );
@@ -79,7 +80,7 @@ describe.skip("API Integration — Models", () => {
 });
 
 describe.skip("API Integration — Events", () => {
-  let createdEventId: string;
+  let _createdEventId: string;
 
   it("POST /api/events creates an event", async () => {
     const { status, data } = await api("POST", "/api/events", {
@@ -93,7 +94,7 @@ describe.skip("API Integration — Events", () => {
     expect(data.success).toBe(true);
     expect(data.event).toBeDefined();
     expect(data.event.event_type).toBe("test.integration");
-    createdEventId = data.event.id;
+    _createdEventId = data.event.id;
   });
 
   it("POST /api/events without required fields returns 400", async () => {

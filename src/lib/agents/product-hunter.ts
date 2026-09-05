@@ -93,7 +93,8 @@ export class ProductHunterAgent extends BaseAgent {
   }
 
   async execute(context: AgentContext): Promise<AgentResult> {
-    const { input, configuration } = context;
+ 
+    const { input, configuration: _configuration } = context;
     const mode = (input.mode as string) || "analyze";
 
     if (mode === "discover") {

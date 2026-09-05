@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // GET /api/events
 // Query app events with optional filters
-export async function GET(request: NextRequest) {
+export const GET = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: "An unexpected error occurred" }, { status: 500 });
     }
 
     // Get total count for pagination
@@ -40,17 +41,17 @@ export async function GET(request: NextRequest) {
       .eq("workspace_id", auth.workspaceId);
 
     return NextResponse.json({ success: true, events: data, total: count });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});
 
 // POST /api/events
 // Log a new event
-export async function POST(request: NextRequest) {
+export const POST = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -90,14 +91,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: "An unexpected error occurred" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, event: data });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});

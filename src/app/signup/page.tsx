@@ -3,9 +3,11 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getBrowserClient } from "@/lib/database/supabase-browser";
+import { Button } from "@/components/ui/Button";
 
 export default function SignupPage() {
-  const router = useRouter();
+ 
+  const _router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -144,17 +146,13 @@ export default function SignupPage() {
             </div>
           )}
 
-          <button
+          <Button
             type="submit"
-            disabled={loading}
-            className="w-full py-2 text-sm font-medium rounded-[var(--r-md)] transition-colors disabled:opacity-50"
-            style={{
-              background: "var(--accent)",
-              color: "var(--text-inverse)",
-            }}
+            loading={loading}
+            className="w-full"
           >
-            {loading ? "Creating account..." : "Create account"}
-          </button>
+            Create account
+          </Button>
         </form>
 
         <p className="text-center text-xs mt-6" style={{ color: "var(--text-tertiary)" }}>

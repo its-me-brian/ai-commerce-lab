@@ -8,7 +8,7 @@ import {
   getSecurityAudit,
   resetSecurityAudit,
 } from "./middleware";
-import type { FieldRule, InjectionCheckResult } from "./middleware";
+import type { FieldRule }from "./middleware";
 
 describe("Security Middleware", () => {
   // ============================================

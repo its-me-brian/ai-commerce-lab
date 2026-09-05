@@ -5,8 +5,19 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
+import { createHmac } from "crypto";
 
-export async function GET(request: NextRequest) {
+/**
+ * Sign workspace_id with HMAC to prevent OAuth state tampering.
+ */
+function signState(workspaceId: string): string {
+  const secret = process.env.OAUTH_STATE_SECRET || process.env.ENCRYPTION_KEY || "";
+  const signature = createHmac("sha256", secret).update(workspaceId).digest("hex").slice(0, 16);
+  return `${workspaceId}.${signature}`;
+}
+
+export const GET = withSecurity(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const shop = searchParams.get("shop");
 
@@ -40,7 +51,7 @@ export async function GET(request: NextRequest) {
   authUrl.searchParams.set("client_id", apiKey);
   authUrl.searchParams.set("scope", scopes);
   authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("state", access.workspaceId);
+  authUrl.searchParams.set("state", signState(access.workspaceId));
 
   return NextResponse.redirect(authUrl.toString());
-}
+});

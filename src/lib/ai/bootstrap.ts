@@ -5,6 +5,7 @@
 // FASE 4: Providers are now registered from DB via ProviderManager.
 // Concrete provider classes are still needed for API calls, but registration is dynamic.
 
+import { logger } from "../logging";
 import { getRouter } from "./router";
 import { GeminiProvider } from "./providers/gemini";
 import { ClaudeProvider } from "./providers/claude";
@@ -27,7 +28,6 @@ import { SecretaryAgent } from "../agents/secretary";
 import { FinanceAgent } from "../agents/finance";
 
 // Agent Definitions (identity, mission, personality, expertise, rules, skills)
-import { agentDefinitions } from "../agents/definitions";
 import { loadDefinitionsFromDB } from "../agents/definition-loader";
 
 // Provider class registry — maps slug to constructor
@@ -44,7 +44,7 @@ const providerClasses: Record<string, ProviderConstructor> = {
 // Known OpenAI-compatible providers — slug → default base URL
 // These are used as fallback when a DB provider has a base_url but no concrete class
 const openAICompatibleDefaults: Record<string, string> = {
-  qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  qwen: "https://ws-rh78sq9e8exoovge.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
   deepseek: "https://api.deepseek.com/v1",
   mistral: "https://api.mistral.ai/v1",
   groq: "https://api.groq.com/openai/v1",
@@ -75,19 +75,19 @@ export async function bootstrap(): Promise<void> {
       // Resolve API key: env var only (DB credentials are workspace-scoped, resolved per-request)
       const apiKey = providerManager.getApiKey(dbProvider);
       if (!apiKey) {
-        console.log(
+        logger.info(
           `[Bootstrap] Skipping provider ${dbProvider.slug} — no env-var API key configured`
         );
         continue;
       }
 
-      console.log(`[Bootstrap] Resolved API key for ${dbProvider.slug} from env`);
+      logger.info(`[Bootstrap] Resolved API key for ${dbProvider.slug} from env`);
 
       // Check if we have a concrete class for this provider
       const ProviderClass = providerClasses[dbProvider.slug];
       if (ProviderClass) {
         router.registerProvider(new ProviderClass(apiKey));
-        console.log(`[Bootstrap] Registered provider from DB: ${dbProvider.slug}`);
+        logger.info(`[Bootstrap] Registered provider from DB: `, { value: dbProvider.slug });
       } else if (dbProvider.base_url || openAICompatibleDefaults[dbProvider.slug]) {
         // OpenAI-compatible provider — use base URL from DB or known defaults
         const baseUrl = dbProvider.base_url || openAICompatibleDefaults[dbProvider.slug];
@@ -101,18 +101,18 @@ export async function bootstrap(): Promise<void> {
             defaultModel
           )
         );
-        console.log(`[Bootstrap] Registered OpenAI-compatible provider from DB: ${dbProvider.slug}`);
+        logger.info(`[Bootstrap] Registered OpenAI-compatible provider from DB: `, { value: dbProvider.slug });
       } else {
-        console.warn(
+        logger.warn(
           `[Bootstrap] No provider class for slug: ${dbProvider.slug} — API key configured but no implementation`
         );
       }
     }
   } catch (error) {
     // DB not available — fall back to hardcoded providers
-    console.warn(
+    logger.warn(
       `[Bootstrap] Failed to load providers from DB, using hardcoded fallback:`,
-      error instanceof Error ? error.message : error
+      { error: error instanceof Error ? error.message : String(error) }
     );
 
     const geminiKey = process.env.GEMINI_API_KEY;
@@ -135,7 +135,7 @@ export async function bootstrap(): Promise<void> {
     const cfApiToken = process.env.CLOUDFLARE_API_TOKEN;
     if (cfAccountId && cfApiToken) {
       router.registerProvider(new WorkersAIProvider(`${cfAccountId}:${cfApiToken}`));
-      console.log(`[Bootstrap] Registered Workers AI provider`);
+      logger.info(`[Bootstrap] Registered Workers AI provider`);
     }
 
     // OpenAI-compatible providers — Qwen, DeepSeek, etc.
@@ -145,11 +145,11 @@ export async function bootstrap(): Promise<void> {
         new OpenAICompatibleProvider(
           "qwen",
           qwenKey,
-          "https://dashscope.aliyuncs.com/compatible-mode/v1",
+          openAICompatibleDefaults.qwen,
           "Alibaba Qwen"
         )
       );
-      console.log(`[Bootstrap] Registered Qwen provider`);
+      logger.info(`[Bootstrap] Registered Qwen provider`);
     }
 
     const deepseekKey = process.env.DEEPSEEK_API_KEY;
@@ -162,7 +162,7 @@ export async function bootstrap(): Promise<void> {
           "DeepSeek"
         )
       );
-      console.log(`[Bootstrap] Registered DeepSeek provider`);
+      logger.info(`[Bootstrap] Registered DeepSeek provider`);
     }
   }
 

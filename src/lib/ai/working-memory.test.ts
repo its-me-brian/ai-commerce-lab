@@ -176,10 +176,13 @@ describe("singleton", () => {
     clearWorkingMemory();
   });
 
-  it("getWorkingMemory() creates a new instance", () => {
+  it("getWorkingMemory() creates isolated instances (no shared singleton)", () => {
     const m1 = getWorkingMemory();
+    m1.set("key", "value", "src");
     const m2 = getWorkingMemory();
-    expect(m1).toBe(m2);
+    // m2 should be a fresh instance, NOT share state with m1
+    expect(m2).not.toBe(m1);
+    expect(m2.has("key")).toBe(false);
   });
 
   it("resetWorkingMemory() creates a fresh instance", () => {
@@ -190,10 +193,11 @@ describe("singleton", () => {
     expect(m2).not.toBe(m1);
   });
 
-  it("clearWorkingMemory() removes the singleton", () => {
+  it("clearWorkingMemory() is a no-op (API compatibility)", () => {
     const m1 = getWorkingMemory();
     clearWorkingMemory();
     const m2 = getWorkingMemory();
+    // Both are fresh instances — no shared state
     expect(m1).not.toBe(m2);
   });
 });

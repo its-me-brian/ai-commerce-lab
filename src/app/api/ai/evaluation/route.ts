@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEvaluationEngine } from "@/lib/ai/evaluation";
-import { requireAuth } from "@/lib/auth/api-auth";
+import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 
 // GET /api/ai/evaluation
 // Get evaluation history and aggregated metrics
 export async function GET(request: NextRequest) {
   try {
-    // Auth check
-    const auth = await requireAuth(request);
+    const auth = await requireWorkspaceAccess(request);
     if ("error" in auth) return auth.error;
 
     const { searchParams } = new URL(request.url);
@@ -31,9 +30,9 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch (error) {
+  } catch {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }

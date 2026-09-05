@@ -1,6 +1,8 @@
 // Event Logger
 // FASE 40: Centralized event logging utility.
 
+import { logger as baseLogger } from "./index";
+
 const LOG_ENDPOINT = "/api/events";
 
 export type EventSeverity = "debug" | "info" | "warning" | "error" | "critical";
@@ -34,7 +36,7 @@ export async function logEvent(input: LogEventInput): Promise<void> {
     });
   } catch (err) {
     // Don't let logging failures break the app
-    console.error("[EventLogger] Failed to log event:", err);
+    baseLogger.error("[EventLogger] Failed to log event:", { error: String(err) });
   }
 }
 

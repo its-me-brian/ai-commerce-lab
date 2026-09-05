@@ -6,11 +6,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCatalogService } from "@/lib/catalog/service";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurityAndParams } from "@/lib/security/api-middleware";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const GET = withSecurityAndParams<{ id: string }>(async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -27,18 +25,15 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, product });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const PATCH = withSecurityAndParams<{ id: string }>(async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -57,18 +52,15 @@ export async function PATCH(
     }
 
     return NextResponse.json({ success: true, product });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = withSecurityAndParams<{ id: string }>(async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -85,10 +77,10 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});

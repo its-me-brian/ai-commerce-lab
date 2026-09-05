@@ -2,10 +2,10 @@
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import type { AgentRecord } from "../agents/AgentCard";
-import { Badge } from "../ui/Badge";
 import { formatTime } from "@/lib/utils/format";
 import { MicrophoneButton } from "./MicrophoneButton";
 import { getAgentColor } from "@/lib/agents/colors";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useClassifier } from "@/hooks/useClassifier";
 
 // Intent categories for chat message classification
@@ -62,8 +62,6 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
   // Classify intent when input changes (debounced)
   useEffect(() => {
     if (!modelReady || !input.trim() || input.trim().length < 5) {
-      setDetectedIntent(null);
-      setIntentConfidence(null);
       return;
     }
 
@@ -339,6 +337,7 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
               onClick={onTogglePanel}
               className="hidden lg:flex w-7 h-7 items-center justify-center rounded-[var(--r-md)] hover:bg-[var(--bg-hover)] transition-colors ml-1"
               style={{ color: panelOpen ? "var(--accent)" : "var(--text-tertiary)" }}
+              aria-label={panelOpen ? "Hide info panel" : "Show info panel"}
               title={panelOpen ? "Hide info panel" : "Show info panel"}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -350,36 +349,13 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 overflow-y-auto px-6 py-5" aria-live="polite">
         {messages.length === 0 && !loadingHistory && (
-          <div className="flex-1 flex flex-col items-center justify-center py-12">
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4"
-              style={{ background: "var(--bg-sunken)" }}
-            >
-              <span className="text-xl">🏢</span>
-            </div>
-            <p className="text-sm font-medium mb-1" style={{ color: "var(--text-primary)" }}>
-              Company Room
-            </p>
-            <p className="text-xs text-center max-w-[240px]" style={{ color: "var(--text-tertiary)" }}>
-              Multi-agent workspace. Use @agent to direct messages to specific agents.
-            </p>
-            <div className="flex flex-wrap gap-1.5 mt-3 justify-center max-w-[300px]">
-              {agents.filter((a) => a.enabled !== false).map((agent) => {
-                const colors = getAgentColor(agent.id);
-                return (
-                  <Badge key={agent.id} variant="outline">
-                    <span
-                      className="w-1.5 h-1.5 rounded-full inline-block mr-1"
-                      style={{ background: colors.border }}
-                    />
-                    @{agent.id}
-                  </Badge>
-                );
-              })}
-            </div>
-          </div>
+          <EmptyState
+            icon="🏢"
+            title="Company Room"
+            description="General channel for the entire organization."
+          />
         )}
 
         {messages.map((msg) => {
@@ -442,6 +418,7 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
         {loading && (
           <div className="flex justify-start mb-3">
             <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl" style={{ background: "var(--bg-sunken)", borderBottomLeftRadius: "6px" }}>
+              <span className="sr-only">Loading</span>
               <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "var(--text-tertiary)", animationDelay: "-0.3s" }} />
               <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "var(--text-tertiary)", animationDelay: "-0.15s" }} />
               <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "var(--text-tertiary)" }} />
@@ -489,7 +466,7 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
         )}
 
         {/* Intent classification indicator (ONNX-powered) */}
-        {detectedIntent && intentConfidence !== null && intentConfidence > 0.6 && (
+        {detectedIntent && intentConfidence !== null && intentConfidence > 0.6 && input.trim().length >= 5 && (
           <div className="flex items-center gap-2 mb-2 px-1">
             <span
               className="text-[10px] px-2 py-0.5 rounded-full"
@@ -537,6 +514,7 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
             onBlur={() => setFocused(false)}
             placeholder="Message the room... Use @agent to target"
             rows={1}
+            aria-label="Message the room"
             className="flex-1 resize-none bg-transparent text-sm py-1 focus:outline-none"
             style={{ color: "var(--text-primary)" }}
           />
@@ -547,6 +525,7 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
           <button
             onClick={handleSend}
             disabled={!input.trim() || loading}
+            aria-label="Send message"
             className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors disabled:opacity-30"
             style={{
               background: input.trim() ? "var(--accent)" : "var(--border-subtle)",

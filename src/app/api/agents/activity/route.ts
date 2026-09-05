@@ -4,8 +4,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
-export async function GET(req: NextRequest) {
+export const GET = withSecurity(async (req: NextRequest) => {
   try {
     // Auth check
     const auth = await requireWorkspaceAccess(req);
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: "An unexpected error occurred" },
         { status: 500 }
       );
     }
@@ -64,13 +65,13 @@ export async function GET(req: NextRequest) {
       success: true,
       data: runsByAgent,
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
   }
-}
+});

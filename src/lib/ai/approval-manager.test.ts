@@ -2,7 +2,7 @@
 // FASE 29: Human-in-the-loop approval workflows.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ApprovalManager, type Approval, type CreateApprovalInput } from "./approval-manager";
+import { ApprovalManager, type Approval }from "./approval-manager";
 
 // Proxy-based Supabase mock
 function createMockQuery(returnData: unknown = null, returnError: unknown = null) {

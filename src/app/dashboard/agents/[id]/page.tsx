@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { use, useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { ErrorMessage } from "@/components/ui/ErrorMessage";
 
 interface AgentConfig {
   agent: {
@@ -168,7 +171,7 @@ export default function AgentDetailPage({
     fetchConfig();
     fetchSources();
     fetchWorkspace();
-    setTestInput(DEFAULT_TEST_INPUTS[id] || '{\n  "name": "Test Product",\n  "supplierPrice": 10\n}');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function fetchConfig() {
@@ -434,7 +437,7 @@ export default function AgentDetailPage({
   if (!config) {
     return (
       <div className="page-padding" style={{ maxWidth: 900 }}>
-        <p>Agent not found</p>
+        <ErrorMessage message="Agent not found" />
       </div>
     );
   }
@@ -466,7 +469,7 @@ export default function AgentDetailPage({
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginBottom: 4 }}>
-          <a href="/dashboard/agents" style={{ color: "var(--accent)", textDecoration: "none" }}>Agents</a>
+          <Link href="/dashboard/agents" style={{ color: "var(--accent)", textDecoration: "none" }}>Agents</Link>
           {" / "}
           {editingProfile ? profileName : (config.agent.identity?.name || config.agent.name)}
         </p>
@@ -476,6 +479,7 @@ export default function AgentDetailPage({
               value={profileName}
               onChange={(e) => setProfileName(e.target.value)}
               placeholder="Agent name"
+              aria-label="Agent name"
               style={{
                 padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
                 fontSize: "1.25rem", fontWeight: 600, background: "var(--bg-card)",
@@ -486,23 +490,20 @@ export default function AgentDetailPage({
               onChange={(e) => setProfileDescription(e.target.value)}
               placeholder="Description"
               rows={2}
+              aria-label="Agent description"
               style={{
                 padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)",
                 fontSize: "0.875rem", background: "var(--bg-card)", resize: "vertical",
               }}
             />
             <div style={{ display: "flex", gap: 8 }}>
-              <button
+              <Button
                 onClick={handleSaveProfile}
-                disabled={saving}
-                style={{
-                  padding: "6px 14px", background: "var(--accent)", color: "white",
-                  border: "none", borderRadius: "var(--r-md)", fontSize: "0.8125rem",
-                  fontWeight: 500, cursor: saving ? "not-allowed" : "pointer",
-                }}
+                loading={saving}
+                size="sm"
               >
-                {saving ? "Saving..." : "Save"}
-              </button>
+                Save
+              </Button>
               <button
                 onClick={() => {
                   setEditingProfile(false);
@@ -613,17 +614,13 @@ export default function AgentDetailPage({
                 />
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button
+                <Button
                   onClick={handleSaveDefinition}
-                  disabled={saving}
-                  style={{
-                    fontSize: "0.75rem", padding: "6px 16px", borderRadius: "var(--r-md)",
-                    background: "var(--accent)", color: "white", border: "none",
-                    cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1,
-                  }}
+                  loading={saving}
+                  size="sm"
                 >
-                  {saving ? "Saving..." : "Save Definition"}
-                </button>
+                  Save Definition
+                </Button>
                 <button
                   onClick={() => setEditingDefinition(false)}
                   style={{
@@ -784,18 +781,13 @@ export default function AgentDetailPage({
                 </div>
               </div>
 
-              <button
+              <Button
                 onClick={handleSave}
-                disabled={saving}
-                style={{
-                  padding: "9px 18px", background: "var(--accent)", color: "white",
-                  border: "none", borderRadius: "var(--r-md)", fontSize: "0.8125rem",
-                  fontWeight: 500, cursor: saving ? "not-allowed" : "pointer",
-                  opacity: saving ? 0.6 : 1,
-                }}
+                loading={saving}
+                className="w-full"
               >
-                {saving ? "Saving..." : "Save Configuration"}
-              </button>
+                Save Configuration
+              </Button>
             </div>
           </div>
 
@@ -805,6 +797,8 @@ export default function AgentDetailPage({
               <h2>Model Pool</h2>
               <button
                 onClick={() => setAddingRoute(!addingRoute)}
+                aria-expanded={addingRoute}
+                aria-controls="add-route-form"
                 style={{
                   padding: "4px 12px", fontSize: "0.75rem", fontWeight: 500,
                   background: addingRoute ? "var(--bg-sunken)" : "var(--accent-bg)",
@@ -821,13 +815,14 @@ export default function AgentDetailPage({
 
             {/* Add model form */}
             {addingRoute && (
-              <div style={{
+              <div id="add-route-form" style={{
                 padding: 12, background: "var(--bg-sunken)", borderRadius: "var(--r-md)",
                 marginBottom: 12, display: "flex", flexDirection: "column", gap: 8,
               }}>
                 <select
                   value={newRouteModelId}
                   onChange={(e) => setNewRouteModelId(e.target.value)}
+                  aria-label="Select model to add"
                   style={{ width: "100%", padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.75rem", background: "var(--bg-card)" }}
                 >
                   <option value="">Select a model...</option>
@@ -852,6 +847,7 @@ export default function AgentDetailPage({
                     <select
                       value={newRoutePolicy}
                       onChange={(e) => setNewRoutePolicy(e.target.value)}
+                      aria-label="Route policy"
                       style={{ width: "100%", padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--r-md)", fontSize: "0.75rem", background: "var(--bg-card)" }}
                     >
                       <option value="preferred">Preferred</option>
@@ -920,6 +916,7 @@ export default function AgentDetailPage({
                       </button>
                       <button
                         onClick={() => deleteRoute(route.id)}
+                        aria-label={`Delete route for ${route.ai_models.name}`}
                         style={{
                           padding: "2px 6px", fontSize: "0.6875rem",
                           background: "none", color: "var(--text-tertiary)",
@@ -1047,19 +1044,13 @@ export default function AgentDetailPage({
                 )}
               </div>
 
-              <button
+              <Button
                 onClick={handleTest}
-                disabled={testing}
-                style={{
-                  padding: "9px 18px",
-                  background: testing ? "var(--bg-sunken)" : "var(--accent)",
-                  color: "white", border: "none", borderRadius: "var(--r-md)",
-                  fontSize: "0.8125rem", fontWeight: 500,
-                  cursor: testing ? "not-allowed" : "pointer",
-                }}
+                loading={testing}
+                className="w-full"
               >
-                {testing ? "Running..." : "Run Agent"}
-              </button>
+                Run Agent
+              </Button>
             </div>
           </div>
 
@@ -1337,6 +1328,7 @@ function DiscoverResults({ data, errors }: { data: Record<string, unknown>; erro
             {/* Product header */}
             <div style={{ display: "flex", gap: 12, marginBottom: 10 }}>
               {imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={imageUrl}
                   alt={name}

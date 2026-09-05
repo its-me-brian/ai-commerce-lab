@@ -12,6 +12,7 @@
 // FASE 40: Auto-logs agent execution events to app_events.
 // FASE 19: Injects agent memory into prompts and auto-stores decisions.
 
+import { logger } from "../../logging";
 import { supabase } from "../../database/supabase";
 import { getToolRegistry } from "../../tools/bootstrap";
 import { getPermissionChecker } from "../../permissions/checker";
@@ -247,7 +248,7 @@ export class AgentEngine {
       });
 
       if (runError) {
-        console.error(`[AgentEngine] Failed to persist run: ${runError.message}`);
+        logger.error(`[AgentEngine] Failed to persist run: ${runError.message}`);
       }
 
       // 8b. Record cost in budget tracker (post-execution)
@@ -298,7 +299,7 @@ export class AgentEngine {
         .eq("workspace_id", workspaceId);
 
       if (updateError) {
-        console.error(`[AgentEngine] Failed to update task: ${updateError.message}`);
+        logger.error(`[AgentEngine] Failed to update task: ${updateError.message}`);
       }
 
       // FASE 40: Auto-log agent execution event
@@ -381,7 +382,7 @@ export class AgentEngine {
       });
 
       if (runError) {
-        console.error(`[AgentEngine] Failed to persist error run: ${runError.message}`);
+        logger.error(`[AgentEngine] Failed to persist error run: ${runError.message}`);
       }
 
       // Fail task
@@ -509,7 +510,7 @@ export class AgentEngine {
       .eq("workspace_id", workspaceId);
 
     if (updateError) {
-      console.error(`[AgentEngine] Failed to mark task as failed: ${updateError.message}`);
+      logger.error(`[AgentEngine] Failed to mark task as failed: ${updateError.message}`);
     }
   }
 

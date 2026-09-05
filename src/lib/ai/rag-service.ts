@@ -10,9 +10,8 @@
 // F7: Minimal viable RAG for agent context injection.
 
 // Lazy import — only loaded when no client is injected (production use)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _supabaseClient: any = null;
-async function getDefaultClient(): Promise<any> {
+let _supabaseClient: import("@supabase/supabase-js").SupabaseClient | null = null;
+async function getDefaultClient(): Promise<import("@supabase/supabase-js").SupabaseClient> {
   if (!_supabaseClient) {
     const { supabase } = await import("../database/supabase");
     _supabaseClient = supabase;
@@ -283,6 +282,7 @@ export class RAGService {
 
   /**
    * Build context string from retrieved documents for injection into agent prompts.
+   * Sanitizes content to prevent prompt injection via knowledge documents.
    */
   buildContext(results: SearchResult[]): string {
     if (results.length === 0) return "";
@@ -291,12 +291,22 @@ export class RAGService {
 
     for (const r of results) {
       const scorePct = Math.round(r.score * 100);
-      lines.push(`### ${r.document.title} (${scorePct}% relevance)`);
+      // Sanitize title: strip role labels and injection markers
+      const title = r.document.title
+        .replace(/^(System|Human|Assistant|AI)\s*:/gim, "[SANITIZED]")
+        .replace(/<\|[^|]+\|>/g, "")
+        .slice(0, 200);
+      lines.push(`### ${title} (${scorePct}% relevance)`);
       // Truncate content to keep context manageable
       const maxLen = 500;
-      const content = r.document.content.length > maxLen
+      let content = r.document.content.length > maxLen
         ? r.document.content.slice(0, maxLen) + "..."
         : r.document.content;
+      // Sanitize: strip role labels and known injection markers
+      content = content
+        .replace(/^(System|Human|Assistant|AI)\s*:/gim, "[SANITIZED]")
+        .replace(/<\|[^|]+\|>/g, "")
+        .replace(/\[INST\]/gi, "[SANITIZED]");
       lines.push(content);
       lines.push("");
     }

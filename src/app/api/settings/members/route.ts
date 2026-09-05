@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess, requirePermission } from "@/lib/auth/api-auth";
 import { createClient } from "@supabase/supabase-js";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { sanitizeBody } from "@/lib/security/sanitize";
 
 /**
  * GET /api/settings/members
@@ -30,7 +31,7 @@ export const GET = withSecurity(async (request: NextRequest) => {
 
     const { data: members, error } = await supabase
       .from("workspace_members")
-      .select("*")
+      .select("id, workspace_id, user_id, role, created_at, updated_at")
       .eq("workspace_id", access.workspaceId)
       .order("created_at", { ascending: true });
 
@@ -42,11 +43,11 @@ export const GET = withSecurity(async (request: NextRequest) => {
       success: true,
       members: members || [],
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
@@ -66,8 +67,9 @@ export const POST = withSecurity(async (request: NextRequest) => {
     const perm = requirePermission(access.role, "members.invite");
     if ("error" in perm) return perm.error;
 
-    const body = await request.json();
-    const { user_id, role } = body;
+    const body = sanitizeBody(await request.json()) as Record<string, unknown>;
+    const user_id = body.user_id as string;
+    const role = body.role as string;
 
     if (!user_id) {
       return NextResponse.json(
@@ -76,10 +78,10 @@ export const POST = withSecurity(async (request: NextRequest) => {
       );
     }
 
-    const validRoles = ["owner", "admin", "member", "viewer"];
+    const validRoles = ["admin", "member", "viewer"];
     if (role && !validRoles.includes(role)) {
       return NextResponse.json(
-        { success: false, error: `Invalid role. Must be one of: ${validRoles.join(", ")}` },
+        { success: false, error: `Invalid role. Must be one of: ${validRoles.join(", ")}. Owner can only be set by another owner.` },
         { status: 400 }
       );
     }
@@ -114,11 +116,11 @@ export const POST = withSecurity(async (request: NextRequest) => {
       success: true,
       member,
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
@@ -135,13 +137,55 @@ export const PATCH = withSecurity(async (request: NextRequest) => {
     const access = await requireWorkspaceAccess(request, { minimumRole: "admin" });
     if ("error" in access) return access.error;
 
-    const body = await request.json();
-    const { user_id, role } = body;
+    const body = sanitizeBody(await request.json()) as Record<string, unknown>;
+    const user_id = body.user_id as string;
+    const role = body.role as string;
 
     if (!user_id || !role) {
       return NextResponse.json(
         { success: false, error: "Missing user_id or role" },
         { status: 400 }
+      );
+    }
+
+    const allowedRoles = ["owner", "admin", "member", "viewer"];
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json(
+        { success: false, error: `Invalid role. Must be one of: ${allowedRoles.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+    // Only owners can assign or modify owner role
+    if (role === "owner" && access.role !== "owner") {
+      return NextResponse.json(
+        { success: false, error: "Only owners can assign the owner role" },
+        { status: 403 }
+      );
+    }
+
+    // Admins cannot promote themselves or others to owner
+    if (access.role === "admin" && role === "owner") {
+      return NextResponse.json(
+        { success: false, error: "Admins cannot assign the owner role" },
+        { status: 403 }
+      );
+    }
+
+    // Prevent role escalation: caller cannot assign a role higher than their own
+    const roleHierarchy: Record<string, number> = { viewer: 0, member: 1, admin: 2, owner: 3 };
+    if ((roleHierarchy[role] ?? 0) > (roleHierarchy[access.role] ?? 0)) {
+      return NextResponse.json(
+        { success: false, error: `Cannot assign a role higher than your own (${access.role})` },
+        { status: 403 }
+      );
+    }
+
+    // Prevent self-promotion
+    if (user_id === access.user.id && roleHierarchy[role] > roleHierarchy[access.role]) {
+      return NextResponse.json(
+        { success: false, error: "Cannot promote yourself to a higher role" },
+        { status: 403 }
       );
     }
 
@@ -173,11 +217,11 @@ export const PATCH = withSecurity(async (request: NextRequest) => {
       success: true,
       member,
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
@@ -232,11 +276,11 @@ export const DELETE = withSecurity(async (request: NextRequest) => {
       success: true,
       message: "Member removed from workspace",
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );

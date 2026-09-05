@@ -120,7 +120,7 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-2 flex flex-col gap-px overflow-y-auto">
+      <nav className="flex-1 p-2 flex flex-col gap-px overflow-y-auto" aria-label="Main navigation">
         {nav.map((item) => {
           const active =
             item.href === "/dashboard"

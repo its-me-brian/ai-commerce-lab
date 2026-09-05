@@ -4,15 +4,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess, requirePermission } from "@/lib/auth/api-auth";
 import { supabase } from "@/lib/database/supabase";
+import { withSecurityAndParams } from "@/lib/security/api-middleware";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ["approved", "rejected"],
 };
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const PATCH = withSecurityAndParams<{ id: string }>(async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -77,16 +75,16 @@ export async function PATCH(
 
     if (error) {
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: "An unexpected error occurred" },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ success: true, approval: data });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Unknown error" },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});

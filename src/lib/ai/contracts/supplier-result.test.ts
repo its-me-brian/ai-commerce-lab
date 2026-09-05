@@ -9,7 +9,6 @@ import {
   filterByReliability,
   SupplierResultContractSchema,
 } from "./supplier-result";
-import type { SupplierResult } from "./supplier-result";
 
 describe("SupplierResultContract", () => {
   describe("validateSupplierResult", () => {

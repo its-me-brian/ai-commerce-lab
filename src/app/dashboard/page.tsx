@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { supabase } from "@/lib/database/supabase";
 import { getWorkspaceId } from "@/lib/database/supabase-server";
 import { Card, CardHeader, CardContent } from "@/components/ui/Card";
@@ -8,6 +9,12 @@ import type { AgentRun, AppEvent, AgentTask, AgentHealthData } from "@/types/das
 
 export const dynamic = "force-dynamic";
 
+const SEVEN_DAYS_AGO = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() - 7);
+  return d.toISOString();
+})();
+
 // ─── Status dot (server-safe, no "use client") ────────────────────
 function StatusDot({ status }: { status: string }) {
   const color =
@@ -16,7 +23,7 @@ function StatusDot({ status }: { status: string }) {
     : status === "running" ? "var(--accent)"
     : "var(--text-tertiary)";
   return (
-    <span className="inline-block h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} />
+    <span className="inline-block h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} aria-label={status} role="img" />
   );
 }
 
@@ -176,7 +183,8 @@ export default async function DashboardPage({
   const workspaceId = searchParams?.workspaceId || await getWorkspaceId();
 
   // ── Fetch all data in parallel (filtered by workspace) ───────────
-  const base = { workspace_id: workspaceId };
+ 
+  const _base = { workspace_id: workspaceId };
 
   const [
     agentsResult,
@@ -213,7 +221,7 @@ export default async function DashboardPage({
       .from("agent_tasks")
       .select("id, agent_id, status, created_at")
       .eq("workspace_id", workspaceId)
-      .gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString())
+      .gte("created_at", SEVEN_DAYS_AGO)
       .order("created_at", { ascending: false }),
   ]);
 
@@ -329,13 +337,13 @@ export default async function DashboardPage({
               <HealthBar label="Other" count={agentHealth.other} total={totalAgents} color="var(--warning)" />
             </div>
             <div className="mt-4 pt-3 border-t" style={{ borderColor: "var(--border-subtle)" }}>
-              <a
+              <Link
                 href="/dashboard/agents"
                 className="text-xs font-medium no-underline"
                 style={{ color: "var(--accent)" }}
               >
                 View all agents →
-              </a>
+              </Link>
             </div>
           </CardContent>
         </Card>

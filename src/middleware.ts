@@ -29,7 +29,7 @@ const cleanupInterval = setInterval(() => {
 
 // Prevent the interval from keeping the process alive
 if (typeof clearInterval === "function") {
-  try { (cleanupInterval as ReturnType<typeof setInterval>); } catch { /* browser env */ }
+  void cleanupInterval;
 }
 
 function getClientIp(request: NextRequest): string {
@@ -42,16 +42,11 @@ function getClientIp(request: NextRequest): string {
 
 /**
  * Refresh Supabase session from cookies.
- * Returns null if env vars are missing (graceful degradation for local dev).
+ * Caller MUST verify env vars exist before calling.
  */
 async function refreshSession(request: NextRequest, response: NextResponse) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    // Graceful degradation: Supabase not configured, skip auth
-    return null;
-  }
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -90,6 +85,13 @@ export async function middleware(request: NextRequest) {
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   // Permissions policy — disable camera, geolocation; allow microphone for speech-to-text
   response.headers.set("Permissions-Policy", "camera=(), microphone=self, geolocation=()");
+  // HSTS — enforce HTTPS for 1 year including subdomains
+  response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  // CSP — report-only mode while auditing
+  response.headers.set(
+    "Content-Security-Policy-Report-Only",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https: wss:; frame-ancestors 'none'; report-uri /api/csp-report"
+  );
 
   // === Public routes (no auth required) ===
   const publicRoutes = ["/login", "/signup", "/"];
@@ -107,29 +109,37 @@ export async function middleware(request: NextRequest) {
 
   // === Auth check for protected routes ===
   if (!isPublicRoute && !isStaticAsset) {
-    const supabase = await refreshSession(request, response);
-
-    // If Supabase is configured, enforce auth
-    if (supabase) {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        // API routes: return 401 JSON
-        if (pathname.startsWith("/api/") && !isPublicApiRoute) {
-          return NextResponse.json(
-            { success: false, error: "Authentication required" },
-            { status: 401 }
-          );
-        }
-
-        // Page routes: redirect to login
-        const loginUrl = request.nextUrl.clone();
-        loginUrl.pathname = "/login";
-        loginUrl.searchParams.set("redirect", pathname);
-        return NextResponse.redirect(loginUrl);
+    // CRITICAL: Fail closed when Supabase is not configured
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      if (pathname.startsWith("/api/") && !isPublicApiRoute) {
+        return NextResponse.json(
+          { success: false, error: "Authentication service not configured" },
+          { status: 401 }
+        );
       }
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      return NextResponse.redirect(loginUrl);
     }
-    // If supabase is null (not configured), allow access without auth (dev mode)
+
+    const supabase = await refreshSession(request, response);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      // API routes: return 401 JSON
+      if (pathname.startsWith("/api/") && !isPublicApiRoute) {
+        return NextResponse.json(
+          { success: false, error: "Authentication required" },
+          { status: 401 }
+        );
+      }
+
+      // Page routes: redirect to login
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   // === Rate Limiting for API routes ===

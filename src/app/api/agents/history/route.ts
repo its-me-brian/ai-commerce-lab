@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // GET /api/agents/history?agentId=product-hunter&limit=20
 // Get agent task history
-export async function GET(request: NextRequest) {
+export const GET = withSecurity(async (request: NextRequest) => {
   try {
     // Auth check
     const auth = await requireWorkspaceAccess(request);
@@ -36,15 +37,15 @@ export async function GET(request: NextRequest) {
       success: true,
       tasks: data || [],
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       {
         error: {
           code: "INTERNAL_ERROR",
-          message: error instanceof Error ? error.message : "An unexpected error occurred",
+          message: "An unexpected error occurred",
         },
       },
       { status: 500 }
     );
   }
-}
+});

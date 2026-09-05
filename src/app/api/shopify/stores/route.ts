@@ -4,9 +4,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { supabase } from "@/lib/database/supabase";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // GET /api/shopify/stores — list connected stores
-export async function GET(request: NextRequest) {
+export const GET = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -17,14 +18,14 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "An unexpected error occurred" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, stores: data || [] });
-}
+});
 
 // DELETE /api/shopify/stores?id=xxx — disconnect store
-export async function DELETE(request: NextRequest) {
+export const DELETE = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request, { minimumRole: "admin" });
   if ("error" in auth) return auth.error;
 
@@ -42,8 +43,8 @@ export async function DELETE(request: NextRequest) {
     .eq("workspace_id", auth.workspaceId);
 
   if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "An unexpected error occurred" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });
-}
+});

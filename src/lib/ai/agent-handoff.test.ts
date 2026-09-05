@@ -2,7 +2,7 @@
 // FASE 27: Structured context-passing between agents.
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { AgentHandoffManager, type AgentHandoff } from "./agent-handoff";
+import { AgentHandoffManager }from "./agent-handoff";
 
 describe("AgentHandoffManager", () => {
   let manager: AgentHandoffManager;

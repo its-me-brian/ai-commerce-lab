@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // GET /api/conversations
 // List conversations for the current workspace
-export async function GET(request: NextRequest) {
+export const GET = withSecurity(async (request: NextRequest) => {
   try {
     // Auth + workspace check
     const auth = await requireWorkspaceAccess(request);
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: "An unexpected error occurred" }, { status: 500 });
     }
 
     // Get total count for this workspace only
@@ -41,10 +42,10 @@ export async function GET(request: NextRequest) {
     const { count } = await countQuery;
 
     return NextResponse.json({ success: true, conversations: data, total: count });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : String(error) },
+      { success: false, error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});

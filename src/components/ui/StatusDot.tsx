@@ -31,6 +31,8 @@ export function StatusDot({ status, size = "sm" }: { status: StatusDotStatus; si
     <span
       className={`${s} rounded-full inline-block ${animation}`}
       style={{ background: COLORS[status] }}
+      role="img"
+      aria-label={LABELS[status]}
     />
   );
 }

@@ -15,17 +15,17 @@
 //   - hybrid: deterministic + LLM refinement
 
 import { getMiniAIRegistry } from "./registry";
-import { selectModelByComplexity } from "../complexity-router";
 import { calculateModelCost } from "../model-pricing";
 import { z } from "zod";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import type {
   MiniAIDefinition,
   MiniAIInput,
   MiniAIResult,
   MiniAIExecutionOptions,
-  MiniAIExecutionMode,
   MiniAIComplexity,
 } from "./types";
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 /**
  * Function signature for deterministic mini-AI implementations.
@@ -151,7 +151,7 @@ export class MiniAIEngine {
         case "llm":
           return await this.executeLLM(definition, options, startTime);
         case "hybrid":
-          return await this.executeHybrid(definition, options, startTime);
+          return await this.executeLLM(definition, options, startTime);
         default:
           return this.createErrorResult(
             miniAIId,
@@ -285,137 +285,6 @@ export class MiniAIEngine {
   }
 
   private async executeLLM(
-    definition: MiniAIDefinition,
-    options: MiniAIExecutionOptions,
-    startTime: number
-  ): Promise<MiniAIResult> {
-    // Build prompt
-    const builder = promptBuilders.get(definition.id);
-    let systemPrompt: string;
-    let userPrompt: string;
-
-    if (builder) {
-      const prompts = builder(definition, options.input);
-      systemPrompt = prompts.systemPrompt;
-      userPrompt = prompts.userPrompt;
-    } else {
-      // Default prompt from definition instructions
-      systemPrompt = definition.instructions || `You are a ${definition.name}.`;
-      userPrompt = JSON.stringify(options.input);
-    }
-
-    // Import router dynamically to avoid circular deps
-    const { getRouter } = await import("../router");
-    const router = getRouter();
-
-    const execStart = Date.now();
-
-    // Select model based on complexity tier (F2: ComplexityRouter integration)
-    const complexity: MiniAIComplexity = definition.modelRequirements.complexity || "simple";
-    let primaryProvider: string;
-    let primaryModel: string;
-
-    if (options.modelOverride) {
-      // Explicit override takes precedence — skip complexity routing
-      primaryModel = options.modelOverride;
-      primaryProvider = options.providerOverride || definition.modelRequirements.preferredProvider || "gemini";
-    } else {
-      try {
-        const modelSelection = await selectModelByComplexity(
-          complexity,
-          definition.modelRequirements
-        );
-        primaryModel = modelSelection.match.model.id;
-        primaryProvider = modelSelection.match.model.provider_id;
-      } catch {
-        // Fallback to defaults if complexity routing fails
-        primaryModel = "gemini-3-flash";
-        primaryProvider = definition.modelRequirements.preferredProvider || "gemini";
-      }
-    }
-
-    const config = {
-      agentId: `mini-ai:${definition.id}`,
-      primaryProvider,
-      primaryModel,
-      temperature: options.temperature ?? definition.defaultTemperature ?? 0.3,
-      maxTokens: options.maxOutputTokens ?? definition.maxOutputTokens ?? 4096,
-    };
-
-    const { result: aiResult } = await router.generate(config, {
-      prompt: userPrompt,
-      systemPrompt,
-      temperature: config.temperature,
-      maxOutputTokens: config.maxTokens,
-      responseFormat: definition.modelRequirements.responseFormat || "json",
-    });
-
-    const durationMs = Date.now() - execStart;
-
-    // Try to parse structured output
-    let output: Record<string, unknown>;
-    try {
-      output = typeof aiResult.content === "string"
-        ? JSON.parse(aiResult.content)
-        : { content: aiResult.content };
-    } catch {
-      output = { content: aiResult.content };
-    }
-
-    // F10: Validate output against schema
-    const outputError = this.validateOutput(definition, output);
-    if (outputError) {
-      return {
-        success: false,
-        output,
-        errors: [outputError],
-        warnings: [],
-        metadata: {
-          miniAIId: definition.id,
-          modelUsed: aiResult.model,
-          providerUsed: aiResult.provider,
-          executionMode: "llm",
-          inputTokens: aiResult.inputTokens,
-          outputTokens: aiResult.outputTokens,
-          durationMs,
-          costDollars: this.calculateCost(
-            aiResult.inputTokens,
-            aiResult.outputTokens,
-            aiResult.provider,
-            aiResult.model
-          ),
-          usedFallback: false,
-          cached: aiResult.cached,
-        },
-      };
-    }
-
-    return {
-      success: true,
-      output,
-      errors: [],
-      warnings: [],
-      metadata: {
-        miniAIId: definition.id,
-        modelUsed: aiResult.model,
-        providerUsed: aiResult.provider,
-        executionMode: "llm",
-        inputTokens: aiResult.inputTokens,
-        outputTokens: aiResult.outputTokens,
-        durationMs,
-        costDollars: this.calculateCost(
-          aiResult.inputTokens,
-          aiResult.outputTokens,
-          aiResult.provider,
-          aiResult.model
-        ),
-        usedFallback: false,
-        cached: aiResult.cached,
-      },
-    };
-  }
-
-  private async executeHybrid(
     definition: MiniAIDefinition,
     options: MiniAIExecutionOptions,
     startTime: number

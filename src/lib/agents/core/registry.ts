@@ -4,6 +4,7 @@
 // - Definitions: identity, mission, personality, expertise, rules, skills
 // - Hierarchy: parent/child relationships, department filtering
 
+import { logger } from "../../logging";
 import type { BaseAgent } from "./agent";
 import type { AgentMetadata, AgentType } from "./types";
 import type { AgentDefinition } from "./types-agent-definition";
@@ -16,12 +17,12 @@ export class AgentRegistry {
 
   register(agent: BaseAgent): void {
     if (this.agents.has(agent.metadata.id)) {
-      console.warn(
+      logger.warn(
         `[AgentRegistry] Agent ${agent.metadata.id} already registered, overwriting`
       );
     }
     this.agents.set(agent.metadata.id, agent);
-    console.log(
+    logger.info(
       `[AgentRegistry] Registered agent: ${agent.metadata.name} (${agent.metadata.id})`
     );
   }
@@ -45,7 +46,7 @@ export class AgentRegistry {
   unregister(agentId: string): boolean {
     const deleted = this.agents.delete(agentId);
     if (deleted) {
-      console.log(`[AgentRegistry] Unregistered agent: ${agentId}`);
+      logger.info(`[AgentRegistry] Unregistered agent: ${agentId}`);
     }
     return deleted;
   }
@@ -149,12 +150,12 @@ export class AgentRegistry {
 
   registerDefinition(definition: AgentDefinition): void {
     if (this.definitions.has(definition.slug)) {
-      console.warn(
+      logger.warn(
         `[AgentRegistry] Definition ${definition.slug} already registered, overwriting`
       );
     }
     this.definitions.set(definition.slug, definition);
-    console.log(
+    logger.info(
       `[AgentRegistry] Registered definition: ${definition.identity.name} (${definition.slug})`
     );
   }

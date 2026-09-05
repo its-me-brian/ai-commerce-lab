@@ -11,7 +11,6 @@ import {
   getCriticalActions,
   ProductResultContractSchema,
 } from "./product-result";
-import type { ProductResult } from "./product-result";
 
 describe("ProductResultContract", () => {
   describe("validateProductResult", () => {

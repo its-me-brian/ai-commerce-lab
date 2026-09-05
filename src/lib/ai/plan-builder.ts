@@ -11,6 +11,7 @@
 // The LLM sees WHAT is available and decides HOW to compose it.
 // This replaces the hardcoded switch statement in OrchestratorV2.
 
+import { logger } from "../logging";
 import type { ExecutionPlanStep } from "./orchestrator-v2";
 
 // Lazy imports — avoid triggering Supabase env var checks at module load
@@ -90,7 +91,7 @@ export class PlanBuilder {
     } catch (error) {
       // 2. Fallback to static plan
       const reason = error instanceof Error ? error.message : String(error);
-      console.warn(`[PlanBuilder] LLM plan generation failed, using static fallback: ${reason}`);
+      logger.warn(`[PlanBuilder] LLM plan generation failed, using static fallback: ${reason}`);
 
       return {
         steps: STATIC_PLANS[intent] ?? STATIC_PLANS.general,
@@ -251,11 +252,11 @@ IMPORTANT: Respond with ONLY the JSON object, nothing else.`;
 
     for (const step of steps) {
       if (step.type === "agent" && step.agentId && !agentIds.has(step.agentId)) {
-        console.warn(`[PlanBuilder] Step "${step.id}" references unknown agent "${step.agentId}" — skipping`);
+        logger.warn(`[PlanBuilder] Step "${step.id}" references unknown agent "${step.agentId}" — skipping`);
         continue;
       }
       if (step.type === "mini-ai" && step.miniAIId && !miniAIIds.has(step.miniAIId)) {
-        console.warn(`[PlanBuilder] Step "${step.id}" references unknown mini-AI "${step.miniAIId}" — skipping`);
+        logger.warn(`[PlanBuilder] Step "${step.id}" references unknown mini-AI "${step.miniAIId}" — skipping`);
         continue;
       }
       validSteps.push(step);

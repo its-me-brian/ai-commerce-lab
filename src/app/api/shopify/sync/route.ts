@@ -6,8 +6,9 @@ import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { supabase } from "@/lib/database/supabase";
 import { createShopifyClient } from "@/lib/integrations/shopify/client";
 import { decrypt, type EncryptedData } from "@/lib/ai/encryption";
+import { withSecurity } from "@/lib/security/api-middleware";
 
-export async function POST(request: NextRequest) {
+export const POST = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
         );
 
       if (error) {
-        console.error(`[Shopify] Failed to upsert product ${product.id}:`, error.message);
+        console.error(`[Shopify] Failed to upsert product ${product.id}:`, "An unexpected error occurred");
         skipped++;
       } else {
         upserted++;
@@ -100,13 +101,13 @@ export async function POST(request: NextRequest) {
       skipped,
       total: shopifyProducts.length,
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Sync failed",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );
   }
-}
+});

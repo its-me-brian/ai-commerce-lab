@@ -82,7 +82,8 @@ export async function getDelegatedTasks(agentId: string, workspaceId: string): P
  */
 export async function getOutgoingDelegations(agentId: string, workspaceId: string): Promise<Task[]> {
   const taskEngine = getTaskEngine();
-  const tasks = await taskEngine.listByAgent(agentId, workspaceId);
+ 
+  const _tasks = await taskEngine.listByAgent(agentId, workspaceId);
 
   // This agent is the delegator — check tasks where this agent is the source
   // Actually, we need to search across all agents for tasks delegated BY this agent

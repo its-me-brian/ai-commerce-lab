@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { supabase } from "@/lib/database/supabase";
 import { getWorkspaceId } from "@/lib/database/supabase-server";
 
@@ -23,16 +24,17 @@ export default async function RunsPage() {
       {runs && runs.length > 0 ? (
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }}>
+            <caption>Run History</caption>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Status</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Agent</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Provider</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Model</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Tokens</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Duration</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Cost</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Created</th>
+                <th scope="col" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Status</th>
+                <th scope="col" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Agent</th>
+                <th scope="col" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Provider</th>
+                <th scope="col" style={{ padding: "10px 14px", textAlign: "left", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Model</th>
+                <th scope="col" style={{ padding: "10px 14px", textAlign: "right", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Tokens</th>
+                <th scope="col" style={{ padding: "10px 14px", textAlign: "right", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Duration</th>
+                <th scope="col" style={{ padding: "10px 14px", textAlign: "right", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Cost</th>
+                <th scope="col" style={{ padding: "10px 14px", textAlign: "right", fontWeight: 500, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6875rem" }}>Created</th>
               </tr>
             </thead>
             <tbody>
@@ -67,7 +69,7 @@ export default async function RunsPage() {
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 40, textAlign: "center" }}>
           <p style={{ fontSize: "0.875rem", fontWeight: 500, marginBottom: 4 }}>No runs yet</p>
           <p style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>
-            Run an agent from the <a href="/dashboard/agents" style={{ color: "var(--accent)" }}>Agents</a> page to see execution history here.
+            Run an agent from the <Link href="/dashboard/agents" style={{ color: "var(--accent)" }}>Agents</Link> page to see execution history here.
           </p>
         </div>
       )}

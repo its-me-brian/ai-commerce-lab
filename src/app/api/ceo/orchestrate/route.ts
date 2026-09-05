@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { AgentEngine } from "@/lib/agents/core/engine";
 import { bootstrap, getAgentRegistry } from "@/lib/ai/bootstrap";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // POST /api/ceo/orchestrate
 // Direct CEO orchestration — uses AgentEngine for budget enforcement and task tracking.
 // Accepts { goal, workflow? } — CEO creates plan and coordinates agents.
-export async function POST(request: NextRequest) {
+export const POST = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
 
@@ -55,14 +56,13 @@ export async function POST(request: NextRequest) {
       metadata: result.metadata,
       timestamp: new Date().toISOString(),
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  } catch  {
     return NextResponse.json(
       {
         success: false,
-        error: message.startsWith("Budget exceeded") ? message : "An unexpected error occurred",
+        error: "An unexpected error occurred",
       },
-      { status: message.startsWith("Budget exceeded") ? 429 : 500 }
+      { status: 500 }
     );
   }
-}
+});

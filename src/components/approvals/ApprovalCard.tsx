@@ -68,7 +68,8 @@ interface ApprovalCardProps {
 }
 
 export function ApprovalCard({ approval, onReview }: ApprovalCardProps) {
-  const statusVariant = STATUS_VARIANT[approval.status] || "default";
+ 
+  const _statusVariant = STATUS_VARIANT[approval.status] || "default";
   const riskVariant = RISK_VARIANT[approval.risk_level] || "default";
 
   // Check if expired

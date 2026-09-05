@@ -10,7 +10,7 @@
 // This is the "brain" that decides which model powers each mini-AI execution.
 // It uses the existing ModelMatcher for capability-based filtering.
 
-import { findBestModel, findSingleBestModel, type ModelMatch } from "./model-matcher";
+import { findBestModel, type ModelMatch }from "./model-matcher";
 import type { MiniAIComplexity, MiniAIModelRequirements } from "../ai/mini-ai/types";
 
 /**

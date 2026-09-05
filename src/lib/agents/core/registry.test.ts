@@ -10,6 +10,7 @@ import type { AgentContext, AgentResult } from "./types";
 function createTestAgent(metadata: AgentMetadata): BaseAgent {
   const agent = {
     metadata,
+ 
     execute: async (_context: AgentContext): Promise<AgentResult> => ({
       success: true,
       output: "test",

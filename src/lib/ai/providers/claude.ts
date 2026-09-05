@@ -1,6 +1,7 @@
 // Claude Provider Adapter
 // Implements AIProvider interface for Anthropic Claude API
 
+import { logger } from "../../logging";
 import { AIProvider } from "./base";
 import type {
   AIProviderSlug,
@@ -93,7 +94,7 @@ export class ClaudeProvider extends AIProvider {
       try {
         structuredData = JSON.parse(content);
       } catch (parseError) {
-        console.warn(
+        logger.warn(
           `[Claude] Response was not valid JSON despite responseFormat=json. ` +
           `Parse error: ${parseError instanceof Error ? parseError.message : "unknown"}`
         );

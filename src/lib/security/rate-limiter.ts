@@ -1,20 +1,8 @@
-// In-Memory Rate Limiter
-// FASE 43: Simple sliding-window rate limiter for API routes.
+// Rate Limiter with Supabase persistence
+// FASE 43: Sliding-window rate limiter for API routes with database-backed storage.
 
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
-
-const store = new Map<string, RateLimitEntry>();
-
-// Cleanup stale entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of store) {
-    if (now > entry.resetAt) store.delete(key);
-  }
-}, 5 * 60 * 1000);
+import { logger } from "../logging";
+import { supabase } from "@/lib/database/supabase";
 
 export interface RateLimitConfig {
   windowMs: number;   // time window in milliseconds
@@ -28,28 +16,60 @@ const DEFAULT_CONFIG: RateLimitConfig = {
 
 /**
  * Check if a request is allowed under the rate limit.
+ * Uses Supabase for persistence across server restarts and instances.
  * Returns { allowed, remaining, resetAt }.
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   config: Partial<RateLimitConfig> = {},
-): { allowed: boolean; remaining: number; resetAt: number } {
+): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
   const { windowMs, maxRequests } = { ...DEFAULT_CONFIG, ...config };
   const now = Date.now();
-  const entry = store.get(key);
+  const windowStart = now - windowMs;
 
-  if (!entry || now > entry.resetAt) {
-    // New window
-    store.set(key, { count: 1, resetAt: now + windowMs });
+  try {
+    // Clean up old entries (older than window)
+    await supabase
+      .from("rate_limits")
+      .delete()
+      .lt("created_at", new Date(windowStart).toISOString());
+
+    // Get current count for this key
+    const { data, error } = await supabase
+      .from("rate_limits")
+      .select("id")
+      .eq("key", key)
+      .gte("created_at", new Date(windowStart).toISOString());
+
+    if (error) {
+      // If table doesn't exist or error, allow the request (fail open)
+      logger.warn("[RateLimiter] Database error, failing open:", { error: error.message });
+      return { allowed: true, remaining: maxRequests - 1, resetAt: now + windowMs };
+    }
+
+    const currentCount = data?.length || 0;
+
+    if (currentCount >= maxRequests) {
+ 
+      const _resetAt = new Date(now + windowMs).toISOString();
+      return { allowed: false, remaining: 0, resetAt: now + windowMs };
+    }
+
+    // Record this request
+    const { error: insertError } = await supabase
+      .from("rate_limits")
+      .insert({ key, created_at: new Date(now).toISOString() });
+
+    if (insertError) {
+      logger.warn("[RateLimiter] Insert error:", { error: insertError.message });
+    }
+
+    return { allowed: true, remaining: maxRequests - currentCount - 1, resetAt: now + windowMs };
+  } catch (err) {
+    // Fail open on any error
+    logger.warn("[RateLimiter] Unexpected error, failing open:", { error: String(err) });
     return { allowed: true, remaining: maxRequests - 1, resetAt: now + windowMs };
   }
-
-  if (entry.count >= maxRequests) {
-    return { allowed: false, remaining: 0, resetAt: entry.resetAt };
-  }
-
-  entry.count++;
-  return { allowed: true, remaining: maxRequests - entry.count, resetAt: entry.resetAt };
 }
 
 /**

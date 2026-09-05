@@ -1,6 +1,7 @@
 // Gemini Provider Adapter
 // Implements AIProvider interface for Google Gemini API
 
+import { logger } from "../../logging";
 import { AIProvider } from "./base";
 import type {
   AIProviderSlug,
@@ -71,10 +72,13 @@ export class GeminiProvider extends AIProvider {
     }
 
     const response = await fetch(
-      `${this.baseUrl}/models/${model}:generateContent?key=${this.apiKey}`,
+      `${this.baseUrl}/models/${model}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": this.apiKey,
+        },
         body: JSON.stringify(body),
       }
     );
@@ -104,7 +108,7 @@ export class GeminiProvider extends AIProvider {
       } catch (parseError) {
         // JSON parsing failed — return raw content without structuredData.
         // The agent layer will handle this by parsing content directly.
-        console.warn(
+        logger.warn(
           `[Gemini] Response was not valid JSON despite responseFormat=json. ` +
           `Parse error: ${parseError instanceof Error ? parseError.message : "unknown"}`
         );
@@ -129,10 +133,13 @@ export class GeminiProvider extends AIProvider {
     const startTime = Date.now();
     try {
       const response = await fetch(
-        `${this.baseUrl}/models/${model}:generateContent?key=${this.apiKey}`,
+        `${this.baseUrl}/models/${model}:generateContent`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": this.apiKey,
+          },
           body: JSON.stringify({
             contents: [{ role: "user", parts: [{ text: "Say OK" }] }],
             generationConfig: { maxOutputTokens: 10 },
@@ -163,7 +170,7 @@ export class GeminiProvider extends AIProvider {
         provider: "gemini",
         model,
         latencyMs: Date.now() - startTime,
-        error: error instanceof Error ? error.message : String(error),
+        error: String(error),
       };
     }
   }
@@ -173,7 +180,10 @@ export class GeminiProvider extends AIProvider {
   > {
     try {
       const response = await fetch(
-        `${this.baseUrl}/models?key=${this.apiKey}`
+        `${this.baseUrl}/models`,
+        {
+          headers: { "x-goog-api-key": this.apiKey },
+        }
       );
       const data = await response.json();
       return (data.models || [])
@@ -186,7 +196,7 @@ export class GeminiProvider extends AIProvider {
           contextWindow: 1000000,
         }));
     } catch (error) {
-      console.error("[Gemini] Failed to fetch available models:", error instanceof Error ? error.message : error);
+      logger.error("[Gemini] Failed to fetch available models:", { error: error instanceof Error ? error.message : String(error) });
       return [];
     }
   }

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { supabase } from "@/lib/database/supabase";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 /** Cosine similarity between two vectors. */
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -20,7 +21,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withSecurity(async (request: NextRequest) => {
   const authResult = await requireWorkspaceAccess(request);
   if ("error" in authResult) {
     return authResult.error;
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await queryBuilder;
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 });
     }
 
     const documents = data || [];
@@ -92,10 +93,10 @@ export async function POST(request: NextRequest) {
       })),
       total: results.length,
     });
-  } catch (error) {
+  } catch  {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal error" },
+      { error: "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
+});

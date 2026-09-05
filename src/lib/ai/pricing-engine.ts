@@ -379,7 +379,7 @@ export class PricingEngine {
     marginPercent: number,
     profit: number,
     strategy: PricingStrategy,
-    confidence: number
+    _confidence: number
   ): string {
     const marginStr = (marginPercent * 100).toFixed(1);
     const profitStr = profit.toFixed(2);

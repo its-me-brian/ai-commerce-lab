@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { bootstrap, getAgentRegistry } from "@/lib/ai/bootstrap";
 import { AgentEngine } from "@/lib/agents/core/engine";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { withSecurity } from "@/lib/security/api-middleware";
 
 // POST /api/agents/run
 // Generic agent execution endpoint.
 // Accepts { agentId, input } — config comes from Supabase, never from the client.
-export async function POST(request: NextRequest) {
+export const POST = withSecurity(async (request: NextRequest) => {
   try {
     // Auth check
     const auth = await requireWorkspaceAccess(request);
@@ -62,24 +63,15 @@ export async function POST(request: NextRequest) {
       metadata: result.metadata,
       timestamp: new Date().toISOString(),
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    // Don't expose internal details
-    const isKnownError = message.startsWith("Agent not found") ||
-      message.startsWith("Agent is not enabled") ||
-      message.startsWith("Input validation failed") ||
-      message.startsWith("Permission denied") ||
-      message.startsWith("Agent config not found");
-
+  } catch  {
     return NextResponse.json(
       {
         error: {
-          code: isKnownError ? "AGENT_ERROR" : "INTERNAL_ERROR",
-          message: isKnownError ? message : "An unexpected error occurred",
+          code: "INTERNAL_ERROR",
+          message: "An unexpected error occurred",
         },
       },
-      { status: isKnownError ? 400 : 500 }
+      { status: 500 }
     );
   }
-}
+});

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { useBrowserML } from "@/lib/ai/mini-ai/browser-ml/use-browser-ml";
 
 const CATEGORIES = [
@@ -87,7 +88,7 @@ export function ProductClassifier() {
       )}
 
       {error && (
-        <p style={{ fontSize: "0.75rem", color: "var(--error)", marginBottom: 8 }}>{error}</p>
+        <ErrorMessage message={error} className="mb-2" />
       )}
 
       {/* Input */}
@@ -100,6 +101,7 @@ export function ProductClassifier() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleClassify()}
               placeholder="Enter product name to classify..."
+              aria-label="Product name to classify"
               style={{
                 flex: 1, padding: "8px 12px", borderRadius: "var(--r-md)", border: "1px solid var(--border)",
                 background: "var(--bg-sunken)", fontSize: "0.8125rem", color: "var(--text-primary)", outline: "none",

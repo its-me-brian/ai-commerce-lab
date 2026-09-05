@@ -131,6 +131,8 @@ export const DEFAULT_THRESHOLDS: Record<string, QualityThreshold> = {
 
 /**
  * Evaluation Engine — computes and tracks quality scores.
+ * Persistence: Evaluations are persisted to Supabase (execution_evaluations table)
+ * for survival across restarts. In-memory array is kept as read cache.
  */
 export class EvaluationEngine {
   private evaluations: ExecutionEvaluation[] = [];
@@ -499,6 +501,32 @@ export class EvaluationEngine {
     // Trim history
     if (this.evaluations.length > this.maxHistory) {
       this.evaluations = this.evaluations.slice(-this.maxHistory);
+    }
+    // Persist to Supabase (fire-and-forget)
+    this.persistToSupabase(evaluation);
+  }
+
+  /**
+   * Persist an evaluation to Supabase.
+   */
+  private async persistToSupabase(evaluation: ExecutionEvaluation): Promise<void> {
+    try {
+      const { supabase } = await import("@/lib/database/supabase");
+
+      await supabase.from("execution_evaluations").insert({
+        overall_score: evaluation.overallScore,
+        signals: evaluation.signals,
+        duration_ms: evaluation.metrics.durationMs,
+        cost_dollars: evaluation.metrics.costDollars,
+        success: evaluation.metrics.success,
+        retries: evaluation.metrics.retries,
+        input_tokens: evaluation.metrics.tokens?.input ?? null,
+        output_tokens: evaluation.metrics.tokens?.output ?? null,
+        feedback: evaluation.feedback ?? null,
+        passed: evaluation.passed,
+      });
+    } catch {
+      // Silent fail — in-memory is source of truth, DB is backup
     }
   }
 }

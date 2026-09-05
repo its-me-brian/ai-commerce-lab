@@ -69,6 +69,7 @@ export function ChatComposer({
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
+          aria-label="Chat message"
           className="flex-1 resize-none bg-transparent text-sm py-1 focus:outline-none disabled:opacity-40"
           style={{ color: "var(--text-primary)" }}
         />
@@ -80,6 +81,7 @@ export function ChatComposer({
         <button
           type="submit"
           disabled={!input.trim() || disabled}
+          aria-label="Send message"
           className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors disabled:opacity-30"
           style={{
             background: input.trim() ? "var(--accent)" : "var(--border-subtle)",

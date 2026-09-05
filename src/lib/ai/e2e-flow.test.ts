@@ -87,7 +87,8 @@ describeE2E("§48 E2E: Full chat lifecycle", () => {
       systemPrompt: "You are the CEO agent. Respond with just 'OK' to confirm you received this message.",
       responseFormat: "text",
     });
-    const duration = Date.now() - startTime;
+ 
+    const _duration = Date.now() - startTime;
 
     // Verify response
     expect(result.content).toBeDefined();

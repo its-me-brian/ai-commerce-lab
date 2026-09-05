@@ -11,6 +11,12 @@ import { getWorkspaceService } from "../workspaces/service";
 import { getTaskEngine } from "./task-engine";
 import { preprocessMessage, buildEnrichedPrompt, generateStatusResponse } from "./prompt-pipeline";
 import { getStructuredLogger, getExecutionTracer } from "./observability";
+import { detectPromptInjection, getSecurityAudit } from "../security/middleware";
+import { getCostBudgetTracker } from "./cost-budget";
+
+/** Max input tokens per user message (rough: 1 token ≈ 4 chars) */
+const MAX_INPUT_TOKENS = 8192;
+const CHARS_PER_TOKEN = 4;
 
 export interface ChatInput {
   agentId: string;
@@ -32,6 +38,15 @@ export interface ChatResult {
  */
 export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   await bootstrap();
+
+  // Input validation: reject oversized messages
+  const estimatedTokens = Math.ceil(input.message.length / CHARS_PER_TOKEN);
+  if (estimatedTokens > MAX_INPUT_TOKENS) {
+    throw new Error(
+      `Message too long: approximately ${estimatedTokens} tokens (max ${MAX_INPUT_TOKENS}). ` +
+      `Please shorten your message.`
+    );
+  }
 
   const registry = getAgentRegistry();
   const router = getRouter();
@@ -86,6 +101,28 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
 
   if (!userMessage) {
     throw new Error("Failed to save user message");
+  }
+
+  // 3b. CRITICAL: Prompt injection detection on user input
+  const injectionResult = detectPromptInjection(input.message);
+  if (injectionResult.detected && injectionResult.riskLevel !== "none") {
+    const audit = getSecurityAudit();
+    audit.injectionDetected("agent-chat", input.message, injectionResult.riskLevel as "low" | "medium" | "high", input.workspaceId);
+
+    // Block high-risk injections outright
+    if (injectionResult.riskLevel === "high") {
+      tracer.endSpan(traceId, false, `Prompt injection blocked: ${injectionResult.matchedPattern}`);
+      throw new Error("Your message was blocked by our security system. Please rephrase your request.");
+    }
+
+    // Medium/low: log and continue with sanitized context
+    logger.log({
+      severity: "warn",
+      component: "agent-chat",
+      message: `Prompt injection detected (${injectionResult.riskLevel}): ${injectionResult.matchedPattern}`,
+      traceId,
+      context: { agentId: input.agentId, riskLevel: injectionResult.riskLevel },
+    });
   }
 
   // 4. Build context from conversation history
@@ -314,6 +351,20 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   // 7. Call AI via router
   const startTime = Date.now();
 
+  // 7a. CRITICAL: Pre-flight budget check — block if budget exhausted
+  const budgetTracker = getCostBudgetTracker();
+  const estimatedCost = 0.01; // Conservative estimate; actual cost recorded after
+  const budgetCheck = budgetTracker.checkBudget(input.agentId, "agent", estimatedCost, input.workspaceId);
+  if (!budgetCheck.allowed) {
+    const b = budgetCheck.violatedBudget;
+    tracer.endSpan(traceId, false, `Budget exceeded: ${b.budget.entityId}`);
+    throw new Error(
+      `Budget exceeded for agent ${input.agentId}: ` +
+      `${b.currentSpending.toFixed(4)}/${b.budget.maxDollars.toFixed(4)} dollars used ` +
+      `(${(b.utilizationPercent * 100).toFixed(0)}%). Contact your workspace owner to increase the budget.`
+    );
+  }
+
   logger.log({
     severity: "info",
     component: "agent-chat",
@@ -366,6 +417,20 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
     if (!assistantMessage) {
       throw new Error("Failed to save assistant message");
     }
+
+    // 7b. Record actual cost after execution
+    const actualCost = (result.inputTokens * 0.000001 + result.outputTokens * 0.000002); // Rough estimate
+    budgetTracker.recordCost({
+      entityId: input.agentId,
+      entityType: "agent",
+      workspaceId: input.workspaceId || "",
+      costDollars: actualCost,
+      provider: log.provider,
+      model: log.model,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      description: `Chat with agent ${input.agentId}`,
+    });
 
     return {
       conversation,

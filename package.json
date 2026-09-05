@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "audit": "npm audit --omit=dev",
+    "audit:fix": "npm audit fix"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

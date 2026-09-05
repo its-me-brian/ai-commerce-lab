@@ -10,6 +10,8 @@
 // or the simple Logger class (in-memory text logs).
 // This provides machine-parseable structured data for debugging and monitoring.
 
+import { logger } from "../logging";
+
 // ============================================
 // STRUCTURED LOGGER
 // ============================================
@@ -86,13 +88,13 @@ export class StructuredLogger {
       switch (entry.severity) {
         case "error":
         case "critical":
-          console.error(msg, ctx);
+          logger.error(msg, { error: String(ctx) });
           break;
         case "warn":
-          console.warn(msg, ctx);
+          logger.warn(msg, { detail: ctx });
           break;
         default:
-          console.log(msg, ctx);
+          logger.info(msg, { detail: ctx });
       }
     }
 
