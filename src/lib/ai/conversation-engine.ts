@@ -368,12 +368,14 @@ export class ConversationEngine {
     }
 
     // Fallback: find existing (for workspaceless calls or if upsert fails)
+    // SECURITY: Always filter by workspace_id when available — never leak across workspaces
     const existing = await supabase
       .from("conversations")
       .select("*")
       .eq("agent_id", agentId)
       .eq("conversation_type", "direct")
       .eq("status", "active")
+      .eq("workspace_id", workspaceId || "")
       .order("last_message_at", { ascending: false })
       .limit(1)
       .maybeSingle();

@@ -225,14 +225,16 @@ export class RAGService {
   }
 
   /**
-   * Get document by ID.
+   * Get document by ID, scoped to workspace.
+   * NEVER retrieve documents without workspace context.
    */
-  async getDocument(id: string): Promise<KnowledgeDocument | null> {
+  async getDocument(id: string, workspaceId: string): Promise<KnowledgeDocument | null> {
     const db = await this.getClient();
     const { data, error } = await db
       .from("knowledge_documents")
       .select("*")
       .eq("id", id)
+      .eq("workspace_id", workspaceId)
       .single();
 
     if (error || !data) return null;

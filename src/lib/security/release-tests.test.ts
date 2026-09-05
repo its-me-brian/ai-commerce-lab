@@ -145,14 +145,19 @@ describe("TEST 5: Budget exhaustion blocks execution", () => {
 // TEST 6: Error messages sanitized
 // ============================================
 describe("TEST 6: Error messages sanitized", () => {
-  it("health endpoint uses sanitizeError", async () => {
+  it("health endpoint exposes no internal details", async () => {
     const fs = await import("fs");
     const path = await import("path");
     const source = fs.readFileSync(
       path.resolve(__dirname, "../../app/api/health/route.ts"),
       "utf-8"
     );
-    expect(source).toContain("sanitizeError");
+    // Health endpoint must NOT expose providers, models, agents, database, or errors
+    expect(source).not.toContain("ai_providers");
+    expect(source).not.toContain("agent_tasks");
+    expect(source).not.toContain("sanitizeError");
+    // Must only return status + timestamp
+    expect(source).toContain('"healthy"');
   });
 
   it("models route returns generic error", async () => {
