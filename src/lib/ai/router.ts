@@ -207,7 +207,7 @@ export class AIModelRouter {
       agentId,
       hasSystemPrompt: !!options.systemPrompt,
       promptLength: options.prompt?.length ?? 0,
-    });
+    }, overrides?.workspaceId);
 
     // PHASE 7: Check response cache first
     const cache = getResponseCache();
@@ -226,6 +226,7 @@ export class AIModelRouter {
         message: `Cache hit for agent ${agentId}`,
         traceId,
         context: { agentId },
+        workspaceId: overrides?.workspaceId,
       });
 
       const log: RouterExecutionLog = {
@@ -241,7 +242,7 @@ export class AIModelRouter {
       };
 
       const metrics = getMetricsCollector();
-      metrics.record("router.cache.hit", 1, { agent: agentId });
+      metrics.record("router.cache.hit", 1, { agent: agentId }, overrides?.workspaceId);
 
       tracer.endSpan(traceId, true);
       return { result: cachedResult, log };
@@ -355,9 +356,9 @@ export class AIModelRouter {
 
         // Record telemetry metrics for agent routing
         const metrics = getMetricsCollector();
-        metrics.record("router.execution.count", 1, { provider: model.provider_id, model: model.model_id, agent: agentId, status: "success" });
-        metrics.record("router.execution.latency_ms", durationMs, { provider: model.provider_id, model: model.model_id, agent: agentId });
-        metrics.record("router.execution.cost_dollars", cost, { provider: model.provider_id, model: model.model_id, agent: agentId });
+        metrics.record("router.execution.count", 1, { provider: model.provider_id, model: model.model_id, agent: agentId, status: "success" }, overrides?.workspaceId);
+        metrics.record("router.execution.latency_ms", durationMs, { provider: model.provider_id, model: model.model_id, agent: agentId }, overrides?.workspaceId);
+        metrics.record("router.execution.cost_dollars", cost, { provider: model.provider_id, model: model.model_id, agent: agentId }, overrides?.workspaceId);
 
         tracer.endSpan(traceId, true);
         return { result, log };
@@ -376,6 +377,7 @@ export class AIModelRouter {
             model: model.model_id,
             error: lastError.message,
           },
+          workspaceId: overrides?.workspaceId,
         });
 
         continue;
@@ -397,6 +399,7 @@ export class AIModelRouter {
         routeCount: routes.length,
         lastError: lastError?.message,
       },
+      workspaceId: overrides?.workspaceId,
     });
 
     tracer.endSpan(traceId, false, lastError?.message);

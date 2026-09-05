@@ -77,6 +77,8 @@ export const AgentHandoffSchema = z.object({
   updatedAt: z.string().datetime(),
   /** Completed timestamp */
   completedAt: z.string().datetime().optional(),
+  /** Workspace ID for multi-tenant isolation */
+  workspaceId: z.string().optional(),
 });
 export type AgentHandoff = z.infer<typeof AgentHandoffSchema>;
 
@@ -86,6 +88,7 @@ export const CreateHandoffInputSchema = z.object({
   type: HandoffTypeSchema,
   action: z.string(),
   context: HandoffContextSchema,
+  workspaceId: z.string().optional(),
 });
 export type CreateHandoffInput = z.infer<typeof CreateHandoffInputSchema>;
 
@@ -120,6 +123,7 @@ export class AgentHandoffManager {
       status: "pending",
       createdAt: now,
       updatedAt: now,
+      workspaceId: input.workspaceId,
     };
 
     this.handoffs.set(handoff.id, handoff);
@@ -396,6 +400,7 @@ export class AgentHandoffManager {
         created_at: handoff.createdAt,
         updated_at: handoff.updatedAt,
         completed_at: handoff.completedAt ?? null,
+        workspace_id: handoff.workspaceId ?? null,
       });
     } catch {
       // Silent fail — in-memory is source of truth, DB is backup
@@ -414,6 +419,7 @@ export class AgentHandoffManager {
         result: handoff.result ?? null,
         updated_at: handoff.updatedAt,
         completed_at: handoff.completedAt ?? null,
+        workspace_id: handoff.workspaceId ?? null,
       }).eq("id", handoff.id);
     } catch {
       // Silent fail — in-memory is source of truth, DB is backup

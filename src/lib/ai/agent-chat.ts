@@ -61,7 +61,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
     agentId: input.agentId,
     hasConversationId: !!input.conversationId,
     messageLength: input.message.length,
-  });
+  }, input.workspaceId);
 
   // 1. Validate agent exists
   const agent = registry.get(input.agentId);
@@ -122,6 +122,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
       message: `Prompt injection detected (${injectionResult.riskLevel}): ${injectionResult.matchedPattern}`,
       traceId,
       context: { agentId: input.agentId, riskLevel: injectionResult.riskLevel },
+      workspaceId: input.workspaceId,
     });
   }
 
@@ -271,6 +272,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
           message: `Status query fast-path for agent ${input.agentId}`,
           traceId,
           context: { agentId: input.agentId, targetAgent: pipelineResult.statusQueryAgent },
+          workspaceId: input.workspaceId,
         });
 
         try {
@@ -307,6 +309,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
           message: `Fast-path response for agent ${input.agentId}`,
           traceId,
           context: { agentId: input.agentId, intent: pipelineResult.intent },
+          workspaceId: input.workspaceId,
         });
       }
 
@@ -371,6 +374,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
     message: `LLM call starting for agent ${input.agentId}`,
     traceId,
     context: { agentId: input.agentId, messageLength: input.message.length },
+    workspaceId: input.workspaceId,
   });
 
   try {
@@ -400,6 +404,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
         inputTokens: result.inputTokens,
         outputTokens: result.outputTokens,
       },
+      workspaceId: input.workspaceId,
     });
 
     // 7. Add assistant message
@@ -451,6 +456,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
         agentId: input.agentId,
         error: error instanceof Error ? error.message : String(error),
       },
+      workspaceId: input.workspaceId,
     });
 
     tracer.endSpan(traceId, false, error instanceof Error ? error.message : String(error));

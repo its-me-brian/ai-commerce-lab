@@ -279,6 +279,9 @@ export interface SecurityAuditEntry {
 
   /** Timestamp */
   timestamp: number;
+
+  /** Workspace ID for multi-tenant isolation */
+  workspaceId?: string;
 }
 
 /**
@@ -339,6 +342,7 @@ export class SecurityAudit {
         client_id: entry.clientId ?? null,
         sanitized_input: entry.sanitizedInput ?? null,
         metadata: entry.metadata ?? null,
+        workspace_id: entry.workspaceId ?? null,
       });
     } catch {
       // Silent fail — in-memory is source of truth, DB is backup
@@ -348,7 +352,7 @@ export class SecurityAudit {
   /**
    * Log sanitization applied.
    */
-  sanitizationApplied(source: string, original: string, clientId?: string): SecurityAuditEntry {
+  sanitizationApplied(source: string, original: string, clientId?: string, workspaceId?: string): SecurityAuditEntry {
     return this.log({
       eventType: "sanitization_applied",
       severity: "low",
@@ -356,6 +360,7 @@ export class SecurityAudit {
       source,
       clientId,
       sanitizedInput: original.slice(0, 200),
+      workspaceId,
     });
   }
 
@@ -366,7 +371,8 @@ export class SecurityAudit {
     source: string,
     input: string,
     riskLevel: "low" | "medium" | "high",
-    clientId?: string
+    clientId?: string,
+    workspaceId?: string
   ): SecurityAuditEntry {
     return this.log({
       eventType: "injection_detected",
@@ -375,32 +381,35 @@ export class SecurityAudit {
       source,
       clientId,
       sanitizedInput: input.slice(0, 200),
+      workspaceId,
     });
   }
 
   /**
    * Log rate limit hit.
    */
-  rateLimitHit(source: string, clientId: string): SecurityAuditEntry {
+  rateLimitHit(source: string, clientId: string, workspaceId?: string): SecurityAuditEntry {
     return this.log({
       eventType: "rate_limit_hit",
       severity: "medium",
       message: `Rate limit exceeded for ${clientId}`,
       source,
       clientId,
+      workspaceId,
     });
   }
 
   /**
    * Log validation failure.
    */
-  validationFailed(source: string, field: string, clientId?: string): SecurityAuditEntry {
+  validationFailed(source: string, field: string, clientId?: string, workspaceId?: string): SecurityAuditEntry {
     return this.log({
       eventType: "validation_failed",
       severity: "low",
       message: `Validation failed for field: ${field}`,
       source,
       clientId,
+      workspaceId,
     });
   }
 

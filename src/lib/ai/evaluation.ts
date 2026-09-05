@@ -67,6 +67,9 @@ export interface ExecutionEvaluation {
 
   /** Timestamp */
   timestamp: number;
+
+  /** Workspace ID for multi-tenant isolation */
+  workspaceId?: string;
 }
 
 /**
@@ -157,7 +160,8 @@ export class EvaluationEngine {
       retries: number;
       tokens?: { input: number; output: number };
     },
-    threshold?: QualityThreshold
+    threshold?: QualityThreshold,
+    workspaceId?: string
   ): ExecutionEvaluation {
     const signals: EvaluationSignal[] = [];
 
@@ -230,6 +234,7 @@ export class EvaluationEngine {
       },
       passed,
       timestamp: Date.now(),
+      workspaceId,
     };
 
     this.recordEvaluation(evaluation);
@@ -242,7 +247,8 @@ export class EvaluationEngine {
   evaluateWorkflow(
     nodeEvaluations: ExecutionEvaluation[],
     totalDurationMs: number,
-    totalCostDollars: number
+    totalCostDollars: number,
+    workspaceId?: string
   ): ExecutionEvaluation {
     if (nodeEvaluations.length === 0) {
       return {
@@ -311,6 +317,7 @@ export class EvaluationEngine {
       },
       passed: overallScore >= 0.6,
       timestamp: Date.now(),
+      workspaceId,
     };
   }
 
@@ -524,6 +531,7 @@ export class EvaluationEngine {
         output_tokens: evaluation.metrics.tokens?.output ?? null,
         feedback: evaluation.feedback ?? null,
         passed: evaluation.passed,
+        workspace_id: evaluation.workspaceId ?? null,
       });
     } catch {
       // Silent fail — in-memory is source of truth, DB is backup

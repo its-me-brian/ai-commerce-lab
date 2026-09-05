@@ -51,6 +51,9 @@ export interface StructuredLogEntry {
 
   /** Whether the operation succeeded */
   success?: boolean;
+
+  /** Workspace ID for multi-tenant isolation */
+  workspaceId?: string;
 }
 
 /**
@@ -120,6 +123,7 @@ export class StructuredLogger {
         trace_id: entry.traceId ?? null,
         duration_ms: entry.durationMs ?? null,
         success: entry.success ?? null,
+        workspace_id: entry.workspaceId ?? null,
         created_at: new Date(entry.timestamp).toISOString(),
       });
     } catch {
@@ -128,23 +132,23 @@ export class StructuredLogger {
   }
 
   /** Convenience: log info */
-  info(component: string, message: string, context?: Record<string, unknown>, traceId?: string): StructuredLogEntry {
-    return this.log({ severity: "info", component, message, context, traceId });
+  info(component: string, message: string, context?: Record<string, unknown>, traceId?: string, workspaceId?: string): StructuredLogEntry {
+    return this.log({ severity: "info", component, message, context, traceId, workspaceId });
   }
 
   /** Convenience: log warning */
-  warn(component: string, message: string, context?: Record<string, unknown>, traceId?: string): StructuredLogEntry {
-    return this.log({ severity: "warn", component, message, context, traceId });
+  warn(component: string, message: string, context?: Record<string, unknown>, traceId?: string, workspaceId?: string): StructuredLogEntry {
+    return this.log({ severity: "warn", component, message, context, traceId, workspaceId });
   }
 
   /** Convenience: log error */
-  error(component: string, message: string, context?: Record<string, unknown>, traceId?: string): StructuredLogEntry {
-    return this.log({ severity: "error", component, message, context, traceId });
+  error(component: string, message: string, context?: Record<string, unknown>, traceId?: string, workspaceId?: string): StructuredLogEntry {
+    return this.log({ severity: "error", component, message, context, traceId, workspaceId });
   }
 
   /** Convenience: log debug */
-  debug(component: string, message: string, context?: Record<string, unknown>, traceId?: string): StructuredLogEntry {
-    return this.log({ severity: "debug", component, message, context, traceId });
+  debug(component: string, message: string, context?: Record<string, unknown>, traceId?: string, workspaceId?: string): StructuredLogEntry {
+    return this.log({ severity: "debug", component, message, context, traceId, workspaceId });
   }
 
   /**
@@ -156,7 +160,8 @@ export class StructuredLogger {
     component: string,
     message: string,
     fn: () => unknown,
-    context?: Record<string, unknown>
+    context?: Record<string, unknown>,
+    workspaceId?: string
   ): StructuredLogEntry {
     const start = Date.now();
     let caughtError: unknown = null;
@@ -175,6 +180,7 @@ export class StructuredLogger {
         context: { ...context, result: success ? "success" : "error" },
         durationMs: Date.now() - start,
         success,
+        workspaceId,
       });
 
       if (success) {
@@ -265,6 +271,9 @@ export interface TraceSpan {
 
   /** Children spans */
   children: TraceSpan[];
+
+  /** Workspace ID for multi-tenant isolation */
+  workspaceId?: string;
 }
 
 /**
@@ -280,7 +289,7 @@ export class ExecutionTracer {
   /**
    * Start a new trace. Returns the trace ID.
    */
-  startTrace(rootOperation: string, attributes?: Record<string, unknown>): string {
+  startTrace(rootOperation: string, attributes?: Record<string, unknown>, workspaceId?: string): string {
     const traceId = `trace-${++this.traceCounter}-${Date.now()}`;
     const spanId = `span-${++this.spanCounter}`;
 
@@ -296,6 +305,7 @@ export class ExecutionTracer {
       success: true,
       attributes: attributes ?? {},
       children: [],
+      workspaceId,
     };
 
     this.traces.set(traceId, rootSpan);
@@ -318,7 +328,8 @@ export class ExecutionTracer {
     parentSpanId: string,
     operation: string,
     componentType: TraceSpan["componentType"],
-    attributes?: Record<string, unknown>
+    attributes?: Record<string, unknown>,
+    workspaceId?: string
   ): string {
     const spanId = `span-${++this.spanCounter}`;
 
@@ -334,6 +345,7 @@ export class ExecutionTracer {
       success: true,
       attributes: attributes ?? {},
       children: [],
+      workspaceId,
     };
 
     // Attach to parent
@@ -384,6 +396,7 @@ export class ExecutionTracer {
         duration_ms: span.durationMs || null,
         error: span.error ?? null,
         metadata: span.attributes ?? {},
+        workspace_id: span.workspaceId ?? null,
       });
 
       // If this is the root span (no parent), also persist the trace
@@ -397,6 +410,7 @@ export class ExecutionTracer {
           completed_at: span.endTime ? new Date(span.endTime).toISOString() : null,
           duration_ms: span.durationMs || null,
           metadata: span.attributes ?? {},
+          workspace_id: span.workspaceId ?? null,
         });
       }
     } catch {
@@ -505,6 +519,9 @@ export interface MetricPoint {
 
   /** Tags for filtering/aggregation */
   tags: Record<string, string>;
+
+  /** Workspace ID for multi-tenant isolation */
+  workspaceId?: string;
 }
 
 /**
@@ -552,12 +569,13 @@ export class MetricsCollector {
   /**
    * Record a metric point.
    */
-  record(name: string, value: number, tags?: Record<string, string>): void {
+  record(name: string, value: number, tags?: Record<string, string>, workspaceId?: string): void {
     const point: MetricPoint = {
       name,
       value,
       timestamp: Date.now(),
       tags: tags ?? {},
+      workspaceId,
     };
 
     const existing = this.metrics.get(name) ?? [];
@@ -585,6 +603,7 @@ export class MetricsCollector {
         name: point.name,
         value: point.value,
         tags: point.tags ?? {},
+        workspace_id: point.workspaceId ?? null,
         created_at: new Date(point.timestamp).toISOString(),
       });
     } catch {
@@ -595,15 +614,15 @@ export class MetricsCollector {
   /**
    * Increment a counter metric.
    */
-  increment(name: string, amount: number = 1, tags?: Record<string, string>): void {
-    this.record(name, amount, tags);
+  increment(name: string, amount: number = 1, tags?: Record<string, string>, workspaceId?: string): void {
+    this.record(name, amount, tags, workspaceId);
   }
 
   /**
    * Record a timing/duration metric.
    */
-  timing(name: string, durationMs: number, tags?: Record<string, string>): void {
-    this.record(name, durationMs, tags);
+  timing(name: string, durationMs: number, tags?: Record<string, string>, workspaceId?: string): void {
+    this.record(name, durationMs, tags, workspaceId);
   }
 
   /**
