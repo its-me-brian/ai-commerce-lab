@@ -15,7 +15,7 @@ export const POST = withSecurity(async (request: NextRequest) => {
     const body = await request.json();
 
     // Ensure providers + agents are registered
-    bootstrap();
+    await bootstrap();
 
     // Verify agent exists
     const registry = getAgentRegistry();

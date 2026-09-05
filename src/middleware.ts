@@ -90,7 +90,7 @@ export async function middleware(request: NextRequest) {
   // CSP — enforce mode for production
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https: wss:; frame-ancestors 'none'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.ebayimg.com https://thumbs.ebayimg.com; font-src 'self'; connect-src 'self' https: wss:; frame-ancestors 'none'"
   );
 
   // === Public routes (no auth required) ===

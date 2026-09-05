@@ -5,6 +5,12 @@
 // 1. User clicks "Connect Shopify" → redirected to /api/shopify/install
 // 2. User approves → Shopify redirects here with ?code=...&shop=...
 // 3. We exchange code for access token → store in shopify_stores table
+//
+// FASE 5: State validation now includes:
+//   - HMAC signature verification (anti-tampering)
+//   - Expiration check (10 min max)
+//   - User binding (state userId must match session)
+//   - Single-use nonce tracking
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/database/supabase-server";
@@ -13,30 +19,54 @@ import { encrypt } from "@/lib/ai/encryption";
 import { createHmac, timingSafeEqual } from "crypto";
 import { logger } from "@/lib/logging";
 
+const STATE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+
+// In-memory nonce store (survives across requests in same process)
+const usedNonces = new Map<string, number>();
+
+// Cleanup expired nonces periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [nonce, timestamp] of usedNonces) {
+    if (now - timestamp > STATE_EXPIRY_MS) usedNonces.delete(nonce);
+  }
+}, 5 * 60 * 1000);
+
 /**
- * Verify HMAC signature on OAuth state parameter.
- * Returns the workspace_id if valid, null if tampered.
+ * Verify OAuth state: workspaceId.timestamp.nonce.userId.signature
+ * Returns { workspaceId, userId } if valid, null if invalid/expired/replayed.
  */
-function verifyState(state: string): string | null {
-  const dotIndex = state.lastIndexOf(".");
-  if (dotIndex === -1) return null;
+function verifyState(state: string): { workspaceId: string; userId: string } | null {
+  const parts = state.split(".");
+  if (parts.length !== 5) return null;
 
-  const workspaceId = state.slice(0, dotIndex);
-  const receivedSig = state.slice(dotIndex + 1);
+  const [workspaceId, timestampStr, nonce, userId, receivedSig] = parts;
 
+  // 1. Verify timestamp (expiration)
+  const timestamp = parseInt(timestampStr, 10);
+  if (isNaN(timestamp)) return null;
+  if (Date.now() - timestamp > STATE_EXPIRY_MS) return null;
+
+  // 2. Verify nonce (single-use)
+  if (usedNonces.has(nonce)) return null;
+
+  // 3. Verify HMAC signature
   const secret = process.env.OAUTH_STATE_SECRET || process.env.ENCRYPTION_KEY || "";
-  const expectedSig = createHmac("sha256", secret).update(workspaceId).digest("hex").slice(0, 16);
+  const payload = `${workspaceId}.${timestampStr}.${nonce}.${userId}`;
+  const expectedSig = createHmac("sha256", secret).update(payload).digest("hex").slice(0, 16);
 
   if (receivedSig.length !== expectedSig.length) return null;
 
-  // Timing-safe comparison to prevent timing attacks
   const sigBuffer = Buffer.from(receivedSig, "hex");
   const expectedBuffer = Buffer.from(expectedSig, "hex");
 
   if (sigBuffer.length !== expectedBuffer.length) return null;
   if (!timingSafeEqual(sigBuffer, expectedBuffer)) return null;
 
-  return workspaceId;
+  // 4. Mark nonce as used (single-use enforcement)
+  usedNonces.set(nonce, Date.now());
+
+  return { workspaceId, userId };
 }
 
 // SSRF prevention: only allow valid Shopify myshopify.com domains
@@ -129,7 +159,7 @@ export async function GET(request: NextRequest) {
       planName = shopData.shop?.plan_name || "";
     }
 
-    // 4. Determine workspace_id from OAuth state (set by /api/shopify/install)
+    // 4. Validate OAuth state (HMAC + expiration + nonce + user binding)
     const rawState = searchParams.get("state");
     if (!rawState) {
       return NextResponse.redirect(
@@ -137,7 +167,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // CRITICAL: Verify HMAC signature to prevent state tampering
     const state = verifyState(rawState);
     if (!state) {
       return NextResponse.redirect(
@@ -145,7 +174,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 4b. Validate that the authenticated user is a member of the workspace from state
+    // 4b. Validate that the authenticated user matches the state's user
+    if (state.userId !== user.id) {
+      return NextResponse.redirect(
+        new URL("/dashboard/settings?tab=integrations&error=unauthorized", request.url)
+      );
+    }
+
+    // 4c. Validate that the authenticated user is a member of the workspace from state
     const { createClient: createServiceClient } = await import("@supabase/supabase-js");
     const serviceClient = createServiceClient(
       process.env.SUPABASE_URL!,
@@ -154,7 +190,7 @@ export async function GET(request: NextRequest) {
     const { data: membership } = await serviceClient
       .from("workspace_members")
       .select("role")
-      .eq("workspace_id", state)
+      .eq("workspace_id", state.workspaceId)
       .eq("user_id", user.id)
       .single();
 
@@ -164,7 +200,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const workspaceId = state;
+    const workspaceId = state.workspaceId;
 
     // 5. Upsert store connection (encrypt access_token)
     const encryptedToken = encrypt(accessToken);

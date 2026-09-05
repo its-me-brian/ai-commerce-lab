@@ -632,15 +632,38 @@ export class CostBudgetTracker {
 
 let trackerInstance: CostBudgetTracker | null = null;
 let loadedFromSupabase = false;
+let initPromise: Promise<void> | null = null;
 
-export function getCostBudgetTracker(): CostBudgetTracker {
+/**
+ * Get the singleton CostBudgetTracker.
+ * On first call, loads budgets from Supabase before returning.
+ * Subsequent calls return immediately (budgets already loaded).
+ */
+export async function getCostBudgetTracker(): Promise<CostBudgetTracker> {
   if (!trackerInstance) {
     trackerInstance = new CostBudgetTracker();
-    // Load budgets from Supabase on cold start (fire-and-forget)
-    if (!loadedFromSupabase) {
-      loadedFromSupabase = true;
-      trackerInstance.loadBudgetsFromSupabase();
-    }
+  }
+
+  if (!loadedFromSupabase) {
+    loadedFromSupabase = true;
+    initPromise = trackerInstance.loadBudgetsFromSupabase();
+  }
+
+  // Wait for initial load to complete (no-op after first load)
+  if (initPromise) {
+    await initPromise;
+  }
+
+  return trackerInstance;
+}
+
+/**
+ * Synchronous getter — use ONLY after getCostBudgetTracker() has been awaited at least once.
+ * For code paths that run after bootstrap (which awaits getCostBudgetTracker), this is safe.
+ */
+export function getCostBudgetTrackerSync(): CostBudgetTracker {
+  if (!trackerInstance) {
+    trackerInstance = new CostBudgetTracker();
   }
   return trackerInstance;
 }

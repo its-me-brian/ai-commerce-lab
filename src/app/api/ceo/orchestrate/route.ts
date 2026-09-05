@@ -23,7 +23,7 @@ export const POST = withSecurity(async (request: NextRequest) => {
     }
 
     // Ensure providers + agents are registered
-    bootstrap();
+    await bootstrap();
 
     // Verify CEO agent exists
     const registry = getAgentRegistry();

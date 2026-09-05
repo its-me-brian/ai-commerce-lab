@@ -130,7 +130,7 @@ export async function multiAgentChat(input: MultiAgentChatInput): Promise<MultiA
     const coordinatorDef = registry.getDefinition(coordinatorId);
 
     // Budget check before CEO LLM call
-    const budgetTracker = getCostBudgetTracker();
+    const budgetTracker = await getCostBudgetTracker();
     const estimatedCost = 0.01;
     const budgetCheck = budgetTracker.checkBudget(coordinatorId, "agent", estimatedCost, input.workspaceId);
     if (!budgetCheck.allowed) {
@@ -293,7 +293,7 @@ async function invokeAgent(
   }
 
   // Budget check before delegated agent LLM call
-  const budgetTracker = getCostBudgetTracker();
+  const budgetTracker = await getCostBudgetTracker();
   const estimatedAgentCost = 0.01;
   const agentBudgetCheck = budgetTracker.checkBudget(agentId, "agent", estimatedAgentCost, workspaceId);
   if (!agentBudgetCheck.allowed) {

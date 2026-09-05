@@ -352,7 +352,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   const startTime = Date.now();
 
   // 7a. CRITICAL: Pre-flight budget check — block if budget exhausted
-  const budgetTracker = getCostBudgetTracker();
+  const budgetTracker = await getCostBudgetTracker();
   const estimatedCost = 0.01; // Conservative estimate; actual cost recorded after
   const budgetCheck = budgetTracker.checkBudget(input.agentId, "agent", estimatedCost, input.workspaceId);
   if (!budgetCheck.allowed) {

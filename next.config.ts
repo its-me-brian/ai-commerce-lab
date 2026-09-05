@@ -18,6 +18,18 @@ const nextConfig: NextConfig = {
     },
   ],
   reactStrictMode: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "i.ebayimg.com",
+      },
+      {
+        protocol: "https",
+        hostname: "thumbs.ebayimg.com",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

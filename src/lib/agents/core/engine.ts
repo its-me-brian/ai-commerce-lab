@@ -111,7 +111,7 @@ export class AgentEngine {
     }
 
     // 5b. Budget check — pre-flight estimate before execution
-    const budgetTracker = getCostBudgetTracker();
+    const budgetTracker = await getCostBudgetTracker();
     const estimatedCost = this.estimateExecutionCost(
       config.inputPricePerMillion,
       config.outputPricePerMillion

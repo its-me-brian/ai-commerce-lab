@@ -29,18 +29,10 @@ export default async function AgentsPage() {
     console.error("[AgentsPage] Failed to load agents:", agentsError.message);
   }
 
-  let { data: configs } = await supabase
+  const { data: configs } = await supabase
     .from("agent_configs")
     .select("agent_id, primary_provider_id, primary_model_id")
     .eq("workspace_id", workspaceId);
-
-  if (!configs || configs.length === 0) {
-    const { data: fallbackConfigs } = await supabase
-      .from("agent_configs")
-      .select("agent_id, primary_provider_id, primary_model_id")
-      .eq("workspace_id", "ws-default");
-    configs = fallbackConfigs || [];
-  }
 
   const { data: models } = await supabase
     .from("ai_models")

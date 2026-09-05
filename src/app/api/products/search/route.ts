@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { chatWithAgent } from "@/lib/ai/agent-chat";
 
 // POST /api/products/search
 // Search for products using Product Hunter agent
+// FASE 4: Uses service layer directly instead of internal HTTP call
 export const POST = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request);
   if ("error" in auth) return auth.error;
@@ -22,26 +24,17 @@ export const POST = withSecurity(async (request: NextRequest) => {
       );
     }
 
-    // Call Product Hunter agent via chat
-    const chatRes = await fetch(`${request.url.replace("/products/search", "/agents/chat")}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        agentId: "product-hunter",
-        message: JSON.stringify({ mode, query, name: query }),
-      }),
+    // Call Product Hunter agent directly via service layer (no internal HTTP)
+    const chatResult = await chatWithAgent({
+      agentId: "product-hunter",
+      message: JSON.stringify({ mode, query, name: query }),
+      workspaceId: auth.workspaceId,
     });
-
-    const chatData = await chatRes.json();
-
-    if (!chatData.success) {
-      throw new Error(chatData.error || "Failed to communicate with Product Hunter");
-    }
 
     // Try to parse structured data from response
     let products = [];
     try {
-      const content = chatData.assistantMessage?.content || "";
+      const content = chatResult.assistantMessage.content || "";
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
@@ -57,10 +50,22 @@ export const POST = withSecurity(async (request: NextRequest) => {
 
     return NextResponse.json({
       success: true,
-      response: chatData.assistantMessage,
+      response: {
+        id: chatResult.assistantMessage.id,
+        content: chatResult.assistantMessage.content,
+        role: chatResult.assistantMessage.role,
+        provider: chatResult.assistantMessage.provider,
+        model: chatResult.assistantMessage.model,
+        tokens: {
+          input: chatResult.assistantMessage.input_tokens,
+          output: chatResult.assistantMessage.output_tokens,
+        },
+        durationMs: chatResult.assistantMessage.duration_ms,
+        createdAt: chatResult.assistantMessage.created_at,
+      },
       products,
     });
-  } catch  {
+  } catch {
     return NextResponse.json(
       {
         success: false,

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const entityId = searchParams.get("entityId");
     const entityType = searchParams.get("entityType") as BudgetEntityType | null;
 
-    const tracker = getCostBudgetTracker();
+    const tracker = await getCostBudgetTracker();
 
     switch (action) {
       case "list": {
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     const budget = body.budget as CostBudget | undefined;
     const action = body.action as string;
 
-    const tracker = getCostBudgetTracker();
+    const tracker = await getCostBudgetTracker();
 
     if (action === "remove" && budget?.id) {
       await tracker.removeBudget(budget.id);

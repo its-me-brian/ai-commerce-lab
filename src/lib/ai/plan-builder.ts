@@ -140,7 +140,7 @@ export class PlanBuilder {
     const { getRouter } = await import("./router");
     const { getCostBudgetTracker } = await import("./cost-budget");
     const router = getRouter();
-    const budgetTracker = getCostBudgetTracker();
+    const budgetTracker = await getCostBudgetTracker();
 
     // Budget check before LLM call
     const estimatedCost = 0.01;

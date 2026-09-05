@@ -1,6 +1,9 @@
 // Production Smoke Tests
 // Run after deployment to verify critical paths work.
 //
+// FASE 7: Properly handles auth — public routes expect 200,
+// protected routes expect 401 (API) or redirect (pages).
+//
 // Usage:
 //   SMOKE_TEST_URL=https://your-app.vercel.app npx tsx scripts/smoke-test.ts
 //
@@ -12,22 +15,30 @@ interface SmokeTest {
   name: string;
   path: string;
   method?: string;
+  /** Expected status when unauthenticated. For pages, expect redirect (307). */
   expectStatus: number;
   expectBody?: (body: unknown) => boolean;
 }
 
 const tests: SmokeTest[] = [
-  // Pages render
-  { name: "Dashboard loads", path: "/", expectStatus: 200 },
-  { name: "Workspace loads", path: "/workspace", expectStatus: 200 },
-  { name: "Catalog page loads", path: "/dashboard/catalog", expectStatus: 200 },
-  { name: "Agents page loads", path: "/dashboard/agents", expectStatus: 200 },
-  { name: "Settings page loads", path: "/dashboard/settings", expectStatus: 200 },
+  // === PUBLIC (no auth) ===
+  { name: "Homepage loads", path: "/", expectStatus: 200 },
+  { name: "Login page loads", path: "/login", expectStatus: 200 },
+  { name: "Signup page loads", path: "/signup", expectStatus: 200 },
+  { name: "Health endpoint", path: "/api/health", expectStatus: 200 },
 
-  // API routes respond
-  { name: "API agents list", path: "/api/agents/list", expectStatus: 200 },
-  { name: "API conversations", path: "/api/conversations", expectStatus: 200 },
-  { name: "API tasks", path: "/api/tasks", expectStatus: 200 },
+  // === PROTECTED — expect 401/redirect without session ===
+  // Pages → redirect to /login (307)
+  { name: "Dashboard → auth redirect", path: "/dashboard", expectStatus: 307 },
+  { name: "Agents page → auth redirect", path: "/dashboard/agents", expectStatus: 307 },
+  { name: "Settings page → auth redirect", path: "/dashboard/settings", expectStatus: 307 },
+  { name: "Catalog page → auth redirect", path: "/dashboard/catalog", expectStatus: 307 },
+  { name: "Workspace page → auth redirect", path: "/workspace", expectStatus: 307 },
+
+  // API routes → 401
+  { name: "API agents list → 401", path: "/api/agents/list", expectStatus: 401 },
+  { name: "API conversations → 401", path: "/api/conversations", expectStatus: 401 },
+  { name: "API tasks → 401", path: "/api/tasks", expectStatus: 401 },
 ];
 
 async function runTest(test: SmokeTest): Promise<{ passed: boolean; error?: string }> {

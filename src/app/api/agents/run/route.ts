@@ -34,7 +34,7 @@ export const POST = withSecurity(async (request: NextRequest) => {
     }
 
     // Ensure providers + agents are registered
-    bootstrap();
+    await bootstrap();
 
     // Verify agent exists in registry (defense in depth)
     const registry = getAgentRegistry();

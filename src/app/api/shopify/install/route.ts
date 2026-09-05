@@ -2,19 +2,27 @@
 // Redirects user to Shopify OAuth authorization page.
 //
 // Usage: GET /api/shopify/install?shop=my-store.myshopify.com
+//
+// FASE 5: State now includes expiration (10 min), nonce (single-use), and user binding.
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
-import { createHmac } from "crypto";
+import { createHmac, randomBytes } from "crypto";
 
 /**
- * Sign workspace_id with HMAC to prevent OAuth state tampering.
+ * Sign OAuth state with HMAC: workspaceId.timestamp.nonce.userId.signature
+ * Format: {workspaceId}.{timestamp}.{nonce}.{userId}.{hmac}
  */
-function signState(workspaceId: string): string {
+function signState(workspaceId: string, userId: string): string {
+  const timestamp = Date.now();
+  const nonce = randomBytes(16).toString("hex");
+  const payload = `${workspaceId}.${timestamp}.${nonce}.${userId}`;
+
   const secret = process.env.OAUTH_STATE_SECRET || process.env.ENCRYPTION_KEY || "";
-  const signature = createHmac("sha256", secret).update(workspaceId).digest("hex").slice(0, 16);
-  return `${workspaceId}.${signature}`;
+  const signature = createHmac("sha256", secret).update(payload).digest("hex").slice(0, 16);
+
+  return `${payload}.${signature}`;
 }
 
 export const GET = withSecurity(async (request: NextRequest) => {
@@ -46,12 +54,12 @@ export const GET = withSecurity(async (request: NextRequest) => {
     );
   }
 
-  // Build Shopify OAuth URL — pass workspace_id as state for callback
+  // Build Shopify OAuth URL — pass workspace_id + timestamp + nonce + userId as state
   const authUrl = new URL(`https://${shopDomain}/admin/oauth/authorize`);
   authUrl.searchParams.set("client_id", apiKey);
   authUrl.searchParams.set("scope", scopes);
   authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("state", signState(access.workspaceId));
+  authUrl.searchParams.set("state", signState(access.workspaceId, access.user.id));
 
   return NextResponse.redirect(authUrl.toString());
 });

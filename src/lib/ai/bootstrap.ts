@@ -215,6 +215,6 @@ export function getAgentRegistry(): AgentRegistry {
 /**
  * @deprecated Use bootstrap() instead. Kept for backward compatibility.
  */
-export function bootstrapProviders(): void {
-  bootstrap();
+export async function bootstrapProviders(): Promise<void> {
+  await bootstrap();
 }
