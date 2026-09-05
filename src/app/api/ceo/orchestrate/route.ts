@@ -3,6 +3,7 @@ import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { AgentEngine } from "@/lib/agents/core/engine";
 import { bootstrap, getAgentRegistry } from "@/lib/ai/bootstrap";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 // POST /api/ceo/orchestrate
 // Direct CEO orchestration — uses AgentEngine for budget enforcement and task tracking.
@@ -56,7 +57,8 @@ export const POST = withSecurity(async (request: NextRequest) => {
       metadata: result.metadata,
       timestamp: new Date().toISOString(),
     });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         success: false,

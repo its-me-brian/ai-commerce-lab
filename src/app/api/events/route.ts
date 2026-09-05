@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 // GET /api/events
 // Query app events with optional filters
@@ -41,7 +42,8 @@ export const GET = withSecurity(async (request: NextRequest) => {
       .eq("workspace_id", auth.workspaceId);
 
     return NextResponse.json({ success: true, events: data, total: count });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred" },
       { status: 500 }
@@ -95,7 +97,8 @@ export const POST = withSecurity(async (request: NextRequest) => {
     }
 
     return NextResponse.json({ success: true, event: data });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred" },
       { status: 500 }

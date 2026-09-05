@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { testProviderConnection } from "@/lib/ai/provider-test";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 // POST /api/ai/providers/test
 // Tests connection to a specific AI provider.
@@ -29,7 +30,8 @@ export const POST = withSecurity(async (request: NextRequest) => {
     return NextResponse.json(result, {
       status: result.success ? 200 : 422,
     });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         success: false,

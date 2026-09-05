@@ -93,7 +93,7 @@ export const POST = withSecurity(async (req: NextRequest) => {
 
     // 3. Add all participating agents as participants in the room
     for (const response of result.agentResponses) {
-      await engine.addParticipant(conversation.id, response.agentId, "participant");
+      await engine.addParticipant(conversation.id, response.agentId, "participant", auth.workspaceId);
     }
 
     return NextResponse.json({

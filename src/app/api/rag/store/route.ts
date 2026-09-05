@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { supabase } from "@/lib/database/supabase";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 export const POST = withSecurity(async (request: NextRequest) => {
   const authResult = await requireWorkspaceAccess(request);
@@ -57,7 +58,8 @@ export const POST = withSecurity(async (request: NextRequest) => {
     }
 
     return NextResponse.json({ document: data });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { error: "An unexpected error occurred" },
       { status: 500 }

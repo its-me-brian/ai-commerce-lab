@@ -3,6 +3,7 @@ import { getCostBudgetTracker } from "@/lib/ai/cost-budget";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { sanitizeBody } from "@/lib/security/sanitize";
 import type { CostBudget, BudgetEntityType } from "@/lib/ai/cost-budget";
+import { logger } from "@/lib/logging";
 
 // GET /api/ai/budgets
 // Get all budgets or status for an entity
@@ -59,7 +60,8 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred" },
       { status: 500 }
@@ -98,7 +100,8 @@ export async function POST(request: NextRequest) {
 
     tracker.setBudget(budget);
     return NextResponse.json({ success: true, budget });
-  } catch {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred" },
       { status: 500 }

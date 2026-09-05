@@ -1,11 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+// Extend globalThis for env validation flag
+declare global {
+  // eslint-disable-next-line no-var
+  var __envValidated: boolean | undefined;
+}
+
 // In-memory rate limiter (lightweight, no external deps)
+// NOTE: Cleanup happens inline on each request (setInterval doesn't fire in Edge Runtime)
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+let lastCleanup = Date.now();
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // Clean every 5 minutes
 
 function checkRateLimit(key: string, maxRequests: number, windowMs: number): boolean {
   const now = Date.now();
+
+  // Inline cleanup of stale entries (replaces setInterval that never fires in Edge)
+  if (now - lastCleanup > CLEANUP_INTERVAL_MS) {
+    lastCleanup = now;
+    for (const [k, entry] of rateLimitStore) {
+      if (now > entry.resetAt) rateLimitStore.delete(k);
+    }
+  }
+
   const entry = rateLimitStore.get(key);
 
   if (!entry || now > entry.resetAt) {
@@ -17,19 +35,6 @@ function checkRateLimit(key: string, maxRequests: number, windowMs: number): boo
 
   entry.count++;
   return true;
-}
-
-// Cleanup stale entries periodically
-const cleanupInterval = setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of rateLimitStore) {
-    if (now > entry.resetAt) rateLimitStore.delete(key);
-  }
-}, 5 * 60 * 1000);
-
-// Prevent the interval from keeping the process alive
-if (typeof clearInterval === "function") {
-  void cleanupInterval;
 }
 
 function getClientIp(request: NextRequest): string {
@@ -88,9 +93,18 @@ export async function middleware(request: NextRequest) {
   // HSTS — enforce HTTPS for 1 year including subdomains
   response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   // CSP — enforce mode for production
+  // CRITICAL: Lock connect-src to actual backend domains (no wildcard)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const supabaseHost = supabaseUrl ? new URL(supabaseUrl).host : "";
+  const connectSrcDomains = [
+    "'self'",
+    supabaseHost ? `https://${supabaseHost}` : "",
+    "wss://" + (supabaseHost || ""),
+  ].filter(Boolean).join(" ");
+
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.ebayimg.com https://thumbs.ebayimg.com; font-src 'self'; connect-src 'self' https: wss:; frame-ancestors 'none'"
+    `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.ebayimg.com https://thumbs.ebayimg.com; font-src 'self'; connect-src ${connectSrcDomains}; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'`
   );
 
   // === Public routes (no auth required) ===
@@ -106,6 +120,16 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     /\.(ico|png|jpg|jpeg|gif|svg|webp|css|js|woff2?|ttf|eot|map)$/.test(pathname);
+
+  // CRITICAL: Validate required env vars on first request (Edge Runtime compatible)
+  if (!globalThis.__envValidated) {
+    globalThis.__envValidated = true;
+    const required = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "ENCRYPTION_KEY"];
+    const missing = required.filter((v) => !process.env[v]);
+    if (missing.length > 0) {
+      console.error(`[Middleware] Missing required env vars: ${missing.join(", ")}`);
+    }
+  }
 
   // === Auth check for protected routes ===
   if (!isPublicRoute && !isStaticAsset) {

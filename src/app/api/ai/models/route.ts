@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 // GET /api/ai/models
 // Lists all AI models grouped by provider
@@ -20,7 +21,8 @@ export const GET = withSecurity(async (request: NextRequest) => {
     }
 
     return NextResponse.json({ success: true, models: data });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "Failed to load models" },
       { status: 500 }

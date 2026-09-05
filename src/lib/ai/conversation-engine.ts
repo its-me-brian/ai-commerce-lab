@@ -48,6 +48,7 @@ export interface ConversationCreateInput {
 
 export interface MessageCreateInput {
   conversation_id: string;
+  workspace_id?: string;
   role: "user" | "assistant" | "system";
   content: string;
   provider?: string;
@@ -161,10 +162,19 @@ export class ConversationEngine {
    */
   async addMessage(input: MessageCreateInput): Promise<ConversationMessage | null> {
     const now = new Date().toISOString();
+
+    // Resolve workspace_id: use provided, or fetch from conversation
+    let workspaceId = input.workspace_id;
+    if (!workspaceId) {
+      const conv = await this.getById(input.conversation_id, input.workspace_id || "");
+      workspaceId = conv?.workspace_id || "";
+    }
+
     const { data, error } = await supabase
       .from("conversation_messages")
       .insert({
         conversation_id: input.conversation_id,
+        workspace_id: workspaceId || null,
         role: input.role,
         content: input.content,
         provider: input.provider || null,
@@ -273,8 +283,16 @@ export class ConversationEngine {
   async addParticipant(
     conversationId: string,
     agentId: string,
-    role: string = "participant"
+    role: string = "participant",
+    workspaceId?: string
   ): Promise<ConversationParticipant | null> {
+    // Resolve workspace_id: use provided, or fetch from conversation
+    let resolvedWorkspaceId = workspaceId;
+    if (!resolvedWorkspaceId) {
+      const conv = await this.getById(conversationId, workspaceId || "");
+      resolvedWorkspaceId = conv?.workspace_id || "";
+    }
+
     const { data, error } = await supabase
       .from("conversation_participants")
       .upsert(
@@ -282,6 +300,7 @@ export class ConversationEngine {
           conversation_id: conversationId,
           agent_id: agentId,
           role,
+          workspace_id: resolvedWorkspaceId || null,
         },
         { onConflict: "conversation_id,agent_id" }
       )

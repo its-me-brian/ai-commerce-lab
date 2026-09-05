@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConversationEngine } from "@/lib/ai/conversation-engine";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurityAndParams } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 export const GET = withSecurityAndParams<{ id: string }>(async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const auth = await requireWorkspaceAccess(request);
@@ -51,7 +52,8 @@ export const GET = withSecurityAndParams<{ id: string }>(async (request: NextReq
         hasMore: offset + limit < totalCount,
       },
     });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         success: false,

@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { supabase } from "@/lib/database/supabase";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 /** Cosine similarity between two vectors. */
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -93,7 +94,8 @@ export const POST = withSecurity(async (request: NextRequest) => {
       })),
       total: results.length,
     });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { error: "An unexpected error occurred" },
       { status: 500 }

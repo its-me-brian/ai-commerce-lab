@@ -184,7 +184,7 @@ const INJECTION_PATTERNS: Array<{
   { pattern: /new\s+(instructions?|system\s*prompt|role)\s*:/i, riskLevel: "high", description: "system prompt injection" },
 
   // Medium risk: indirect manipulation
-  { pattern: /\[INST\]|\[/i, riskLevel: "medium", description: "LLM bracket syntax" },
+  { pattern: /\[INST\]|\[\/INST\]/i, riskLevel: "medium", description: "LLM bracket syntax" },
   { pattern: /<\|im_start\|>|<\|im_end\|>/i, riskLevel: "medium", description: "ChatML injection" },
   { pattern: /Human:|Assistant:|System:/i, riskLevel: "medium", description: "role label injection" },
   { pattern: /###\s*(System|Human|Assistant)\s*:/i, riskLevel: "medium", description: "markdown role injection" },

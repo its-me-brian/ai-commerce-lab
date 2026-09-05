@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/api-auth";
+import { logger } from "@/lib/logging";
 
 const AVAILABLE_MODELS = [
   {
@@ -72,7 +73,8 @@ export async function POST(request: NextRequest) {
         `,
       },
     });
-  } catch {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "Invalid request" },
       { status: 400 }

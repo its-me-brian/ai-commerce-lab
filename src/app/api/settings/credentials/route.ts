@@ -7,6 +7,7 @@ import { requireWorkspaceAccess, requirePermission } from "@/lib/auth/api-auth";
 import { getCredentialManager } from "@/lib/ai/credential-manager";
 import { withSecurity } from "@/lib/security/api-middleware";
 import { sanitizeBody } from "@/lib/security/sanitize";
+import { logger } from "@/lib/logging";
 
 /**
  * GET /api/settings/credentials
@@ -24,7 +25,8 @@ export const GET = withSecurity(async (request: NextRequest) => {
       success: true,
       credentials,
     });
-  } catch {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         success: false,
@@ -98,7 +100,8 @@ export const POST = withSecurity(async (request: NextRequest) => {
       credential,
       message: "Credential stored securely. The API key is encrypted and will not be shown again.",
     });
-  } catch {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         success: false,
@@ -145,7 +148,8 @@ export const DELETE = withSecurity(async (request: NextRequest) => {
       success: true,
       message: "Credential deleted permanently",
     });
-  } catch {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         success: false,

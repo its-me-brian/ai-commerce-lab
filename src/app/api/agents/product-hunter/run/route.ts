@@ -3,6 +3,7 @@ import { bootstrap, getAgentRegistry } from "@/lib/ai/bootstrap";
 import { AgentEngine } from "@/lib/agents/core/engine";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 // POST /api/agents/product-hunter/run
 // Legacy endpoint — redirects to generic /api/agents/run
@@ -41,7 +42,8 @@ export const POST = withSecurity(async (request: NextRequest) => {
       metadata: result.metadata,
       timestamp: new Date().toISOString(),
     });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         error: {

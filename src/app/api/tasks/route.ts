@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 // GET /api/tasks
 // List tasks with optional filters
@@ -45,7 +46,8 @@ export const GET = withSecurity(async (request: NextRequest) => {
     const { count } = await countQuery;
 
     return NextResponse.json({ success: true, tasks: data, total: count });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred" },
       { status: 500 }

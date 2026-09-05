@@ -13,9 +13,18 @@ import type { AgentDefinition } from "../agents/core/types-agent-definition";
 import { preprocessMessage, buildEnrichedPrompt } from "./prompt-pipeline";
 import { detectPromptInjection } from "../security/middleware";
 import { getCostBudgetTracker } from "./cost-budget";
+import { PermissionChecker } from "../permissions/checker";
+import { calculateModelCost } from "./model-pricing";
 
 /** Maximum agents the CEO can delegate to in a single fan-out. V1 safety limit. */
 const MAX_FANOUT = 5;
+
+// Singleton permission checker
+let permissionChecker: PermissionChecker | null = null;
+function getPermissionChecker(): PermissionChecker {
+  if (!permissionChecker) permissionChecker = new PermissionChecker();
+  return permissionChecker;
+}
 
 export interface MultiAgentChatInput {
   message: string;
@@ -61,6 +70,7 @@ export async function multiAgentChat(input: MultiAgentChatInput): Promise<MultiA
   // 2. Add user message
   const userMessage = await conversationEngine.addMessage({
     conversation_id: input.conversationId,
+    workspace_id: input.workspaceId,
     role: "user",
     content: input.message,
   });
@@ -77,6 +87,7 @@ export async function multiAgentChat(input: MultiAgentChatInput): Promise<MultiA
     });
     const blockMessage = await conversationEngine.addMessage({
       conversation_id: input.conversationId,
+      workspace_id: input.workspaceId,
       role: "assistant",
       content: "I'm sorry, but I can't process that request. It contains patterns that may be attempting to override my instructions. Please rephrase your question.",
       metadata: { agent_id: "system", blocked: true },
@@ -183,6 +194,7 @@ Examples of when NOT to delegate:
     // Save CEO response
     const coordinatorMessage = await conversationEngine.addMessage({
       conversation_id: input.conversationId,
+      workspace_id: input.workspaceId,
       role: "assistant",
       content: coordinatorResult.content,
       provider: coordinatorLog.provider,
@@ -199,12 +211,13 @@ Examples of when NOT to delegate:
 
     agentResponses.push({ agentId: coordinatorId, message: coordinatorMessage });
 
-    // Record CEO cost after execution
+    // Record CEO cost after execution (using actual token-based cost)
+    const actualCost = calculateModelCost(coordinatorLog.model, coordinatorResult.inputTokens, coordinatorResult.outputTokens);
     budgetTracker.recordCost({
       entityId: coordinatorId,
       entityType: "agent",
       workspaceId: input.workspaceId || "",
-      costDollars: estimatedCost,
+      costDollars: actualCost,
       provider: coordinatorLog.provider,
       model: coordinatorLog.model,
       inputTokens: coordinatorResult.inputTokens,
@@ -228,6 +241,13 @@ Examples of when NOT to delegate:
       // Invoke each delegated agent (within cap)
       for (const agentId of cappedAgentIds) {
         if (!registry.get(agentId)) continue; // Skip unknown agents
+
+        // CRITICAL: Check delegation permission before invoking
+        const delegationCheck = await getPermissionChecker().canDelegate(coordinatorId, agentId);
+        if (!delegationCheck.allowed) {
+          logger.warn(`[MultiAgentChat] Delegation denied: ${delegationCheck.reason}`);
+          continue;
+        }
 
         try {
           const response = await invokeAgent(
@@ -316,6 +336,7 @@ async function invokeAgent(
 
   const message = await conversationEngine.addMessage({
     conversation_id: conversationId,
+    workspace_id: workspaceId,
     role: "assistant",
     content: result.content,
     provider: log.provider,
@@ -351,12 +372,13 @@ async function invokeAgent(
     }
   }
 
-  // Record delegated agent cost
+  // Record delegated agent cost (using actual token-based cost)
+  const actualAgentCost = calculateModelCost(log.model, result.inputTokens, result.outputTokens);
   budgetTracker.recordCost({
     entityId: agentId,
     entityType: "agent",
     workspaceId: workspaceId || "",
-    costDollars: estimatedAgentCost,
+    costDollars: actualAgentCost,
     provider: log.provider,
     model: log.model,
     inputTokens: result.inputTokens,

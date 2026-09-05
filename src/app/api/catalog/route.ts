@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCatalogService, type CatalogStatus } from "@/lib/catalog/service";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 export const GET = withSecurity(async (request: NextRequest) => {
   try {
@@ -36,7 +37,8 @@ export const GET = withSecurity(async (request: NextRequest) => {
       counts,
       total: Object.values(counts).reduce((a, b) => a + b, 0),
     });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred" },
       { status: 500 }
@@ -51,9 +53,31 @@ export const POST = withSecurity(async (request: NextRequest) => {
     if ("error" in auth) return auth.error;
 
     const body = await request.json();
-    const catalog = getCatalogService();
 
-    const product = await catalog.create({ ...body, workspace_id: auth.workspaceId });
+    // Validate required fields
+    if (!body.name) {
+      return NextResponse.json(
+        { success: false, error: "name is required" },
+        { status: 400 }
+      );
+    }
+
+    // CRITICAL: Field allowlist to prevent mass assignment
+    const allowedFields = [
+      "name", "description", "category", "tags", "image_url", "source_url",
+      "supplier_price", "selling_price", "source", "source_id",
+      "store_content", "seo", "marketing_content", "finance_analysis",
+      "overall_score", "risk_level", "status",
+    ];
+    const sanitizedBody: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (field in body) {
+        sanitizedBody[field] = body[field];
+      }
+    }
+
+    const catalog = getCatalogService();
+    const product = await catalog.create({ ...sanitizedBody, workspace_id: auth.workspaceId } as Parameters<typeof catalog.create>[0]);
 
     if (!product) {
       return NextResponse.json(
@@ -63,7 +87,8 @@ export const POST = withSecurity(async (request: NextRequest) => {
     }
 
     return NextResponse.json({ success: true, product });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred" },
       { status: 500 }

@@ -51,7 +51,12 @@ function verifyState(state: string): { workspaceId: string; userId: string } | n
   if (usedNonces.has(nonce)) return null;
 
   // 3. Verify HMAC signature
-  const secret = process.env.OAUTH_STATE_SECRET || process.env.ENCRYPTION_KEY || "";
+  // CRITICAL: Fail closed — never default to empty string for cryptographic secrets
+  const secret = process.env.OAUTH_STATE_SECRET || process.env.ENCRYPTION_KEY;
+  if (!secret) {
+    logger.error("[ShopifyCallback] OAuth state verification not configured");
+    return null;
+  }
   const payload = `${workspaceId}.${timestampStr}.${nonce}.${userId}`;
   const expectedSig = createHmac("sha256", secret).update(payload).digest("hex").slice(0, 16);
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSecurityAudit } from "@/lib/security/middleware";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
+import { logger } from "@/lib/logging";
 
 // GET /api/ai/security
 // Query security audit events
@@ -63,7 +64,8 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred" },
       { status: 500 }

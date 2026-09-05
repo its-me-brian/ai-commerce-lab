@@ -7,6 +7,7 @@ import { supabase } from "@/lib/database/supabase";
 import { createShopifyClient } from "@/lib/integrations/shopify/client";
 import { decrypt, type EncryptedData } from "@/lib/ai/encryption";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 export const POST = withSecurity(async (request: NextRequest) => {
   const auth = await requireWorkspaceAccess(request);
@@ -101,7 +102,8 @@ export const POST = withSecurity(async (request: NextRequest) => {
       skipped,
       total: shopifyProducts.length,
     });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         success: false,

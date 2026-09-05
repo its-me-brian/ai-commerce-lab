@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStructuredLogger, getExecutionTracer, getMetricsCollector } from "@/lib/ai/observability";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 // GET /api/ai/observability
 // Query logs, traces, and metrics
@@ -183,7 +184,8 @@ export const GET = withSecurity(async (request: NextRequest) => {
           { status: 400 }
         );
     }
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred" },
       { status: 500 }

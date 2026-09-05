@@ -112,7 +112,8 @@ export const GET = withSecurity(async (request: NextRequest) => {
       recentRuns: recentRuns || [],
       skills: agentSkills || [],
     });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         error: {
@@ -199,7 +200,8 @@ export const PUT = withSecurity(async (request: NextRequest) => {
       success: true,
       config: data,
     });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         error: {

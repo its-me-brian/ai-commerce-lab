@@ -19,7 +19,11 @@ function signState(workspaceId: string, userId: string): string {
   const nonce = randomBytes(16).toString("hex");
   const payload = `${workspaceId}.${timestamp}.${nonce}.${userId}`;
 
-  const secret = process.env.OAUTH_STATE_SECRET || process.env.ENCRYPTION_KEY || "";
+  // CRITICAL: Fail closed — never default to empty string for cryptographic secrets
+  const secret = process.env.OAUTH_STATE_SECRET || process.env.ENCRYPTION_KEY;
+  if (!secret) {
+    throw new Error("OAuth state signing not configured: set OAUTH_STATE_SECRET or ENCRYPTION_KEY");
+  }
   const signature = createHmac("sha256", secret).update(payload).digest("hex").slice(0, 16);
 
   return `${payload}.${signature}`;

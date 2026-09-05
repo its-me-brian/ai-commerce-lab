@@ -272,15 +272,19 @@ export class OrchestratorV2 {
               lastError = `Approval ${decision?.status || "timeout"} for step ${step.id}`;
             }
           } catch (approvalError) {
-            // Approval creation/wait failed — log but don't block execution
+            // CRITICAL: Approval system failure must block execution (fail-closed)
             const msg = approvalError instanceof Error ? approvalError.message : String(approvalError);
+            logger.error(`[Orchestrator] Approval system failure for step ${step.id}: ${msg}`);
+            stepSuccess = false;
+            lastError = `Approval system failure: ${msg}`;
             stepResults.push({
               stepId: `${step.id}-approval`,
               success: false,
-              output: { error: `Approval failed: ${msg}` },
+              output: { error: `Approval system failure: ${msg}` },
               durationMs: Date.now() - stepStart,
               cost: 0,
             });
+            break; // Stop executing this step's actions
           }
         }
       }

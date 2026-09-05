@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getWorkspaceService } from "@/lib/workspaces/service";
 import { requireAuth, requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 // GET /api/workspaces
 // V1: Returns the user's current workspace (auto-resolved).
@@ -22,7 +23,8 @@ export const GET = withSecurity(async (request: NextRequest) => {
     }
 
     return NextResponse.json({ success: true, workspace, workspaces: [workspace] });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred" },
       { status: 500 }
@@ -72,7 +74,8 @@ export const POST = withSecurity(async (request: NextRequest) => {
     }
 
     return NextResponse.json({ success: true, workspace });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to create workspace" } },
       { status: 500 }
@@ -117,7 +120,8 @@ export const PUT = withSecurity(async (request: NextRequest) => {
     }
 
     return NextResponse.json({ success: true, workspace });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to update workspace" } },
       { status: 500 }

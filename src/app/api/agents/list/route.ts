@@ -77,7 +77,8 @@ export const GET = withSecurity(async (request: NextRequest) => {
       agents: agentsWithConfigs,
       workspaceId,
     });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         success: false,

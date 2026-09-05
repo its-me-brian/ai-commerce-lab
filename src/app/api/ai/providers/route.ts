@@ -3,6 +3,7 @@ import { getProviderStatuses } from "@/lib/ai/provider-test";
 import { supabase } from "@/lib/database/supabase";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { sanitizeBody } from "@/lib/security/sanitize";
+import { logger } from "@/lib/logging";
 
 // GET /api/ai/providers
 // Lists all registered providers with their configuration status.
@@ -14,7 +15,8 @@ export async function GET(request: NextRequest) {
 
     const providers = await getProviderStatuses(access.workspaceId);
     return NextResponse.json({ success: true, providers });
-  } catch {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         success: false,
@@ -56,7 +58,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, provider: data });
-  } catch {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       { success: false, error: "An unexpected error occurred" },
       { status: 500 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { chatWithAgent } from "@/lib/ai/agent-chat";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 // POST /api/agents/chat
 // Send a message to an agent and get a response.
@@ -56,7 +57,8 @@ export const POST = withSecurity(async (request: NextRequest) => {
         createdAt: result.assistantMessage.created_at,
       },
     });
-  } catch  {
+  } catch (error) {
+    logger.error("Route handler error", { error: error instanceof Error ? error.message : "unknown" });
     return NextResponse.json(
       {
         success: false,

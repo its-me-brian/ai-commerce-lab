@@ -95,6 +95,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
   // 3. Add user message
   const userMessage = await conversationEngine.addMessage({
     conversation_id: conversation.id,
+    workspace_id: input.workspaceId,
     role: "user",
     content: input.message,
   });
@@ -321,6 +322,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
       // Save fast-path response to conversation
       const assistantMessage = await conversationEngine.addMessage({
         conversation_id: conversation.id,
+        workspace_id: input.workspaceId,
         role: "assistant",
         content: responseText + tokenInfo,
         provider: "mini-ai-fast-path",
@@ -410,6 +412,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
     // 7. Add assistant message
     const assistantMessage = await conversationEngine.addMessage({
       conversation_id: conversation.id,
+      workspace_id: input.workspaceId,
       role: "assistant",
       content: result.content,
       provider: log.provider,
@@ -464,6 +467,7 @@ export async function chatWithAgent(input: ChatInput): Promise<ChatResult> {
     // Add error message to conversation
     await conversationEngine.addMessage({
       conversation_id: conversation.id,
+      workspace_id: input.workspaceId,
       role: "assistant",
       content: `Error: ${error instanceof Error ? error.message : String(error)}`,
       metadata: { error: true },

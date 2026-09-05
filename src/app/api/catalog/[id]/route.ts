@@ -40,9 +40,23 @@ export const PATCH = withSecurityAndParams<{ id: string }>(async (request: NextR
   try {
     const { id } = await params;
     const body = await request.json();
-    const catalog = getCatalogService();
 
-    const product = await catalog.update(id, body, auth.workspaceId);
+    // CRITICAL: Field allowlist to prevent mass assignment
+    const allowedFields = [
+      "name", "description", "category", "tags", "image_url", "source_url",
+      "supplier_price", "selling_price", "source", "source_id",
+      "store_content", "seo", "marketing_content", "finance_analysis",
+      "overall_score", "risk_level", "status",
+    ];
+    const sanitizedBody: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (field in body) {
+        sanitizedBody[field] = body[field];
+      }
+    }
+
+    const catalog = getCatalogService();
+    const product = await catalog.update(id, sanitizedBody, auth.workspaceId);
 
     if (!product) {
       return NextResponse.json(
