@@ -181,6 +181,9 @@ export interface MiniAIExecutionOptions {
   /** Working memory context (temporal, task-scoped) */
   workingMemory?: Record<string, unknown>;
 
+  /** Workspace ID for budget enforcement */
+  workspaceId?: string;
+
   /** Timeout override in ms */
   timeoutMs?: number;
 

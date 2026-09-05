@@ -225,10 +225,10 @@ export class WorkflowExecutor {
           output = await this.executeAgentNode(node, resolver, options);
           break;
         case "mini-ai":
-          output = await this.executeMiniAINode(node, resolver);
+          output = await this.executeMiniAINode(node, resolver, options);
           break;
         case "chain":
-          output = await this.executeChainNode(node, resolver);
+          output = await this.executeChainNode(node, resolver, options);
           break;
         case "condition":
           output = await this.executeConditionNode(node, resolver, nodeMap);
@@ -315,7 +315,8 @@ export class WorkflowExecutor {
    */
   private async executeMiniAINode(
     node: WorkflowNode,
-    resolver: WorkflowInputResolver
+    resolver: WorkflowInputResolver,
+    options: WorkflowExecutionOptions
   ): Promise<Record<string, unknown>> {
     if (!node.miniAIId) {
       throw new Error(`Mini-AI node "${node.id}" is missing miniAIId`);
@@ -323,7 +324,10 @@ export class WorkflowExecutor {
 
     const input = resolver.resolveNodeInput(node);
     const engine = getMiniAIEngine();
-    const result: MiniAIResult = await engine.execute(node.miniAIId, { input });
+    const result: MiniAIResult = await engine.execute(node.miniAIId, {
+      input,
+      workspaceId: options.workspaceId,
+    });
 
     if (!result.success) {
       throw new Error(result.errors?.join(", ") || "Mini-AI execution failed");
@@ -337,7 +341,8 @@ export class WorkflowExecutor {
    */
   private async executeChainNode(
     node: WorkflowNode,
-    resolver: WorkflowInputResolver
+    resolver: WorkflowInputResolver,
+    options: WorkflowExecutionOptions
   ): Promise<Record<string, unknown>> {
     if (!node.chainSteps || node.chainSteps.length === 0) {
       throw new Error(`Chain node "${node.id}" has no steps`);
@@ -351,7 +356,8 @@ export class WorkflowExecutor {
         miniAIId: step.miniAIId,
         inputMapping: step.inputMapping,
       })),
-      initialInput
+      initialInput,
+      { workspaceId: options.workspaceId }
     );
 
     // Check if any required step failed

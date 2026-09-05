@@ -217,7 +217,8 @@ export class OrchestratorV2 {
             const engine = getMiniAIEngine();
             const chainResults = await engine.executeChain(
               step.chainSteps || [],
-              input as Record<string, unknown>
+              input as Record<string, unknown>,
+              { workspaceId: plan.workspaceId }
             );
 
             stepSuccess = chainResults.every((r: MiniAIResult) => r.success);

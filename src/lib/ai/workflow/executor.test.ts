@@ -137,7 +137,7 @@ describe("WorkflowExecutor", () => {
       expect(result.status).toBe("completed");
       expect(result.summary.completed).toBe(1);
       expect(result.summary.failed).toBe(0);
-      expect(mockMiniAIExecute).toHaveBeenCalledWith("classifier", { input: { text: "test" } });
+      expect(mockMiniAIExecute).toHaveBeenCalledWith("classifier", { input: { text: "test" }, workspaceId: "test-ws" });
     });
 
     it("executes a single agent node", async () => {
@@ -226,6 +226,7 @@ describe("WorkflowExecutor", () => {
       // The second node should have received the classified category
       expect(mockMiniAIExecute).toHaveBeenCalledWith("summarizer", {
         input: { category: "marketing" },
+        workspaceId: "test-ws",
       });
     });
   });

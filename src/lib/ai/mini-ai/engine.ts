@@ -16,6 +16,7 @@
 
 import { getMiniAIRegistry } from "./registry";
 import { calculateModelCost } from "../model-pricing";
+import { getCostBudgetTracker } from "../cost-budget";
 import { z } from "zod";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import type {
@@ -173,7 +174,7 @@ export class MiniAIEngine {
   async executeChain(
     steps: Array<{ miniAIId: string; inputMapping: Record<string, string> }>,
     initialInput: MiniAIInput,
-    options?: { agentId?: string; taskId?: string; workingMemory?: Record<string, unknown> }
+    options?: { agentId?: string; taskId?: string; workspaceId?: string; workingMemory?: Record<string, unknown> }
   ): Promise<MiniAIResult[]> {
     const results: MiniAIResult[] = [];
     const workingMemory: Record<string, unknown> = options?.workingMemory ?? {};
@@ -195,6 +196,7 @@ export class MiniAIEngine {
         input: enrichedInput,
         agentId: options?.agentId,
         taskId: options?.taskId,
+        workspaceId: options?.workspaceId,
       });
 
       results.push(result);
@@ -305,35 +307,133 @@ export class MiniAIEngine {
     });
     const detDuration = Date.now() - detStart;
 
-    // Step 2: Use LLM for refinement if instructions exist
-    if (definition.instructions) {
-      const refinementInput = {
-        ...options.input,
-        _deterministicResult: detResult.output,
-      };
+    // Step 2: Use LLM for refinement if instructions exist AND this is not already a refinement pass
+    const isRefinement = options.input._deterministicResult !== undefined;
 
-      const llmResult = await this.executeLLM(
-        definition,
-        { ...options, input: refinementInput },
-        startTime
-      );
+    if (definition.instructions && !isRefinement) {
+      // Budget check before LLM call (workspace-scoped)
+      if (options.workspaceId) {
+        try {
+          const budgetTracker = await getCostBudgetTracker();
+          const estimatedCost = 0.005; // Conservative estimate for mini-AI
+          const budgetCheck = budgetTracker.checkBudget(
+            definition.id,
+            "mini-ai",
+            estimatedCost,
+            options.workspaceId
+          );
+          if (!budgetCheck.allowed) {
+            const b = budgetCheck.violatedBudget;
+            return this.createErrorResult(
+              definition.id,
+              `Budget exceeded for mini-AI ${definition.id}: ` +
+              `${b.currentSpending.toFixed(4)}/${b.budget.maxDollars.toFixed(4)} used`,
+              startTime
+            );
+          }
+        } catch {
+          // Non-critical — continue if budget check fails (tracker may not be initialized)
+        }
+      }
 
-      // Merge results — LLM output takes precedence
-      return {
-        ...llmResult,
-        output: {
-          ...detResult.output,
-          ...llmResult.output,
-          _deterministicConfidence: detResult.confidence,
-        },
-        confidence: detResult.confidence,
-        reasoning: detResult.reasoning,
-        metadata: {
-          ...llmResult.metadata,
-          executionMode: "hybrid",
-          durationMs: detDuration + llmResult.metadata.durationMs,
-        },
-      };
+      // Call LLM via router for refinement (NOT recursive — uses router directly)
+      try {
+        const { getRouter } = await import("../router");
+        const router = getRouter();
+
+        const refinementPrompt = [
+          definition.instructions,
+          ``,
+          `## Deterministic Analysis`,
+          JSON.stringify(detResult.output, null, 2),
+          ``,
+          `## Original Input`,
+          JSON.stringify(options.input, null, 2),
+        ].join("\n");
+
+        const { result: llmResult } = await router.generateForAgent(
+          options.agentId || "mini-ai",
+          {
+            prompt: refinementPrompt,
+            responseFormat: "json",
+          },
+          { workspaceId: options.workspaceId || "" }
+        );
+
+        // Parse LLM output
+        let parsedOutput: Record<string, unknown>;
+        try {
+          parsedOutput = JSON.parse(llmResult.content);
+        } catch {
+          parsedOutput = { refinedResult: llmResult.content };
+        }
+
+        // Record cost
+        if (options.workspaceId) {
+          try {
+            const budgetTracker = await getCostBudgetTracker();
+            const actualCost = (llmResult.inputTokens * 0.000001 + llmResult.outputTokens * 0.000002);
+            budgetTracker.recordCost({
+              entityId: definition.id,
+              entityType: "mini-ai",
+              workspaceId: options.workspaceId,
+              costDollars: actualCost,
+              inputTokens: llmResult.inputTokens,
+              outputTokens: llmResult.outputTokens,
+              description: `Mini-AI ${definition.id} refinement`,
+            });
+          } catch {
+            // Non-critical
+          }
+        }
+
+        return {
+          success: true,
+          output: {
+            ...detResult.output,
+            ...parsedOutput,
+            _deterministicConfidence: detResult.confidence,
+          },
+          confidence: detResult.confidence,
+          reasoning: detResult.reasoning,
+          errors: [],
+          warnings: [],
+          metadata: {
+            miniAIId: definition.id,
+            modelUsed: llmResult.model || "unknown",
+            providerUsed: llmResult.provider || "unknown",
+            executionMode: "hybrid",
+            inputTokens: llmResult.inputTokens,
+            outputTokens: llmResult.outputTokens,
+            durationMs: Date.now() - startTime,
+            costDollars: (llmResult.inputTokens * 0.000001 + llmResult.outputTokens * 0.000002),
+            usedFallback: false,
+            cached: false,
+          },
+        };
+      } catch {
+        // LLM failed — fall back to deterministic result
+        return {
+          success: true,
+          output: detResult.output,
+          confidence: detResult.confidence,
+          reasoning: detResult.reasoning,
+          errors: [],
+          warnings: ["LLM refinement failed, using deterministic result"],
+          metadata: {
+            miniAIId: definition.id,
+            modelUsed: "deterministic",
+            providerUsed: "none",
+            executionMode: "hybrid",
+            inputTokens: 0,
+            outputTokens: 0,
+            durationMs: detDuration,
+            costDollars: 0,
+            usedFallback: true,
+            cached: false,
+          },
+        };
+      }
     }
 
     // No LLM refinement — just return deterministic result
