@@ -223,3 +223,46 @@ describe("TEST 8: ws-default not used as write fallback", () => {
     expect(source).toContain("workspaceId required");
   });
 });
+
+// ============================================
+// TEST 9: AgentEngine passes workspaceId to budget check
+// ============================================
+describe("TEST 9: AgentEngine budget uses authenticated workspaceId", () => {
+  it("AgentEngine checkBudget receives workspaceId parameter", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../agents/core/engine.ts"),
+      "utf-8"
+    );
+
+    // Must pass workspaceId as 4th argument to checkBudget
+    const checkBudgetMatch = source.match(/checkBudget\([^)]+\)/g);
+    expect(checkBudgetMatch).not.toBeNull();
+
+    // Find the checkBudget call in executeTask (the pre-flight budget check)
+    const preflightCall = checkBudgetMatch?.find((call) =>
+      call.includes("estimatedCost") && call.includes("workspaceId")
+    );
+    expect(preflightCall).toBeDefined();
+    expect(preflightCall).toContain("workspaceId");
+  });
+
+  it("agent-chat passes workspaceId to budget check", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../ai/agent-chat.ts"),
+      "utf-8"
+    );
+
+    // Must pass input.workspaceId to checkBudget
+    const checkBudgetMatch = source.match(/checkBudget\([^)]+\)/g);
+    expect(checkBudgetMatch).not.toBeNull();
+
+    const hasWorkspaceId = checkBudgetMatch?.some((call) =>
+      call.includes("input.workspaceId")
+    );
+    expect(hasWorkspaceId).toBe(true);
+  });
+});

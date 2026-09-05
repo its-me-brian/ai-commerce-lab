@@ -117,7 +117,7 @@ export class AgentEngine {
       config.outputPricePerMillion
     );
 
-    const budgetCheck = budgetTracker.checkBudget(agentId, "agent", estimatedCost);
+    const budgetCheck = budgetTracker.checkBudget(agentId, "agent", estimatedCost, workspaceId);
     if (!budgetCheck.allowed) {
       const b = budgetCheck.violatedBudget;
       const errorMsg = `Budget exceeded: ${b.budget.entityType}:${b.budget.entityId} — ` +
