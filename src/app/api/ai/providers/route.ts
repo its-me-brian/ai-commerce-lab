@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
 // Enable/disable a provider by slug
 export async function PATCH(request: NextRequest) {
   try {
-    // Auth check
-    const access = await requireWorkspaceAccess(request);
+    // Auth check — admin role required for provider mutations
+    const access = await requireWorkspaceAccess(request, { minimumRole: "admin" });
     if ("error" in access) return access.error;
 
     const body = sanitizeBody(await request.json()) as Record<string, unknown>;

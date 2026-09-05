@@ -35,6 +35,29 @@ function getClientIP(req: NextRequest): string {
 }
 
 /**
+ * Extract user ID from Supabase session cookie.
+ * Falls back to IP if no session is available.
+ */
+function getRateLimitKey(req: NextRequest): string {
+  const clientIP = getClientIP(req);
+  try {
+    const sessionCookie = req.cookies.get("sb-access-token")?.value;
+    if (sessionCookie) {
+      // JWT payload is base64url-encoded second segment
+      const parts = sessionCookie.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+        const userId = payload.sub;
+        if (userId) return `api:user:${userId}:${req.nextUrl.pathname}`;
+      }
+    }
+  } catch {
+    // Fall through to IP-based key
+  }
+  return `api:ip:${clientIP}:${req.nextUrl.pathname}`;
+}
+
+/**
  * Security middleware wrapper for API route handlers.
  * Adds rate limiting, body size validation, security headers, and error handling.
  */
@@ -45,10 +68,8 @@ export function withSecurity(
   const cfg = { ...DEFAULT_SECURITY_CONFIG, ...config };
 
   return withErrorBoundary(async (req: NextRequest): Promise<NextResponse> => {
-    const clientIP = getClientIP(req);
-
-    // 1. Rate limiting
-    const rateKey = `api:${clientIP}:${req.nextUrl.pathname}`;
+    // 1. Rate limiting — uses authenticated user ID when available, falls back to IP
+    const rateKey = getRateLimitKey(req);
     const rateLimit = await checkRateLimit(rateKey, cfg.rateLimit);
 
     if (!rateLimit.allowed) {
@@ -108,10 +129,8 @@ export function withSecurityAndParams<P extends Record<string, unknown>>(
   const cfg = { ...DEFAULT_SECURITY_CONFIG, ...config };
 
   return withErrorBoundaryAndParams(async (req: NextRequest, context: { params: Promise<P> }): Promise<NextResponse> => {
-    const clientIP = getClientIP(req);
-
-    // 1. Rate limiting
-    const rateKey = `api:${clientIP}:${req.nextUrl.pathname}`;
+    // 1. Rate limiting — uses authenticated user ID when available, falls back to IP
+    const rateKey = getRateLimitKey(req);
     const rateLimit = await checkRateLimit(rateKey, cfg.rateLimit);
 
     if (!rateLimit.allowed) {

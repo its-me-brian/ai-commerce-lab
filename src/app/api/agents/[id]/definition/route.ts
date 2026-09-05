@@ -44,7 +44,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requireWorkspaceAccess(request);
+    // Admin role required for definition mutations
+    const auth = await requireWorkspaceAccess(request, { minimumRole: "admin" });
     if ("error" in auth) return auth.error;
 
     const { id } = await params;

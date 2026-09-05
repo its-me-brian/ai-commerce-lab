@@ -11,6 +11,11 @@ import { getWorkspaceService } from "../workspaces/service";
 import { supabase } from "../database/supabase";
 import type { AgentDefinition } from "../agents/core/types-agent-definition";
 import { preprocessMessage, buildEnrichedPrompt } from "./prompt-pipeline";
+import { detectPromptInjection } from "../security/middleware";
+import { getCostBudgetTracker } from "./cost-budget";
+
+/** Maximum agents the CEO can delegate to in a single fan-out. V1 safety limit. */
+const MAX_FANOUT = 5;
 
 export interface MultiAgentChatInput {
   message: string;
@@ -64,6 +69,25 @@ export async function multiAgentChat(input: MultiAgentChatInput): Promise<MultiA
     throw new Error("Failed to save user message");
   }
 
+  // 2b. Prompt injection detection — block malicious input before it reaches any agent
+  const injectionResult = detectPromptInjection(input.message);
+  if (injectionResult.riskLevel === "high") {
+    logger.warn("[MultiAgentChat] Prompt injection detected, blocking:", {
+      pattern: injectionResult.matchedPattern,
+    });
+    const blockMessage = await conversationEngine.addMessage({
+      conversation_id: input.conversationId,
+      role: "assistant",
+      content: "I'm sorry, but I can't process that request. It contains patterns that may be attempting to override my instructions. Please rephrase your question.",
+      metadata: { agent_id: "system", blocked: true },
+    });
+    return {
+      conversation,
+      userMessage,
+      agentResponses: blockMessage ? [{ agentId: "system", message: blockMessage }] : [],
+    };
+  }
+
   // 3. Build company context for all agents
   let companyContextSection = "";
   try {
@@ -104,6 +128,17 @@ export async function multiAgentChat(input: MultiAgentChatInput): Promise<MultiA
     // Step A: CEO analyzes the message and decides who should respond
     const coordinatorId = "ceo";
     const coordinatorDef = registry.getDefinition(coordinatorId);
+
+    // Budget check before CEO LLM call
+    const budgetTracker = getCostBudgetTracker();
+    const estimatedCost = 0.01;
+    const budgetCheck = budgetTracker.checkBudget(coordinatorId, "agent", estimatedCost, input.workspaceId);
+    if (!budgetCheck.allowed) {
+      const b = budgetCheck.violatedBudget;
+      throw new Error(
+        `Budget exceeded for Company Room: ${b.currentSpending.toFixed(4)}/${b.budget.maxDollars.toFixed(4)} (${(b.utilizationPercent * 100).toFixed(1)}% used)`
+      );
+    }
 
     // Get list of available agent IDs
     const availableAgentIds = registry.listEnabled().map((m) => m.id).join(", ");
@@ -164,6 +199,18 @@ Examples of when NOT to delegate:
 
     agentResponses.push({ agentId: coordinatorId, message: coordinatorMessage });
 
+    // Record CEO cost after execution
+    budgetTracker.recordCost({
+      entityId: coordinatorId,
+      entityType: "agent",
+      workspaceId: input.workspaceId || "",
+      costDollars: estimatedCost,
+      provider: coordinatorLog.provider,
+      model: coordinatorLog.model,
+      inputTokens: coordinatorResult.inputTokens,
+      outputTokens: coordinatorResult.outputTokens,
+    });
+
     // Step B: Check if CEO requested delegation
     const delegationMatch = coordinatorResult.content.match(/\{"delegate_to":\s*\[([^\]]*)\]\}/);
     if (delegationMatch) {
@@ -172,8 +219,14 @@ Examples of when NOT to delegate:
         .map((id) => id.trim().replace(/"/g, ""))
         .filter((id) => id && id !== coordinatorId);
 
-      // Invoke each delegated agent
-      for (const agentId of agentIds) {
+      // Enforce fan-out limit — V1 safety cap
+      const cappedAgentIds = agentIds.slice(0, MAX_FANOUT);
+      if (agentIds.length > MAX_FANOUT) {
+        logger.warn(`[MultiAgentChat] Fan-out capped: ${agentIds.length} requested, ${MAX_FANOUT} allowed`);
+      }
+
+      // Invoke each delegated agent (within cap)
+      for (const agentId of cappedAgentIds) {
         if (!registry.get(agentId)) continue; // Skip unknown agents
 
         try {
@@ -239,6 +292,18 @@ async function invokeAgent(
     // Continue with base prompt if preprocessing fails
   }
 
+  // Budget check before delegated agent LLM call
+  const budgetTracker = getCostBudgetTracker();
+  const estimatedAgentCost = 0.01;
+  const agentBudgetCheck = budgetTracker.checkBudget(agentId, "agent", estimatedAgentCost, workspaceId);
+  if (!agentBudgetCheck.allowed) {
+    const b = agentBudgetCheck.violatedBudget;
+    logger.warn(`[MultiAgentChat] Budget exceeded for agent ${agentId}, skipping`);
+    throw new Error(
+      `Budget exceeded for agent ${agentId}: ${b.currentSpending.toFixed(4)}/${b.budget.maxDollars.toFixed(4)}`
+    );
+  }
+
   const { result, log } = await router.generateForAgent(
     agentId,
     {
@@ -266,21 +331,37 @@ async function invokeAgent(
   }
 
   // Log run to agent_runs for dashboard KPIs
-  try {
-    await supabase.from("agent_runs").insert({
-      agent_id: agentId,
-      workspace_id: workspaceId || "ws-default",
-      provider: log.provider,
-      model: log.model,
-      input_tokens: log.inputTokens,
-      output_tokens: log.outputTokens,
-      total_tokens: log.inputTokens + log.outputTokens,
-      duration_ms: log.durationMs,
-      status: "completed",
-    });
-  } catch {
-    // Non-critical — don't fail the chat if run logging fails
+  if (!workspaceId) {
+    logger.error(`[MultiAgentChat] workspaceId required for agent ${agentId} run logging`);
+  } else {
+    try {
+      await supabase.from("agent_runs").insert({
+        agent_id: agentId,
+        workspace_id: workspaceId,
+        provider: log.provider,
+        model: log.model,
+        input_tokens: log.inputTokens,
+        output_tokens: log.outputTokens,
+        total_tokens: log.inputTokens + log.outputTokens,
+        duration_ms: log.durationMs,
+        status: "completed",
+      });
+    } catch {
+      // Non-critical — don't fail the chat if run logging fails
+    }
   }
+
+  // Record delegated agent cost
+  budgetTracker.recordCost({
+    entityId: agentId,
+    entityType: "agent",
+    workspaceId: workspaceId || "",
+    costDollars: estimatedAgentCost,
+    provider: log.provider,
+    model: log.model,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+  });
 
   return { agentId, message };
 }

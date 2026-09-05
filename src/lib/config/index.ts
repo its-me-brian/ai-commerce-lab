@@ -1,5 +1,6 @@
 // Configuration
 // Central configuration for the application.
+// NOTE: Service role key is NOT exposed here — use import from database/supabase directly.
 
 export const config = {
   // Application
@@ -8,11 +9,10 @@ export const config = {
     version: "0.1.0",
   },
 
-  // Supabase
+  // Supabase (public keys only — service role is server-only via supabase.ts)
   supabase: {
     url: process.env.SUPABASE_URL || "",
     anonKey: process.env.SUPABASE_ANON_KEY || "",
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   },
 
   // AI Providers

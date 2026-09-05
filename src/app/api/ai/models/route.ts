@@ -16,7 +16,7 @@ export const GET = withSecurity(async (request: NextRequest) => {
       .order("name");
 
     if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: "Failed to load models" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, models: data });

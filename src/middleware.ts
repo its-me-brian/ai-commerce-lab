@@ -87,10 +87,10 @@ export async function middleware(request: NextRequest) {
   response.headers.set("Permissions-Policy", "camera=(), microphone=self, geolocation=()");
   // HSTS — enforce HTTPS for 1 year including subdomains
   response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  // CSP — report-only mode while auditing
+  // CSP — enforce mode for production
   response.headers.set(
-    "Content-Security-Policy-Report-Only",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https: wss:; frame-ancestors 'none'; report-uri /api/csp-report"
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https: wss:; frame-ancestors 'none'"
   );
 
   // === Public routes (no auth required) ===

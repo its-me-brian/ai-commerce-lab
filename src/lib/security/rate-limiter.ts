@@ -42,9 +42,9 @@ export async function checkRateLimit(
       .gte("created_at", new Date(windowStart).toISOString());
 
     if (error) {
-      // If table doesn't exist or error, allow the request (fail open)
-      logger.warn("[RateLimiter] Database error, failing open:", { error: error.message });
-      return { allowed: true, remaining: maxRequests - 1, resetAt: now + windowMs };
+      // Fail CLOSED — block request when backend is down to prevent abuse
+      logger.warn("[RateLimiter] Database error, failing closed:", { error: error.message });
+      return { allowed: false, remaining: 0, resetAt: now + windowMs };
     }
 
     const currentCount = data?.length || 0;
@@ -66,9 +66,9 @@ export async function checkRateLimit(
 
     return { allowed: true, remaining: maxRequests - currentCount - 1, resetAt: now + windowMs };
   } catch (err) {
-    // Fail open on any error
-    logger.warn("[RateLimiter] Unexpected error, failing open:", { error: String(err) });
-    return { allowed: true, remaining: maxRequests - 1, resetAt: now + windowMs };
+    // Fail CLOSED — block request on unexpected errors to prevent abuse
+    logger.warn("[RateLimiter] Unexpected error, failing closed:", { error: String(err) });
+    return { allowed: false, remaining: 0, resetAt: now + windowMs };
   }
 }
 

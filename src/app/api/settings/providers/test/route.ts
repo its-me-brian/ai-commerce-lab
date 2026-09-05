@@ -37,11 +37,11 @@ export const POST = withSecurity(async (request: NextRequest) => {
     return NextResponse.json(result, {
       status: result.success ? 200 : 422,
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "An unexpected error occurred",
+        error: "An unexpected error occurred",
       },
       { status: 500 }
     );

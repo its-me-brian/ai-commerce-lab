@@ -18,6 +18,7 @@ import { getApprovalManager } from "./approval-manager";
 import { getPlanBuilder } from "./plan-builder";
 import { AgentEngine } from "../agents/core/engine";
 import type { MiniAIResult, MiniAIChainStep } from "./mini-ai/types";
+import { logger } from "../logging";
 
 // ============================================
 // TYPES
@@ -346,9 +347,19 @@ export class OrchestratorV2 {
    * LLM-based intent classification.
    * Uses a free/cheap model to categorize the request.
    */
-  private async classifyIntentWithLLM(request: string): Promise<string> {
+  private async classifyIntentWithLLM(request: string, workspaceId?: string): Promise<string> {
     const { getRouter } = await import("./router");
+    const { getCostBudgetTracker } = await import("./cost-budget");
     const router = getRouter();
+    const budgetTracker = getCostBudgetTracker();
+
+    // Budget check before LLM call
+    const estimatedCost = 0.005;
+    const budgetCheck = budgetTracker.checkBudget("orchestrator:intent-classifier", "agent", estimatedCost, workspaceId);
+    if (!budgetCheck.allowed) {
+      logger.warn("[OrchestratorV2] Budget exceeded for intent classification, falling back to keywords");
+      return this.classifyIntentKeywords(request);
+    }
 
     const systemPrompt = `You are an intent classifier for an AI-powered ecommerce platform.
 Given a user request, classify it into exactly ONE of these categories:
@@ -377,6 +388,18 @@ Respond with ONLY the category name, nothing else.`;
       temperature: 0,
       maxOutputTokens: 50,
       responseFormat: "text",
+    });
+
+    // Record cost after successful LLM call
+    budgetTracker.recordCost({
+      entityId: "orchestrator:intent-classifier",
+      entityType: "agent",
+      workspaceId: workspaceId || "",
+      costDollars: estimatedCost,
+      provider: config.primaryProvider,
+      model: config.primaryModel,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
     });
 
     const intent = result.content.trim().toLowerCase();

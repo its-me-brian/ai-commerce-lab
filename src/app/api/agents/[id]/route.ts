@@ -45,8 +45,8 @@ export const PATCH = withSecurityAndParams(async (
   { params }: { params: Promise<{ id: string }> }
 ) => {
   try {
-    // Auth check
-    const auth = await requireWorkspaceAccess(request);
+    // Auth check — member role required for agent mutations
+    const auth = await requireWorkspaceAccess(request, { minimumRole: "member" });
     if ("error" in auth) return auth.error;
 
     const { id } = await params;
@@ -82,7 +82,7 @@ export const PATCH = withSecurityAndParams(async (
 
     if (error) {
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: "Failed to update agent" },
         { status: 500 }
       );
     }

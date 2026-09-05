@@ -138,7 +138,19 @@ export class PlanBuilder {
    */
   private async defaultLLMCall(prompt: string, systemPrompt: string): Promise<string> {
     const { getRouter } = await import("./router");
+    const { getCostBudgetTracker } = await import("./cost-budget");
     const router = getRouter();
+    const budgetTracker = getCostBudgetTracker();
+
+    // Budget check before LLM call
+    const estimatedCost = 0.01;
+    const budgetCheck = budgetTracker.checkBudget("orchestrator:plan-builder", "agent", estimatedCost);
+    if (!budgetCheck.allowed) {
+      const b = budgetCheck.violatedBudget;
+      throw new Error(
+        `Budget exceeded for plan builder: ${b.currentSpending.toFixed(4)}/${b.budget.maxDollars.toFixed(4)}`
+      );
+    }
 
     const config = {
       agentId: "orchestrator:plan-builder",
@@ -154,6 +166,18 @@ export class PlanBuilder {
       temperature: 0,
       maxOutputTokens: 1000,
       responseFormat: "json",
+    });
+
+    // Record cost after successful LLM call
+    budgetTracker.recordCost({
+      entityId: "orchestrator:plan-builder",
+      entityType: "agent",
+      workspaceId: "",
+      costDollars: estimatedCost,
+      provider: config.primaryProvider,
+      model: config.primaryModel,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
     });
 
     return result.content;

@@ -71,8 +71,8 @@ export async function GET(request: NextRequest) {
 // Create or update a budget
 export async function POST(request: NextRequest) {
   try {
-    // Auth check
-    const auth = await requireWorkspaceAccess(request);
+    // Auth check — admin role required for budget mutations
+    const auth = await requireWorkspaceAccess(request, { minimumRole: "admin" });
     if ("error" in auth) return auth.error;
 
     const body = sanitizeBody(await request.json()) as Record<string, unknown>;
