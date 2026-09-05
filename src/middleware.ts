@@ -105,7 +105,7 @@ export async function middleware(request: NextRequest) {
   const isStaticAsset =
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
-    pathname.includes(".");
+    /\.(ico|png|jpg|jpeg|gif|svg|webp|css|js|woff2?|ttf|eot|map)$/.test(pathname);
 
   // === Auth check for protected routes ===
   if (!isPublicRoute && !isStaticAsset) {
