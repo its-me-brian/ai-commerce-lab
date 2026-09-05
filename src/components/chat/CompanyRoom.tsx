@@ -169,6 +169,11 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
 
   const handleInputChange = (value: string) => {
     setInput(value);
+    // Auto-expand textarea
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
     // Detect @mention
     const lastAt = value.lastIndexOf("@");
     if (lastAt >= 0 && lastAt === value.length - 1) {
@@ -220,6 +225,7 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
     loadingRef.current = true;
     setLoading(true);
     setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
 
     // Optimistic user message
     const tempId = `temp-${Date.now()}`;
