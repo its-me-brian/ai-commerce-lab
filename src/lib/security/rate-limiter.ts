@@ -61,7 +61,9 @@ export async function checkRateLimit(
       .insert({ key, created_at: new Date(now).toISOString() });
 
     if (insertError) {
-      logger.warn("[RateLimiter] Insert error:", { error: insertError.message });
+      // Fail CLOSED — block request when insert fails to prevent abuse
+      logger.warn("[RateLimiter] Insert error, failing closed:", { error: insertError.message });
+      return { allowed: false, remaining: 0, resetAt: now + windowMs };
     }
 
     return { allowed: true, remaining: maxRequests - currentCount - 1, resetAt: now + windowMs };

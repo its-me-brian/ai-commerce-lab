@@ -26,7 +26,7 @@ describe("TEST 2: Rate limiter blocks on backend failure", () => {
     vi.resetModules();
   });
 
-  it("returns allowed:false when Supabase errors", async () => {
+  it("returns allowed:false when Supabase SELECT errors", async () => {
     vi.doMock("@/lib/database/supabase", () => ({
       supabase: {
         from: vi.fn().mockReturnThis(),
@@ -42,7 +42,28 @@ describe("TEST 2: Rate limiter blocks on backend failure", () => {
     const { checkRateLimit: check } = await import("./rate-limiter");
     const result = await check("test-rate-limit-key");
 
-    // BLOCKER FIX: Must block, not allow
+    // Must block, not allow
+    expect(result.allowed).toBe(false);
+    expect(result.remaining).toBe(0);
+  });
+
+  it("returns allowed:false when Supabase INSERT errors", async () => {
+    vi.doMock("@/lib/database/supabase", () => ({
+      supabase: {
+        from: vi.fn().mockReturnThis(),
+        delete: vi.fn().mockReturnThis(),
+        lt: vi.fn().mockResolvedValue({ error: null }),
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockResolvedValue({ data: [{ id: "existing" }], error: null }),
+        insert: vi.fn().mockResolvedValue({ error: { message: "insert failed" } }),
+      },
+    }));
+
+    const { checkRateLimit: check } = await import("./rate-limiter");
+    const result = await check("test-rate-limit-insert-key");
+
+    // INSERT error must fail CLOSED — block, not allow
     expect(result.allowed).toBe(false);
     expect(result.remaining).toBe(0);
   });
