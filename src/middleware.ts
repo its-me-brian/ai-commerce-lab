@@ -104,7 +104,7 @@ export async function middleware(request: NextRequest) {
 
   response.headers.set(
     "Content-Security-Policy",
-    `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.ebayimg.com https://thumbs.ebayimg.com; font-src 'self'; connect-src ${connectSrcDomains}; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'`
+    `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://i.ebayimg.com https://thumbs.ebayimg.com; font-src 'self' https://fonts.gstatic.com; connect-src ${connectSrcDomains}; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'`
   );
 
   // === Public routes (no auth required) ===

@@ -413,32 +413,37 @@ export class ConversationEngine {
 
   /**
    * Get or create a room conversation for a workspace.
-   * Race-safe: unique constraint on (workspace_id) WHERE type='room' AND status='active'.
+   * Uses find-then-insert to avoid partial unique index upsert issues.
    */
   async getOrCreateRoom(
     workspaceId: string,
     title?: string
   ): Promise<Conversation | null> {
-    const now = new Date().toISOString();
+    // 1. Try to find existing active room
+    const { data: existing } = await supabase
+      .from("conversations")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .eq("conversation_type", "room")
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
 
-    // Atomic upsert — race-safe with unique partial index
+    if (existing) return existing as Conversation;
+
+    // 2. Create new room (race-safe: unique partial index prevents duplicates)
+    const now = new Date().toISOString();
     const { data, error } = await supabase
       .from("conversations")
-      .upsert(
-        {
-          workspace_id: workspaceId,
-          conversation_type: "room",
-          title: title || "Company Room",
-          status: "active",
-          message_count: 0,
-          created_at: now,
-          updated_at: now,
-        },
-        {
-          onConflict: "workspace_id",
-          ignoreDuplicates: false,
-        }
-      )
+      .insert({
+        workspace_id: workspaceId,
+        conversation_type: "room",
+        title: title || "Company Room",
+        status: "active",
+        message_count: 0,
+        created_at: now,
+        updated_at: now,
+      })
       .select()
       .single();
 

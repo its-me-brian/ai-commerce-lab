@@ -6,6 +6,7 @@ import { getConversationEngine } from "@/lib/ai/conversation-engine";
 import { multiAgentChat } from "@/lib/ai/multi-agent-chat";
 import { requireWorkspaceAccess } from "@/lib/auth/api-auth";
 import { withSecurity } from "@/lib/security/api-middleware";
+import { logger } from "@/lib/logging";
 
 interface RoomMessageRequest {
   message: string;
@@ -45,7 +46,8 @@ export const GET = withSecurity(async (req: NextRequest) => {
       conversation: room,
       messages,
     });
-  } catch  {
+  } catch (error) {
+    logger.error("[Room] GET error", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         success: false,
@@ -77,6 +79,7 @@ export const POST = withSecurity(async (req: NextRequest) => {
     // 1. Get or create room conversation for this workspace
     const conversation = await engine.getOrCreateRoom(auth.workspaceId);
     if (!conversation) {
+      logger.error("[Room] Failed to create room conversation", { workspaceId: auth.workspaceId });
       return NextResponse.json(
         { success: false, error: "Failed to create room conversation" },
         { status: 500 }
@@ -115,7 +118,8 @@ export const POST = withSecurity(async (req: NextRequest) => {
         createdAt: r.message.created_at,
       })),
     });
-  } catch  {
+  } catch (error) {
+    logger.error("[Room] POST error", { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         success: false,
