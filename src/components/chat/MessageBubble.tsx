@@ -221,9 +221,83 @@ function RoomBadge() {
   );
 }
 
+/**
+ * Simple markdown renderer for agent messages.
+ * Handles: **bold**, ### headers, - lists, line breaks.
+ */
+function renderMarkdown(text: string): React.ReactNode[] {
+  const lines = text.split("\n");
+  const elements: React.ReactNode[] = [];
+  let listItems: string[] = [];
+
+  const flushList = () => {
+    if (listItems.length > 0) {
+      elements.push(
+        <ul key={`list-${elements.length}`} className="my-1.5 ml-4 list-disc space-y-1">
+          {listItems.map((item, i) => (
+            <li key={i} className="text-[13px] leading-relaxed" style={{ color: "var(--text-primary)" }}>
+              <span dangerouslySetInnerHTML={{ __html: inlineFormat(item) }} />
+            </li>
+          ))}
+        </ul>
+      );
+      listItems = [];
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Empty line
+    if (!trimmed) {
+      flushList();
+      continue;
+    }
+
+    // Header: ### Title
+    const headerMatch = trimmed.match(/^#{1,3}\s+(.+)$/);
+    if (headerMatch) {
+      flushList();
+      elements.push(
+        <p key={i} className="text-[14px] font-semibold mt-3 mb-1 first:mt-0" style={{ color: "var(--text-primary)" }}>
+          {headerMatch[1]}
+        </p>
+      );
+      continue;
+    }
+
+    // List item: - item or * item
+    const listMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    if (listMatch) {
+      listItems.push(listMatch[1]);
+      continue;
+    }
+
+    // Regular line
+    flushList();
+    elements.push(
+      <p key={i} className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: "var(--text-primary)" }}>
+        <span dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed) }} />
+      </p>
+    );
+  }
+
+  flushList();
+  return elements;
+}
+
+/** Format inline markdown: **bold**, `code` */
+function inlineFormat(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.+?)`/g, '<code class="px-1 py-0.5 rounded text-[12px]" style="background:var(--bg-hover);font-family:var(--font-mono)">$1</code>');
+}
+
 export function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
+  const isLongAgentMessage = !isUser && !isSystem && message.content.length > 200;
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
@@ -241,24 +315,28 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
         {/* Message bubble */}
         <div
-          className={`px-4 py-2.5 rounded-2xl text-[13px] leading-relaxed ${isUser ? "font-medium" : ""}`}
+          className={`rounded-2xl ${isUser ? "px-4 py-2.5" : "px-4 py-3"} ${isUser ? "font-medium text-[13px]" : ""}`}
           style={{
-                    background: isUser
-                      ? "var(--accent-light)"
-                      : isSystem
-                        ? "var(--error-bg)"
-                        : "var(--bg-sunken)",
-                    color: isUser
-                      ? "var(--accent-hover)"
-                      : isSystem
-                        ? "var(--error)"
-                        : "var(--text-primary)",
+            background: isUser
+              ? "var(--accent-light)"
+              : isSystem
+                ? "var(--error-bg)"
+                : "var(--bg-sunken)",
+            color: isUser
+              ? "var(--accent-hover)"
+              : isSystem
+                ? "var(--error)"
+                : "var(--text-primary)",
             borderBottomRightRadius: isUser ? "6px" : undefined,
             borderBottomLeftRadius: !isUser ? "6px" : undefined,
-                    border: isUser ? "1px solid var(--accent-muted)" : undefined,
+            border: isUser ? "1px solid var(--accent-muted)" : undefined,
           }}
         >
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          {isLongAgentMessage ? (
+            <div className="space-y-0.5">{renderMarkdown(message.content)}</div>
+          ) : (
+            <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{message.content}</p>
+          )}
           <MessageCard card={message.card} />
         </div>
 
