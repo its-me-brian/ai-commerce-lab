@@ -322,10 +322,14 @@ export class EvaluationEngine {
   }
 
   /**
-   * Get aggregated evaluation across all recorded evaluations.
+   * Get aggregated evaluation across recorded evaluations, filtered by workspace.
    */
-  getAggregated(): AggregatedEvaluation {
-    if (this.evaluations.length === 0) {
+  getAggregated(workspaceId?: string): AggregatedEvaluation {
+    const filtered = workspaceId
+      ? this.evaluations.filter((e) => e.workspaceId === workspaceId)
+      : this.evaluations;
+
+    if (filtered.length === 0) {
       return {
         totalExecutions: 0,
         averageScore: 0,
@@ -336,12 +340,12 @@ export class EvaluationEngine {
       };
     }
 
-    const total = this.evaluations.length;
-    const avgScore = this.evaluations.reduce((sum, e) => sum + e.overallScore, 0) / total;
+    const total = filtered.length;
+    const avgScore = filtered.reduce((sum, e) => sum + e.overallScore, 0) / total;
 
     // Score distribution
     const distribution = { excellent: 0, good: 0, fair: 0, poor: 0 };
-    for (const e of this.evaluations) {
+    for (const e of filtered) {
       if (e.overallScore >= 0.8) distribution.excellent++;
       else if (e.overallScore >= 0.6) distribution.good++;
       else if (e.overallScore >= 0.4) distribution.fair++;
@@ -349,14 +353,14 @@ export class EvaluationEngine {
     }
 
     // Average metrics
-    const avgDuration = this.evaluations.reduce((sum, e) => sum + e.metrics.durationMs, 0) / total;
-    const avgCost = this.evaluations.reduce((sum, e) => sum + e.metrics.costDollars, 0) / total;
-    const successRate = this.evaluations.filter((e) => e.metrics.success).length / total;
-    const retryRate = this.evaluations.reduce((sum, e) => sum + e.metrics.retries, 0) / total;
+    const avgDuration = filtered.reduce((sum, e) => sum + e.metrics.durationMs, 0) / total;
+    const avgCost = filtered.reduce((sum, e) => sum + e.metrics.costDollars, 0) / total;
+    const successRate = filtered.filter((e) => e.metrics.success).length / total;
+    const retryRate = filtered.reduce((sum, e) => sum + e.metrics.retries, 0) / total;
 
     // Per-signal averages
     const signalMap = new Map<string, { sum: number; count: number }>();
-    for (const e of this.evaluations) {
+    for (const e of filtered) {
       for (const s of e.signals) {
         const existing = signalMap.get(s.name) ?? { sum: 0, count: 0 };
         existing.sum += s.score;
@@ -371,8 +375,8 @@ export class EvaluationEngine {
 
     // Trend (compare first half vs second half)
     const mid = Math.floor(total / 2);
-    const firstHalf = this.evaluations.slice(0, mid);
-    const secondHalf = this.evaluations.slice(mid);
+    const firstHalf = filtered.slice(0, mid);
+    const secondHalf = filtered.slice(mid);
     const firstAvg = firstHalf.reduce((sum, e) => sum + e.overallScore, 0) / (firstHalf.length || 1);
     const secondAvg = secondHalf.reduce((sum, e) => sum + e.overallScore, 0) / (secondHalf.length || 1);
     const trendDiff = secondAvg - firstAvg;
@@ -394,10 +398,13 @@ export class EvaluationEngine {
   }
 
   /**
-   * Get recent evaluations.
+   * Get recent evaluations, optionally filtered by workspace.
    */
-  getRecent(count: number = 10): ExecutionEvaluation[] {
-    return this.evaluations.slice(-count);
+  getRecent(count: number = 10, workspaceId?: string): ExecutionEvaluation[] {
+    const filtered = workspaceId
+      ? this.evaluations.filter((e) => e.workspaceId === workspaceId)
+      : this.evaluations;
+    return filtered.slice(-count);
   }
 
   /**

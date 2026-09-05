@@ -23,8 +23,10 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case "list": {
         const budgets = entityId
-          ? tracker.getBudgetsForEntity(entityId, entityType ?? undefined)
-          : tracker.getAllBudgets();
+          ? tracker.getBudgetsForEntity(entityId, entityType ?? undefined).filter(
+              (b) => b.workspaceId === auth.workspaceId || b.entityType === "global"
+            )
+          : tracker.getAllBudgets(auth.workspaceId);
         return NextResponse.json({ success: true, budgets });
       }
       case "status": {
@@ -34,7 +36,9 @@ export async function GET(request: NextRequest) {
             { status: 400 }
           );
         }
-        const statuses = tracker.getEntityStatus(entityId, entityType ?? undefined);
+        const statuses = tracker.getEntityStatus(entityId, entityType ?? undefined).filter(
+          (s) => s.budget.workspaceId === auth.workspaceId || s.budget.entityType === "global"
+        );
         return NextResponse.json({ success: true, statuses });
       }
       case "spending": {
@@ -45,13 +49,13 @@ export async function GET(request: NextRequest) {
           );
         }
         const window = searchParams.get("window") || "day";
-        const spending = tracker.getSpending(entityId, entityType, window as "day" | "hour" | "total");
+        const spending = tracker.getSpending(entityId, entityType, window as "day" | "hour" | "total", auth.workspaceId);
         return NextResponse.json({ success: true, spending });
       }
       case "alerts": {
         const alerts = entityId
-          ? tracker.getAlertsForEntity(entityId)
-          : tracker.getAlerts();
+          ? tracker.getAlertsForEntity(entityId, auth.workspaceId)
+          : tracker.getAlerts(auth.workspaceId);
         return NextResponse.json({ success: true, alerts });
       }
       default:

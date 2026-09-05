@@ -226,15 +226,20 @@ export class CostBudgetTracker {
   /**
    * Get all active budgets.
    */
-  getActiveBudgets(): CostBudget[] {
-    return Array.from(this.budgets.values()).filter((b) => b.active);
+  getActiveBudgets(workspaceId?: string): CostBudget[] {
+    return Array.from(this.budgets.values()).filter(
+      (b) => b.active && (!workspaceId || b.workspaceId === workspaceId || b.entityType === "global")
+    );
   }
 
   /**
-   * Get all budgets.
+   * Get all budgets for a workspace.
    */
-  getAllBudgets(): CostBudget[] {
-    return Array.from(this.budgets.values());
+  getAllBudgets(workspaceId?: string): CostBudget[] {
+    if (!workspaceId) return Array.from(this.budgets.values());
+    return Array.from(this.budgets.values()).filter(
+      (b) => b.workspaceId === workspaceId || b.entityType === "global"
+    );
   }
 
   // ============================================
@@ -417,17 +422,26 @@ export class CostBudgetTracker {
   }
 
   /**
-   * Get all active alerts.
+   * Get all active alerts for a workspace.
    */
-  getAlerts(): BudgetAlert[] {
-    return [...this.alerts];
+  getAlerts(workspaceId?: string): BudgetAlert[] {
+    if (!workspaceId) return [...this.alerts];
+    return this.alerts.filter((a) => {
+      const budget = this.budgets.get(a.budgetId);
+      return budget?.workspaceId === workspaceId || budget?.entityType === "global";
+    });
   }
 
   /**
-   * Get recent alerts for an entity.
+   * Get recent alerts for an entity within a workspace.
    */
-  getAlertsForEntity(entityId: string): BudgetAlert[] {
-    return this.alerts.filter((a) => a.entityId === entityId);
+  getAlertsForEntity(entityId: string, workspaceId?: string): BudgetAlert[] {
+    return this.alerts.filter((a) => {
+      if (a.entityId !== entityId) return false;
+      if (!workspaceId) return true;
+      const budget = this.budgets.get(a.budgetId);
+      return budget?.workspaceId === workspaceId || budget?.entityType === "global";
+    });
   }
 
   /**

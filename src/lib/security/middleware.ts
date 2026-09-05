@@ -414,39 +414,51 @@ export class SecurityAudit {
   }
 
   /**
-   * Get recent security events.
+   * Get recent security events, optionally filtered by workspace.
    */
-  getRecent(count: number = 50): SecurityAuditEntry[] {
-    return this.entries.slice(-count);
+  getRecent(count: number = 50, workspaceId?: string): SecurityAuditEntry[] {
+    const filtered = workspaceId
+      ? this.entries.filter((e) => e.workspaceId === workspaceId)
+      : this.entries;
+    return filtered.slice(-count);
   }
 
   /**
-   * Get events by type.
+   * Get events by type, optionally filtered by workspace.
    */
-  getByType(eventType: SecurityEventType): SecurityAuditEntry[] {
-    return this.entries.filter((e) => e.eventType === eventType);
+  getByType(eventType: SecurityEventType, workspaceId?: string): SecurityAuditEntry[] {
+    return this.entries.filter(
+      (e) => e.eventType === eventType && (!workspaceId || e.workspaceId === workspaceId)
+    );
   }
 
   /**
-   * Get events by severity.
+   * Get events by severity, optionally filtered by workspace.
    */
-  getBySeverity(severity: SecurityAuditEntry["severity"]): SecurityAuditEntry[] {
-    return this.entries.filter((e) => e.severity === severity);
+  getBySeverity(severity: SecurityAuditEntry["severity"], workspaceId?: string): SecurityAuditEntry[] {
+    return this.entries.filter(
+      (e) => e.severity === severity && (!workspaceId || e.workspaceId === workspaceId)
+    );
   }
 
   /**
-   * Get events by client.
+   * Get events by client, optionally filtered by workspace.
    */
-  getByClient(clientId: string): SecurityAuditEntry[] {
-    return this.entries.filter((e) => e.clientId === clientId);
+  getByClient(clientId: string, workspaceId?: string): SecurityAuditEntry[] {
+    return this.entries.filter(
+      (e) => e.clientId === clientId && (!workspaceId || e.workspaceId === workspaceId)
+    );
   }
 
   /**
-   * Get summary stats.
+   * Get summary stats, optionally filtered by workspace.
    */
-  getStats(): Record<SecurityEventType, number> {
+  getStats(workspaceId?: string): Record<SecurityEventType, number> {
+    const filtered = workspaceId
+      ? this.entries.filter((e) => e.workspaceId === workspaceId)
+      : this.entries;
     const stats: Record<string, number> = {};
-    for (const entry of this.entries) {
+    for (const entry of filtered) {
       stats[entry.eventType] = (stats[entry.eventType] ?? 0) + 1;
     }
     return stats as Record<SecurityEventType, number>;

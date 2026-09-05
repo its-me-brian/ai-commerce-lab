@@ -21,22 +21,50 @@ import { logger } from "@/lib/logging";
 
 const STATE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
-// In-memory nonce store (survives across requests in same process)
-const usedNonces = new Map<string, number>();
-
-// Cleanup expired nonces periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [nonce, timestamp] of usedNonces) {
-    if (now - timestamp > STATE_EXPIRY_MS) usedNonces.delete(nonce);
+/**
+ * Check if nonce was already used (replay attack).
+ * Uses Supabase for distributed tracking across Vercel instances.
+ */
+async function isNonceUsed(nonce: string): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from("used_nonces")
+      .select("nonce")
+      .eq("nonce", nonce)
+      .single();
+    return !!data;
+  } catch {
+    return false;
   }
-}, 5 * 60 * 1000);
+}
+
+/**
+ * Mark nonce as used (single-use enforcement).
+ */
+async function markNonceUsed(nonce: string): Promise<void> {
+  try {
+    await supabase.from("used_nonces").insert({ nonce });
+  } catch (error) {
+    logger.error("[ShopifyCallback] Failed to persist nonce:", { error: error instanceof Error ? error.message : String(error) });
+  }
+}
+
+/**
+ * Cleanup expired nonces (fire-and-forget).
+ */
+async function cleanupExpiredNonces(): Promise<void> {
+  try {
+    await supabase.rpc("cleanup_expired_nonces");
+  } catch {
+    // Silent fail — non-critical cleanup
+  }
+}
 
 /**
  * Verify OAuth state: workspaceId.timestamp.nonce.userId.signature
  * Returns { workspaceId, userId } if valid, null if invalid/expired/replayed.
  */
-function verifyState(state: string): { workspaceId: string; userId: string } | null {
+async function verifyState(state: string): Promise<{ workspaceId: string; userId: string } | null> {
   const parts = state.split(".");
   if (parts.length !== 5) return null;
 
@@ -47,8 +75,8 @@ function verifyState(state: string): { workspaceId: string; userId: string } | n
   if (isNaN(timestamp)) return null;
   if (Date.now() - timestamp > STATE_EXPIRY_MS) return null;
 
-  // 2. Verify nonce (single-use)
-  if (usedNonces.has(nonce)) return null;
+  // 2. Verify nonce (single-use) — distributed via Supabase
+  if (await isNonceUsed(nonce)) return null;
 
   // 3. Verify HMAC signature
   // CRITICAL: Fail closed — never default to empty string for cryptographic secrets
@@ -68,8 +96,11 @@ function verifyState(state: string): { workspaceId: string; userId: string } | n
   if (sigBuffer.length !== expectedBuffer.length) return null;
   if (!timingSafeEqual(sigBuffer, expectedBuffer)) return null;
 
-  // 4. Mark nonce as used (single-use enforcement)
-  usedNonces.set(nonce, Date.now());
+  // 4. Mark nonce as used (single-use enforcement) — persists to Supabase
+  await markNonceUsed(nonce);
+
+  // 5. Fire-and-forget cleanup of expired nonces
+  cleanupExpiredNonces();
 
   return { workspaceId, userId };
 }
@@ -172,7 +203,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const state = verifyState(rawState);
+    const state = await verifyState(rawState);
     if (!state) {
       return NextResponse.redirect(
         new URL("/dashboard/settings?tab=integrations&error=invalid_state", request.url)

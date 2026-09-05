@@ -18,11 +18,11 @@ export async function GET(request: NextRequest) {
 
     switch (action) {
       case "recent": {
-        const recent = engine.getRecent(count);
+        const recent = engine.getRecent(count, auth.workspaceId);
         return NextResponse.json({ success: true, evaluations: recent });
       }
       case "aggregated": {
-        const agg = engine.getAggregated();
+        const agg = engine.getAggregated(auth.workspaceId);
         return NextResponse.json({ success: true, aggregated: agg });
       }
       default:

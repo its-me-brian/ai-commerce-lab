@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     switch (action) {
       case "recent": {
-        const entries = audit.getRecent(count);
+        const entries = audit.getRecent(count, auth.workspaceId);
         return NextResponse.json({ success: true, events: entries });
       }
       case "type": {
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
             { status: 400 }
           );
         }
-        const entries = audit.getByType(eventType as "sanitization_applied" | "injection_detected" | "rate_limit_hit" | "validation_failed" | "size_limit_exceeded" | "unauthorized_access" | "suspicious_input");
+        const entries = audit.getByType(eventType as "sanitization_applied" | "injection_detected" | "rate_limit_hit" | "validation_failed" | "size_limit_exceeded" | "unauthorized_access" | "suspicious_input", auth.workspaceId);
         return NextResponse.json({ success: true, events: entries });
       }
       case "severity": {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
             { status: 400 }
           );
         }
-        const entries = audit.getBySeverity(severity);
+        const entries = audit.getBySeverity(severity, auth.workspaceId);
         return NextResponse.json({ success: true, events: entries });
       }
       case "client": {
@@ -51,11 +51,11 @@ export async function GET(request: NextRequest) {
             { status: 400 }
           );
         }
-        const entries = audit.getByClient(clientId);
+        const entries = audit.getByClient(clientId, auth.workspaceId);
         return NextResponse.json({ success: true, events: entries });
       }
       case "stats": {
-        const stats = audit.getStats();
+        const stats = audit.getStats(auth.workspaceId);
         return NextResponse.json({ success: true, stats });
       }
       default:
