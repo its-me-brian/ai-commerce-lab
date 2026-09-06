@@ -2,6 +2,7 @@
 // Orchestrates multi-agent fan-out in General Room.
 // §8, §14: When no @mention, CEO coordinates and can delegate to other agents.
 // Each agent's response is saved as a separate message.
+// Enhanced with intelligent routing: MiniIA for simple queries, CEO for complex research.
 
 import { logger } from "../logging";
 import { bootstrap, getAgentRegistry } from "./bootstrap";
@@ -15,6 +16,8 @@ import { detectPromptInjection } from "../security/middleware";
 import { getCostBudgetTracker } from "./cost-budget";
 import { PermissionChecker } from "../permissions/checker";
 import { calculateModelCost } from "./model-pricing";
+import { routeMessage, isSimpleMessage, needsMemoryLookup } from "./message-router";
+import { handleSimpleMessage } from "./mini-ia-handler";
 
 /** Maximum agents the CEO can delegate to in a single fan-out. V1 safety limit. */
 const MAX_FANOUT = 5;
@@ -96,6 +99,34 @@ export async function multiAgentChat(input: MultiAgentChatInput): Promise<MultiA
       conversation,
       userMessage,
       agentResponses: blockMessage ? [{ agentId: "system", message: blockMessage }] : [],
+    };
+  }
+
+  // 2c. INTELLIGENT ROUTING: Route simple messages to MiniIA
+  const route = routeMessage(input.message);
+  logger.info("[MultiAgentChat] Message routed", { route: route.type, reason: route.reason });
+
+  // If routing to MiniIA and no @mention, handle with MiniIA
+  if (route.type === "mini-ia" && !input.targetAgentId) {
+    const history = await conversationEngine.getLastMessages(input.conversationId, 20);
+    const historyLines = history.map((m) => {
+      const role = m.role === "user" ? "User" : m.metadata?.agent_id
+        ? `Agent(${m.metadata.agent_id})`
+        : "Assistant";
+      return `${role}: ${m.content}`;
+    });
+
+    const miniIaResponse = await handleSimpleMessage(
+      input.message,
+      input.conversationId,
+      input.workspaceId || "",
+      historyLines
+    );
+
+    return {
+      conversation,
+      userMessage,
+      agentResponses: miniIaResponse ? [{ agentId: "mini-ia", message: miniIaResponse }] : [],
     };
   }
 
