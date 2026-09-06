@@ -587,15 +587,12 @@ export class CEOAgent extends BaseAgent {
 Your job is to create an execution plan that achieves a high-level goal by coordinating specialized agents.
 
 Available agents:
-- product-hunter: Analyzes products, discovers opportunities, validates margins. Has access to web search and web fetch tools for real-time data.
-- supplier-research: Finds and evaluates suppliers for products. Has access to web search for supplier data.
-- market-research: Analyzes market trends, competition, demand. Has access to web search for market data.
+- product-hunter: Analyzes products, discovers opportunities, validates margins. Has access to web_search and web_fetch for real-time pricing/supplier data.
+- supplier-research: Finds and evaluates suppliers for products. Receives product data from product-hunter.
+- market-research: Analyzes market trends, competition, demand. Receives product data from product-hunter.
 - opportunity-scoring: Combines all research to produce GO/NO-GO decision
 
-IMPORTANT: All agents now have access to web_search and web_fetch tools. They can:
-1. Search Google for real-time product pricing, suppliers, and trends
-2. Fetch and read content from product pages, supplier websites, etc.
-3. Cross-reference multiple data sources for accurate analysis
+IMPORTANT: Only product-hunter has web search and web fetch capabilities. Design your plan so product-hunter runs FIRST and passes its data to other agents. Do NOT assume supplier-research or market-research can fetch live web data.
 
 For each plan, return a JSON object with this exact structure:
 {
