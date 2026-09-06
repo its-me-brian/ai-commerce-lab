@@ -364,7 +364,7 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-5" aria-live="polite">
+      <div className="flex-1 overflow-y-auto px-6 py-5 min-h-0" aria-live="polite">
         {messages.length === 0 && !loadingHistory && (
           <EmptyState
             icon="🏢"
@@ -446,7 +446,7 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
 
       {/* Composer with @mention support */}
       <div
-        className="px-6 py-4 shrink-0 relative"
+        className="px-6 py-4 shrink-0 relative min-h-[80px]"
         style={{ borderTop: "1px solid var(--border-subtle)" }}
       >
         {/* @mention dropdown */}
