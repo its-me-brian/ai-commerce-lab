@@ -225,7 +225,16 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
     loadingRef.current = true;
     setLoading(true);
     setInput("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    // Smoothly reset textarea height instead of jumping
+    if (textareaRef.current) {
+      textareaRef.current.style.transition = "height 0.15s ease-out";
+      textareaRef.current.style.height = "auto";
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.style.transition = "";
+        }
+      }, 150);
+    }
 
     // Optimistic user message
     const tempId = `temp-${Date.now()}`;
