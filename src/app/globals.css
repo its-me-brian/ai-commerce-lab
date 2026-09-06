@@ -61,6 +61,12 @@
 /* --- Reset --- */
 * { box-sizing: border-box; }
 
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 html {
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
@@ -73,6 +79,7 @@ body {
   background: var(--bg);
   line-height: 1.5;
   letter-spacing: -0.011em;
+  overflow: hidden;
 }
 
 /* --- Typography --- */
