@@ -82,7 +82,8 @@ INSERT INTO agent_permissions (agent_id, action, target, granted) VALUES
   ('ceo', 'use_provider', '*', true),
   ('ceo', 'read_data', '*', true),
   ('ceo', 'write_data', '*', true),
-  ('ceo', 'access_agent', '*', true)
+  ('ceo', 'access_agent', '*', true),
+  ('ceo', 'delegate_to', '*', true)
 ON CONFLICT (agent_id, action, target) DO NOTHING;
 
 -- ============================================

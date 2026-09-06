@@ -225,12 +225,16 @@ Examples of when NOT to delegate:
     });
 
     // Step B: Check if CEO requested delegation
-    const delegationMatch = coordinatorResult.content.match(/\{"delegate_to":\s*\[([^\]]*)\]\}/);
+    // Handle both raw JSON and markdown code blocks: ```json\n{"delegate_to": [...]}\n```
+    const delegationMatch = coordinatorResult.content.match(/```(?:json)?\s*\n?\s*\{"delegate_to":\s*\[([^\]]*)\]\}\s*\n?\s*```|^\{"delegate_to":\s*\[([^\]]*)\]\}$/m);
     if (delegationMatch) {
-      const agentIds = delegationMatch[1]
+      const rawMatch = delegationMatch[1] || delegationMatch[2];
+      const agentIds = rawMatch
         .split(",")
         .map((id) => id.trim().replace(/"/g, ""))
         .filter((id) => id && id !== coordinatorId);
+
+      logger.info(`[MultiAgentChat] CEO delegation detected`, { agentIds });
 
       // Enforce fan-out limit — V1 safety cap
       const cappedAgentIds = agentIds.slice(0, MAX_FANOUT);
@@ -240,15 +244,19 @@ Examples of when NOT to delegate:
 
       // Invoke each delegated agent (within cap)
       for (const agentId of cappedAgentIds) {
-        if (!registry.get(agentId)) continue; // Skip unknown agents
+        if (!registry.get(agentId)) {
+          logger.warn(`[MultiAgentChat] Agent not found in registry: ${agentId}`);
+          continue;
+        }
 
         // CRITICAL: Check delegation permission before invoking
         const delegationCheck = await getPermissionChecker().canDelegate(coordinatorId, agentId);
         if (!delegationCheck.allowed) {
-          logger.warn(`[MultiAgentChat] Delegation denied: ${delegationCheck.reason}`);
+          logger.warn(`[MultiAgentChat] Delegation denied`, { from: coordinatorId, to: agentId, reason: delegationCheck.reason });
           continue;
         }
 
+        logger.info(`[MultiAgentChat] Delegating to agent`, { agentId });
         try {
           const response = await invokeAgent(
             agentId,
@@ -262,11 +270,12 @@ Examples of when NOT to delegate:
             input.workspaceId,
           );
           agentResponses.push(response);
-        } catch {
-          // Log error but continue with other agents
-          logger.error(`Agent ${agentId} failed in fan-out:`, { error: String(agentId) });
+        } catch (error) {
+          logger.error(`[MultiAgentChat] Agent ${agentId} failed in fan-out`, { error: error instanceof Error ? error.message : String(error) });
         }
       }
+    } else {
+      logger.info(`[MultiAgentChat] No delegation detected in CEO response`);
     }
   }
 
