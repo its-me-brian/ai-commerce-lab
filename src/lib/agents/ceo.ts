@@ -43,12 +43,13 @@ export class CEOAgent extends BaseAgent {
       "Orchestrates all agents to achieve high-level ecommerce goals",
     status: "ready",
     enabled: true,
-    version: "0.1.0",
+    version: "0.2.0",
     capabilities: [
       "orchestration",
       "planning",
       "decision_making",
       "agent_coordination",
+      "web_search",
     ],
     // Hierarchy: top-level executive, no parent
     agentType: "executive",
@@ -586,10 +587,15 @@ export class CEOAgent extends BaseAgent {
 Your job is to create an execution plan that achieves a high-level goal by coordinating specialized agents.
 
 Available agents:
-- product-hunter: Analyzes products, discovers opportunities, validates margins
-- supplier-research: Finds and evaluates suppliers for products
-- market-research: Analyzes market trends, competition, demand
+- product-hunter: Analyzes products, discovers opportunities, validates margins. Has access to web search and web fetch tools for real-time data.
+- supplier-research: Finds and evaluates suppliers for products. Has access to web search for supplier data.
+- market-research: Analyzes market trends, competition, demand. Has access to web search for market data.
 - opportunity-scoring: Combines all research to produce GO/NO-GO decision
+
+IMPORTANT: All agents now have access to web_search and web_fetch tools. They can:
+1. Search Google for real-time product pricing, suppliers, and trends
+2. Fetch and read content from product pages, supplier websites, etc.
+3. Cross-reference multiple data sources for accurate analysis
 
 For each plan, return a JSON object with this exact structure:
 {
@@ -614,7 +620,8 @@ Rules:
 - End with opportunity-scoring (decision)
 - Use dependsOn for sequential dependencies
 - Keep steps minimal — don't over-orchestrate
-- Each step should be a complete unit of work`;
+- Each step should be a complete unit of work
+- Agents will automatically use web search to find real-time data`;
   }
 
   private buildPlanningPrompt(input: Record<string, unknown>): string {

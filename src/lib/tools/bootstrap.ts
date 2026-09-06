@@ -8,6 +8,8 @@ import { SearchProductsTool } from "./search-products";
 import { SearchSuppliersTool } from "./search-suppliers";
 import { GenerateImageTool } from "./generate-image";
 import { AnalyzeSeoTool } from "./analyze-seo";
+import { WebSearchTool } from "./web-search";
+import { WebFetchTool } from "./web-fetch";
 
 let toolRegistry: ToolRegistry | null = null;
 
@@ -19,6 +21,8 @@ export function getToolRegistry(): ToolRegistry {
     toolRegistry.register(new SearchSuppliersTool());
     toolRegistry.register(new GenerateImageTool());
     toolRegistry.register(new AnalyzeSeoTool());
+    toolRegistry.register(new WebSearchTool());
+    toolRegistry.register(new WebFetchTool());
   }
   return toolRegistry;
 }

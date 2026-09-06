@@ -54,15 +54,17 @@ export class ProductHunterAgent extends BaseAgent {
   readonly metadata: AgentMetadata = {
     id: "product-hunter",
     name: "Product Hunter",
-    description: "Searches and evaluates ecommerce opportunities",
+    description: "Searches and evaluates ecommerce opportunities using web search and multiple data sources",
     status: "ready",
     enabled: true,
-    version: "0.2.0",
+    version: "0.3.0",
     capabilities: [
       "product_analysis",
       "product_discovery",
       "trend_analysis",
       "price_calculation",
+      "web_search",
+      "web_fetch",
     ],
     // Hierarchy: department head, reports to CEO
     parentAgentId: "ceo",
@@ -106,9 +108,10 @@ export class ProductHunterAgent extends BaseAgent {
   /**
    * FASE 20: DISCOVER MODE — Multi-agent discovery workflow.
    * 1. Search for products (tool)
-   * 2. Delegate to MarketResearch, SupplierResearch in parallel
-   * 3. Delegate to OpportunityScoring with all data
-   * 4. Consolidate results
+   * 2. Web search for additional data (pricing, suppliers, trends)
+   * 3. Delegate to MarketResearch, SupplierResearch in parallel
+   * 4. Delegate to OpportunityScoring with all data
+   * 5. Consolidate results
    */
   private async executeDiscover(context: AgentContext): Promise<AgentResult> {
     const { input, configuration } = context;
@@ -116,7 +119,7 @@ export class ProductHunterAgent extends BaseAgent {
     const orchestrator = getMultiAgentOrchestrator();
     const startTime = Date.now();
 
-    // 1. Search for products
+    // 1. Search for products from eBay
     const searchResult = await toolRegistry.execute("search_products", {
       query: input.query,
       source: input.source || "ebay",
@@ -125,17 +128,65 @@ export class ProductHunterAgent extends BaseAgent {
       maxPrice: input.maxPrice,
     });
 
-    if (!searchResult.success) {
-      throw new Error(`Product search failed: ${searchResult.error}`);
+    let products: RawProduct[] = [];
+    if (searchResult.success) {
+      const output = searchResult.output as {
+        products: RawProduct[];
+        totalCount: number;
+        source: string;
+      };
+      products = output.products || [];
     }
 
-    const { products } = searchResult.output as {
-      products: RawProduct[];
-      totalCount: number;
-      source: string;
-    };
+    // 2. Web search for additional product data (pricing, suppliers, trends)
+    const webSearchQuery = input.query || "";
+    let webSearchData: Array<{ title: string; url: string; snippet: string }> = [];
 
-    if (products.length === 0) {
+    if (webSearchQuery) {
+      try {
+        const webSearchResult = await toolRegistry.execute("web_search", {
+          query: `${webSearchQuery} dropshipping suppliers pricing`,
+          country: "es",
+          language: "es",
+          numResults: 5,
+        });
+
+        if (webSearchResult.success) {
+          const webOutput = webSearchResult.output as {
+            results: Array<{ title: string; url: string; snippet: string }>;
+          };
+          webSearchData = webOutput.results || [];
+        }
+      } catch (err) {
+        // Web search is optional, continue without it
+        console.warn("Web search failed:", err);
+      }
+    }
+
+    // 3. Fetch content from top web results for deeper analysis
+    const webPageData: Array<{ url: string; title: string; content: string }> = [];
+    for (const result of webSearchData.slice(0, 3)) {
+      try {
+        const fetchResult = await toolRegistry.execute("web_fetch", {
+          url: result.url,
+          maxLength: 3000,
+        });
+
+        if (fetchResult.success) {
+          const fetchOutput = fetchResult.output as {
+            url: string;
+            title: string;
+            content: string;
+          };
+          webPageData.push(fetchOutput);
+        }
+      } catch (err) {
+        // Fetch is optional, continue without it
+        console.warn("Web fetch failed:", err);
+      }
+    }
+
+    if (products.length === 0 && webSearchData.length === 0) {
       return {
         success: true,
         output: "No products found for the given search criteria.",
@@ -153,7 +204,7 @@ export class ProductHunterAgent extends BaseAgent {
       };
     }
 
-    // 2. For each product, run multi-agent analysis
+    // 4. For each product, run multi-agent analysis with web data
     const opportunities: Array<{
       product: RawProduct;
       marketAnalysis: unknown;
@@ -175,6 +226,8 @@ export class ProductHunterAgent extends BaseAgent {
                 productOrCategory: product.category || product.name,
                 targetMarket: "Europe",
                 priceRange: `${product.currency} ${product.price}`,
+                webSearchData: webSearchData.map(r => r.snippet).join("\n"),
+                webPageData: webPageData.map(p => p.content).join("\n"),
               },
               taskType: "market-analysis",
             },
@@ -185,6 +238,8 @@ export class ProductHunterAgent extends BaseAgent {
                 category: product.category || "general",
                 targetMarket: "Europe",
                 orderVolume: "small (dropshipping)",
+                webSearchData: webSearchData.map(r => r.snippet).join("\n"),
+                webPageData: webPageData.map(p => p.content).join("\n"),
               },
               taskType: "supplier-analysis",
             },
@@ -225,6 +280,8 @@ export class ProductHunterAgent extends BaseAgent {
                 },
                 supplierResearch: supplierData || {},
                 marketResearch: marketData || {},
+                webSearchData: webSearchData.map(r => r.snippet).join("\n"),
+                webPageData: webPageData.map(p => p.content).join("\n"),
               },
               taskType: "opportunity-scoring",
             },
@@ -253,7 +310,7 @@ export class ProductHunterAgent extends BaseAgent {
       }
     }
 
-    // 3. Sort by opportunity score (descending)
+    // 5. Sort by opportunity score (descending)
     opportunities.sort((a, b) => {
       const scoreA = (a.opportunityScore as { overallScore?: number })?.overallScore || 0;
       const scoreB = (b.opportunityScore as { overallScore?: number })?.overallScore || 0;
@@ -262,7 +319,7 @@ export class ProductHunterAgent extends BaseAgent {
 
     return {
       success: true,
-      output: `Discovered ${opportunities.length} products from ${products.length} search results using multi-agent analysis.`,
+      output: `Discovered ${opportunities.length} products from ${products.length} eBay results + ${webSearchData.length} web sources using multi-agent analysis.`,
       structuredData: {
         opportunities: opportunities.map((o) => ({
           name: o.product.name,
@@ -304,9 +361,10 @@ export class ProductHunterAgent extends BaseAgent {
         skippedCount: products.length - opportunities.length,
         query: input.query,
         source: searchResult.output ? (searchResult.output as { source: string }).source : "unknown",
+        webSources: webSearchData.length,
         orchestrationMode: "multi-agent",
       },
-      reasoningSummary: `Analyzed ${products.length} products using multi-agent orchestration (Market Research + Supplier Research + Opportunity Scoring).`,
+      reasoningSummary: `Analyzed ${products.length} products using multi-agent orchestration (Market Research + Supplier Research + Opportunity Scoring) with ${webSearchData.length} web sources.`,
       errors,
       metadata: {
         providerUsed: configuration.primaryProvider,
@@ -417,6 +475,8 @@ export class ProductHunterAgent extends BaseAgent {
   private getAnalyzeSystemPrompt(): string {
     return `You are an expert ecommerce product analyst. Your job is to evaluate product opportunities for a dropshipping business targeting European markets.
 
+You have access to web search and web fetch tools to gather real-time data about products, suppliers, pricing, and market trends.
+
 IMPORTANT: The backend will independently validate your margin calculations using a deterministic tool. Be accurate with numbers — discrepancies over 15% will be flagged and overridden.
 
 For each product analysis, return a JSON object with this exact structure:
@@ -431,7 +491,10 @@ For each product analysis, return a JSON object with this exact structure:
   "recommendation": "INVESTIGATE" | "APPROVE" | "REJECT" | "NEEDS_MORE_DATA",
   "explanation": "<brief analysis in English>",
   "category": "<product category>",
-  "targetMarket": ["<country1>", "<country2>"]
+  "targetMarket": ["<country1>", "<country2>"],
+  "supplierLinks": ["<url1>", "<url2>"],
+  "competitorLinks": ["<url1>", "<url2>"],
+  "trendData": "<summary of current trends>"
 }
 
 Margin calculation formula:
@@ -445,7 +508,14 @@ Scoring guidelines:
 - Score 50-69: Marginal, needs more data
 - Score below 50: Skip
 
-Consider: demand signals, competition density, margin potential, shipping feasibility to EU, supplier reliability, and market trends.`;
+Consider: demand signals, competition density, margin potential, shipping feasibility to EU, supplier reliability, and market trends.
+
+Use web search to find:
+1. Current pricing from multiple suppliers (AliExpress, Alibaba, local EU suppliers)
+2. Competitor pricing and listings
+3. Market trends and demand indicators
+4. Shipping options and costs to Spain/EU
+5. Customer reviews and sentiment`;
   }
 
   private buildAnalyzePrompt(input: Record<string, unknown>): string {
