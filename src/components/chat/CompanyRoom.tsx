@@ -7,6 +7,7 @@ import { MicrophoneButton } from "./MicrophoneButton";
 import { getAgentColor } from "@/lib/agents/colors";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useClassifier } from "@/hooks/useClassifier";
+import { MessageBubble, type ChatMessage } from "./MessageBubble";
 
 // Intent categories for chat message classification
 const INTENT_CATEGORIES = [
@@ -374,60 +375,16 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
         )}
 
         {messages.map((msg) => {
-          const isUser = msg.role === "user";
-          const agentColors = msg.agentId ? getAgentColor(msg.agentId) : null;
-
-          return (
-            <div key={msg.id} className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
-              <div className="max-w-[80%]">
-                {/* Agent name + avatar */}
-                {!isUser && msg.agentName && (
-                  <div className="flex items-center gap-1.5 mb-1 px-1">
-                    {agentColors && (
-                      <div
-                        className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold"
-                        style={{ background: agentColors.bg, color: agentColors.text }}
-                      >
-                        {msg.agentName.charAt(0)}
-                      </div>
-                    )}
-                    <span className="text-[11px] font-medium" style={{ color: agentColors?.text || "var(--text-tertiary)" }}>
-                      {msg.agentName}
-                    </span>
-                  </div>
-                )}
-
-                {/* Message bubble */}
-                <div
-                  className={`px-4 py-2.5 rounded-2xl text-[13px] leading-relaxed ${isUser ? "font-medium" : ""}`}
-                  style={{
-                    background: isUser
-                      ? "var(--accent-light)"
-                      : agentColors?.bg || "var(--bg-sunken)",
-                    color: isUser
-                      ? "var(--accent-hover)"
-                      : agentColors?.text || "var(--text-primary)",
-                    borderBottomRightRadius: isUser ? "6px" : undefined,
-                    borderBottomLeftRadius: !isUser ? "6px" : undefined,
-                    border: isUser ? "1px solid var(--accent-muted)" : undefined,
-                  }}
-                >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                </div>
-
-                {/* Timestamp */}
-                <p
-                  className="text-[11px] mt-1.5 px-1"
-                  style={{
-                    color: "var(--text-tertiary)",
-                    textAlign: isUser ? "right" : "left",
-                  }}
-                >
-                  {formatTime(msg.timestamp)}
-                </p>
-              </div>
-            </div>
-          );
+          const chatMsg: ChatMessage = {
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            agentName: msg.agentName,
+            agentId: msg.agentId,
+            timestamp: msg.timestamp,
+            isRoomMessage: true,
+          };
+          return <MessageBubble key={msg.id} message={chatMsg} />;
         })}
 
         {loading && (
@@ -446,7 +403,7 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
 
       {/* Composer with @mention support */}
       <div
-        className="px-6 py-4 shrink-0 relative min-h-[80px]"
+        className="px-6 py-4 shrink-0 relative"
         style={{ borderTop: "1px solid var(--border-subtle)" }}
       >
         {/* @mention dropdown */}
@@ -480,9 +437,55 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
           </div>
         )}
 
-        {/* Intent classification indicator (ONNX-powered) */}
+        <div
+          className="flex items-end gap-2 rounded-xl px-3 py-2 transition-all duration-200"
+          style={{
+            background: "var(--bg-sunken)",
+            border: focused ? "1px solid var(--accent-muted)" : "1px solid var(--border)",
+            boxShadow: focused ? "0 0 0 3px rgba(37, 99, 235, 0.08)" : "none",
+          }}
+        >
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder="Message the room... Use @agent to target"
+            rows={1}
+            aria-label="Message the room"
+            className="flex-1 resize-none bg-transparent text-sm py-1 focus:outline-none"
+            style={{ color: "var(--text-primary)", minHeight: "24px", maxHeight: "120px" }}
+          />
+          <MicrophoneButton
+            textareaRef={textareaRef}
+            onTextInserted={(text) => handleInputChange(text)}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || loading}
+            aria-label="Send message"
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors disabled:opacity-30"
+            style={{
+              background: input.trim() ? "var(--accent)" : "var(--border-subtle)",
+              color: input.trim() ? "var(--text-inverse)" : "var(--text-tertiary)",
+              cursor: input.trim() ? "pointer" : "default",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 2L11 13" />
+              <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Intent classification indicator - absolute positioned to not affect layout */}
         {detectedIntent && intentConfidence !== null && intentConfidence > 0.6 && input.trim().length >= 5 && (
-          <div className="flex items-center gap-2 mb-2 px-1">
+          <div
+            className="absolute left-6 right-6 flex items-center gap-2 px-1 z-10"
+            style={{ bottom: "100%", marginBottom: "4px" }}
+          >
             <span
               className="text-[10px] px-2 py-0.5 rounded-full"
               style={{
@@ -511,49 +514,6 @@ export function CompanyRoom({ workspaceId, agents, onTogglePanel, panelOpen }: C
             )}
           </div>
         )}
-
-        <div
-          className="flex items-end gap-2 rounded-xl px-3 py-2 transition-all duration-200"
-          style={{
-            background: "var(--bg-sunken)",
-            border: focused ? "1px solid var(--accent-muted)" : "1px solid var(--border)",
-            boxShadow: focused ? "0 0 0 3px rgba(37, 99, 235, 0.08)" : "none",
-          }}
-        >
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder="Message the room... Use @agent to target"
-            rows={1}
-            aria-label="Message the room"
-            className="flex-1 resize-none bg-transparent text-sm py-1 focus:outline-none"
-            style={{ color: "var(--text-primary)" }}
-          />
-          <MicrophoneButton
-            textareaRef={textareaRef}
-            onTextInserted={(text) => handleInputChange(text)}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || loading}
-            aria-label="Send message"
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors disabled:opacity-30"
-            style={{
-              background: input.trim() ? "var(--accent)" : "var(--border-subtle)",
-              color: input.trim() ? "var(--text-inverse)" : "var(--text-tertiary)",
-              cursor: input.trim() ? "pointer" : "default",
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 2L11 13" />
-              <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-            </svg>
-          </button>
-        </div>
       </div>
     </div>
   );
