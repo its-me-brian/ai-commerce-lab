@@ -103,11 +103,34 @@ export async function multiAgentChat(input: MultiAgentChatInput): Promise<MultiA
   }
 
   // 2c. INTELLIGENT ROUTING: Route simple messages to MiniIA
-  const route = routeMessage(input.message);
-  logger.info("[MultiAgentChat] Message routed", { route: route.type, reason: route.reason });
+  const route = await routeMessage(input.message);
+  logger.info("[MultiAgentChat] Message routed", { route: route.type, reason: route.reason, intent: route.intent });
 
   // If routing to MiniIA and no @mention, handle with MiniIA
   if (route.type === "mini-ia" && !input.targetAgentId) {
+    // Check if we have a local response from the route
+    if (route.localResponse) {
+      // Use the local response directly (0 tokens!)
+      const localMessage = await conversationEngine.addMessage({
+        conversation_id: input.conversationId,
+        workspace_id: input.workspaceId,
+        role: "assistant",
+        content: route.localResponse,
+        metadata: { 
+          agent_id: "mini-ia",
+          source: "local",
+          tokens_saved: 50, // Estimate
+        },
+      });
+
+      return {
+        conversation,
+        userMessage,
+        agentResponses: localMessage ? [{ agentId: "mini-ia", message: localMessage }] : [],
+      };
+    }
+
+    // Otherwise, use MiniIA handler
     const history = await conversationEngine.getLastMessages(input.conversationId, 20);
     const historyLines = history.map((m) => {
       const role = m.role === "user" ? "User" : m.metadata?.agent_id
